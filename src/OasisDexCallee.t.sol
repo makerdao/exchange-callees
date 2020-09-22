@@ -49,27 +49,18 @@ contract TestVow is Vow {
 }
 
 contract MockOtc is DSMath {
-    function getPayAmount(address payGem, address buyGem, uint buyAmt) public pure returns (uint payAmt) {
-        payGem;
-        buyGem;
+    uint256 fixedPrice;
 
-        // Harcoded to simulate 300 payGem (gold = DSToken("GEM")) = 1 buyGem
-        payAmt = wmul(buyAmt, 300 ether); // Harcoded to simulate 300 payGem gold = 1 buyGem
+    constructor(uint256 price_) public {
+        fixedPrice = price_;
     }
 
-    function buyAllAmount(address buyGem, uint buyAmt, address payGem, uint maxPayAmt) public {
-        uint payAmt = wmul(buyAmt, 300 ether);
-        require(maxPayAmt >= payAmt, "");
+    // Hardcoded to simulate fixed price Maker Otc
+    function sellAllAmount(address payGem, uint payAmt, address buyGem, uint minFillAmt) public {
+        uint buyAmt = wmul(payAmt, fixedPrice);
+        require(minFillAmt <= buyAmt, "Minimum Fill not reached");
         DSToken(payGem).transferFrom(msg.sender, address(this), payAmt);
         DSToken(buyGem).transfer(msg.sender, buyAmt);
-    }
-
-    // WIP
-    function sellAllAmount(address payGem, uint payAmt, address buyGem, uint minFillAmt) public {
-        uint buyAmt = wmul(payAmt, 300 ether);
-        require(minFillAmt >= buyAmt, "");
-        DSToken(payGem).transferFrom(msg.sender, address(this), buyAmt);
-        DSToken(buyGem).transfer(msg.sender, payAmt);
     }
 
 
@@ -209,7 +200,6 @@ contract DutchClipperTest is DSTest {
         gov.mint(100 ether);
 
         vat = new TestVat();
-        vat = vat;
 
         spot = new Spotter(address(vat));
         vat.rely(address(spot));
@@ -238,14 +228,19 @@ contract DutchClipperTest is DSTest {
         gemA.join(me, 1000 ether);
 
         pip = new DSValue();
-        pip.poke(bytes32(uint256(5 ether))); // Spot = $2.5
+
+         // $5 per gold. Spot sees $2.5 b/c of 200% LR
+        uint256 oldPrice = uint256(5 ether);
+        pip.poke(bytes32(oldPrice));
 
         spot.file(ilk, bytes32("pip"), address(pip));
-        spot.file(ilk, bytes32("mat"), ray(2 ether)); // 100% liquidation ratio for easier test calcs
+
+         // 200% Liquidation ratio (LR) for easier test calcs
+        spot.file(ilk, bytes32("mat"), ray(2 ether));
         spot.poke(ilk);
 
         vat.file(ilk, "line", rad(1000 ether));
-        vat.file("Line",         rad(1000 ether));
+        vat.file("Line",       rad(1000 ether));
 
         clip = new Clipper(address(vat), address(spot), address(dog), ilk);
         clip.rely(address(dog));
@@ -265,7 +260,9 @@ contract DutchClipperTest is DSTest {
         assertEq(vat.gem(ilk, me), 960 ether);
         assertEq(vat.dai(me), rad(100 ether));
 
-        pip.poke(bytes32(uint256(4 ether))); // Spot = $2
+        // $4 per gold. Spot sees $2 b/c of 200% LR
+        uint256 newPrice = uint256(4 ether);
+        pip.poke(bytes32(newPrice));
         spot.poke(ilk);          // Now unsafe
 
         ali = address(new Guy(clip));
@@ -273,23 +270,60 @@ contract DutchClipperTest is DSTest {
 
         Guy(ali).hope(address(clip));
         Guy(bob).hope(address(clip));
+        vat.hope(address(daiA));
 
         //====== Setup Exchange and Exchange Callee
-        otc = new MockOtc();
+        // Starting auction price is newPrice + 25% buffer = oldPrice
+        otc = new MockOtc(oldPrice);
         calleeOtcDai = new CalleeMakerOtcDai(address(otc), address(clip), address(daiA));
 
         //======
-
 
         vat.mint(address(ali), rad(1000 ether));
         vat.mint(address(bob), rad(1000 ether));
         vat.mint(address(me), rad(1000 ether));
 
+        assertEq(vat.dai(me), rad(1100 ether));
         daiA.exit(address(otc), 1000 ether);
         assertEq(dai.balanceOf(address(otc)), 1000 ether);
     }
 
-    function test_flashTake_at_tab() public takeSetup {
+    function test_flashTake_no_profit() public takeSetup {
+        // Bid so owe (= 25 * 5 = 125 RAD) > tab (= 110 RAD)
+        // Readjusts slice to be tab/top = 25
+
+        // Maker otc has 1000 Dai and willing to buy gold at $4
+        // Ali will use calleeOtcDai to flashloan with Maker Otc and pay back Clipper
+        // Ali will not take any profit
+
+        bytes memory flashData = abi.encode(address(ali),      // Address of User (where profits are sent)
+                                            address(gemA),     // GemJoin adapter of collateral type
+                                            uint256(0 ether)   // Minimum Dai profit [wad]
+        );
+
+        Guy(ali).take({
+            id:  1,
+            amt: 25 ether,     // Wants to buy 25 gold
+            pay: ray(5 ether),  // willing to pay $5 per gold
+            who: address(calleeOtcDai),
+            data: flashData
+        });
+
+        /* assertEq(vat.gem(ilk, ali), 0 ether);       // Didn't take any gold
+        assertEq(vat.dai(ali), rad(1000 ether));    // Didn't pay any Dai
+        assertEq(vat.gem(ilk, me),  978 ether);  // 960 + (40 - 22) returned to usr
+
+        // Assert auction ends
+        (uint256 pos, uint256 tab, uint256 lot, address usr, uint256 tic, uint256 top) = clip.sales(1);
+        assertEq(pos, 0);
+        assertEq(tab, 0); */
+        /* assertEq(lot, 0);
+        assertEq(usr, address(0));
+        assertEq(uint256(tic), 0);
+        assertEq(top, 0); */
+    }
+
+    /* function test_take_above_tab() public takeSetup {
         // Bid so owe (= 25 * 5 = 125 RAD) > tab (= 110 RAD)
         // Readjusts slice to be tab/top = 25
 
@@ -297,7 +331,7 @@ contract DutchClipperTest is DSTest {
         Guy(ali).take({
             id:  1,
             amt: 25 ether,
-            pay: ray(5 ether),
+            pay: ray(5 ether), // $5 per gold
             who: address(ali),
             data: ''
         });
@@ -314,9 +348,9 @@ contract DutchClipperTest is DSTest {
         assertEq(usr, address(0));
         assertEq(uint256(tic), 0);
         assertEq(top, 0);
-    }
+    } */
 
-    function test_take_at_tab() public takeSetup {
+    /* function test_take_at_tab() public takeSetup {
         // Bid so owe (= 22 * 5 = 110 RAD) == tab (= 110 RAD)
         Guy(ali).take({
             id:  1,
@@ -440,6 +474,6 @@ contract DutchClipperTest is DSTest {
 
         uint256 lotReturn = 30 ether - (rad(60 ether) / ray(4 ether));       // lot - loaf.tab / max = 15
         assertEq(vat.gem(ilk, me), 960 ether + lotReturn);                   // Collateral returned (10 WAD)
-    }
+    } */
 }
 
