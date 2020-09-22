@@ -3,17 +3,18 @@ pragma solidity >=0.5.12;
 import "ds-test/test.sol";
 import "ds-token/token.sol";
 import "ds-value/value.sol";
+import "ds-math/math.sol";
 
 import {Vat}     from "dss/vat.sol";
 import {Spotter} from "dss/spot.sol";
 import {Vow}     from "dss/vow.sol";
-import {GemJoin} from "dss/join.sol";
+import {GemJoin, DaiJoin} from "dss/join.sol";
 
 import {Clipper} from "dss/clip.sol";
 import "dss/abaci.sol";
 import "dss/dog.sol";
 
-//import "oasis-direct-proxy/OasisDirectProxy.t.sol"
+import {CalleeMakerOtcDai} from "./OasisDexCallee.sol";
 
 interface Hevm {
     function warp(uint256) external;
@@ -45,6 +46,34 @@ contract TestVow is Vow {
     function Woe() public view returns (uint256) {
         return sub(sub(Awe(), Sin), Ash);
     }
+}
+
+contract MockOtc is DSMath {
+    function getPayAmount(address payGem, address buyGem, uint buyAmt) public pure returns (uint payAmt) {
+        payGem;
+        buyGem;
+
+        // Harcoded to simulate 300 payGem (gold = DSToken("GEM")) = 1 buyGem
+        payAmt = wmul(buyAmt, 300 ether); // Harcoded to simulate 300 payGem gold = 1 buyGem
+    }
+
+    function buyAllAmount(address buyGem, uint buyAmt, address payGem, uint maxPayAmt) public {
+        uint payAmt = wmul(buyAmt, 300 ether);
+        require(maxPayAmt >= payAmt, "");
+        DSToken(payGem).transferFrom(msg.sender, address(this), payAmt);
+        DSToken(buyGem).transfer(msg.sender, buyAmt);
+    }
+
+    // WIP
+    function sellAllAmount(address payGem, uint payAmt, address buyGem, uint minFillAmt) public {
+        uint buyAmt = wmul(payAmt, 300 ether);
+        require(minFillAmt >= buyAmt, "");
+        DSToken(payGem).transferFrom(msg.sender, address(this), buyAmt);
+        DSToken(buyGem).transfer(msg.sender, payAmt);
+    }
+
+
+
 }
 
 contract Guy {
@@ -86,10 +115,15 @@ contract DutchClipperTest is DSTest {
     TestVow vow;
     DSValue pip;
 
+    DaiJoin daiA;
     GemJoin gemA;
 
     Clipper clip;
 
+    MockOtc otc;
+    CalleeMakerOtcDai calleeOtcDai;
+
+    DSToken dai;
     DSToken gov;
     DSToken gold;
 
@@ -193,6 +227,11 @@ contract DutchClipperTest is DSTest {
 
         vat.init(ilk);
 
+        dai  = new DSToken("Dai");
+        daiA = new DaiJoin(address(vat), address(dai));
+        vat.rely(address(daiA));
+        dai.setOwner(address(daiA));
+
         gemA = new GemJoin(address(vat), ilk, address(gold));
         vat.rely(address(gemA));
         gold.approve(address(gemA));
@@ -235,13 +274,26 @@ contract DutchClipperTest is DSTest {
         Guy(ali).hope(address(clip));
         Guy(bob).hope(address(clip));
 
+        //====== Setup Exchange and Exchange Callee
+        otc = new MockOtc();
+        calleeOtcDai = new CalleeMakerOtcDai(address(otc), address(clip), address(daiA));
+
+        //======
+
+
         vat.mint(address(ali), rad(1000 ether));
         vat.mint(address(bob), rad(1000 ether));
+        vat.mint(address(me), rad(1000 ether));
+
+        daiA.exit(address(otc), 1000 ether);
+        assertEq(dai.balanceOf(address(otc)), 1000 ether);
     }
 
-    function test_take_over_tab() public takeSetup {
+    function test_flashTake_at_tab() public takeSetup {
         // Bid so owe (= 25 * 5 = 125 RAD) > tab (= 110 RAD)
         // Readjusts slice to be tab/top = 25
+
+
         Guy(ali).take({
             id:  1,
             amt: 25 ether,
