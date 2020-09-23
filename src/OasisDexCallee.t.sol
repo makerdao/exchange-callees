@@ -26,6 +26,8 @@ interface PipLike {
 }
 
 contract TestVat is Vat {
+    // Overrides Vat.frob(), so we can mint Dai directly to accounts and without
+    // restriction from the debt ceilings
     function mint(address usr, uint256 rad) public {
         dai[usr] += rad;
     }
@@ -48,7 +50,7 @@ contract TestVow is Vow {
     }
 }
 
-contract MockOtc is DSMath {
+contract MockOtc is DSMath, DSTest {
     uint256 fixedPrice;
 
     constructor(uint256 price_) public {
@@ -56,11 +58,16 @@ contract MockOtc is DSMath {
     }
 
     // Hardcoded to simulate fixed price Maker Otc
-    function sellAllAmount(address payGem, uint payAmt, address buyGem, uint minFillAmt) public {
-        uint buyAmt = wmul(payAmt, fixedPrice);
+    function sellAllAmount(address payGem, uint payAmt, address buyGem, uint minFillAmt) public returns (uint buyAmt) {
+        buyAmt = wmul(payAmt, fixedPrice);
         require(minFillAmt <= buyAmt, "Minimum Fill not reached");
+
         DSToken(payGem).transferFrom(msg.sender, address(this), payAmt);
+        assertEq(DSToken(payGem).balanceOf(address(this)), payAmt);
+
         DSToken(buyGem).transfer(msg.sender, buyAmt);
+        assertEq(DSToken(buyGem).balanceOf(msg.sender), buyAmt);
+
     }
 
 
@@ -135,7 +142,7 @@ contract DutchClipperTest is DSTest {
 
     uint256 constant startTime = 604411200; // Used to avoid issues with `now`
 
-    modifier takeSetup {
+    modifier takeSetup() {
         uint256 pos;
         uint256 tab;
         uint256 lot;
@@ -145,6 +152,7 @@ contract DutchClipperTest is DSTest {
         uint256 ink;
         uint256 art;
 
+        // Configure the price curve
         StairstepExponentialDecrease calc = new StairstepExponentialDecrease();
         calc.file(bytes32("cut"),  ray(0.01 ether)); // 1% decrease
         calc.file(bytes32("step"), 1);               // Decrease every 1 second
@@ -155,31 +163,53 @@ contract DutchClipperTest is DSTest {
         clip.file(bytes32("cusp"), ray(0.3 ether));  // 70% drop before reset
         clip.file(bytes32("tail"), 3600);            // 1 hour before reset
 
+        // Check my vault before liquidation
+        // 40 gold collateral and 100 Dai debt
         (ink, art) = vat.urns(ilk, me);
         assertEq(ink, 40 ether);
         assertEq(art, 100 ether);
 
+        // Liquidate my vault and start an auction
         assertEq(clip.kicks(), 0);
         dog.bark(ilk, me);
         assertEq(clip.kicks(), 1);
 
+        // Ensure vault has been liquidated
         (ink, art) = vat.urns(ilk, me);
         assertEq(ink, 0);
         assertEq(art, 0);
 
+        // Ensure auction has started
         (pos, tab, lot, usr, tic, top) = clip.sales(1);
         assertEq(pos, 0);
         assertEq(tab, rad(110 ether));
         assertEq(lot, 40 ether);
         assertEq(usr, me);
         assertEq(uint256(tic), now);
-        assertEq(top, ray(5 ether)); // $4 plus 25%
+        assertEq(top, ray(5 ether)); // $4 plus 25% price cushion = $5
 
+        // Ensure alice and bob have 0 gold and 0 Dai each
         assertEq(vat.gem(ilk, ali), 0);
-        assertEq(vat.dai(ali), rad(1000 ether));
         assertEq(vat.gem(ilk, bob), 0);
-        assertEq(vat.dai(bob), rad(1000 ether));
 
+        _;
+    }
+
+    modifier calleeSetup(uint256 price) {
+        //====== Setup Exchange and Exchange Callee
+        // Starting auction price is newPrice + 25% buffer = oldPrice
+        // MockOtc uses the oldPrice, so we can trade immediately after the auction begins
+        otc = new MockOtc(price);
+        calleeOtcDai = new CalleeMakerOtcDai(address(otc), address(clip), address(daiA));
+        //======
+
+        vat.mint(address(me), rad(1000 ether));
+        assertEq(vat.dai(me), rad(1100 ether));
+
+        daiA.exit(address(otc), 1000 ether);
+
+        assertEq(vat.dai(me), rad(100 ether));
+        assertEq(dai.balanceOf(address(otc)), 1000 ether);
         _;
     }
 
@@ -240,13 +270,13 @@ contract DutchClipperTest is DSTest {
         spot.poke(ilk);
 
         vat.file(ilk, "line", rad(1000 ether));
-        vat.file("Line",       rad(1000 ether));
+        vat.file("Line",      rad(1000 ether));
 
         clip = new Clipper(address(vat), address(spot), address(dog), ilk);
         clip.rely(address(dog));
 
         dog.file(ilk, "clip", address(clip));
-        dog.file(ilk, "chop", 1.1 ether); // 10% chop
+        dog.file(ilk, "chop", 1.1 ether);    // 10% Liquidation Penalty
         dog.file("hole", rad(1000 ether));
         dog.rely(address(clip));
 
@@ -272,23 +302,10 @@ contract DutchClipperTest is DSTest {
         Guy(bob).hope(address(clip));
         vat.hope(address(daiA));
 
-        //====== Setup Exchange and Exchange Callee
-        // Starting auction price is newPrice + 25% buffer = oldPrice
-        otc = new MockOtc(oldPrice);
-        calleeOtcDai = new CalleeMakerOtcDai(address(otc), address(clip), address(daiA));
 
-        //======
-
-        vat.mint(address(ali), rad(1000 ether));
-        vat.mint(address(bob), rad(1000 ether));
-        vat.mint(address(me), rad(1000 ether));
-
-        assertEq(vat.dai(me), rad(1100 ether));
-        daiA.exit(address(otc), 1000 ether);
-        assertEq(dai.balanceOf(address(otc)), 1000 ether);
     }
 
-    function test_flashTake_no_profit() public takeSetup {
+    function test_flashTake_no_profit() public takeSetup calleeSetup((uint256(5 ether))) {
         // Bid so owe (= 25 * 5 = 125 RAD) > tab (= 110 RAD)
         // Readjusts slice to be tab/top = 25
 
@@ -303,42 +320,15 @@ contract DutchClipperTest is DSTest {
 
         Guy(ali).take({
             id:  1,
-            amt: 25 ether,     // Wants to buy 25 gold
-            pay: ray(5 ether),  // willing to pay $5 per gold
+            amt: 25 ether,      // Wants to buy 25 gold
+            pay: ray(5 ether),  // Willing to pay $5 per gold
             who: address(calleeOtcDai),
             data: flashData
         });
 
-        /* assertEq(vat.gem(ilk, ali), 0 ether);       // Didn't take any gold
-        assertEq(vat.dai(ali), rad(1000 ether));    // Didn't pay any Dai
-        assertEq(vat.gem(ilk, me),  978 ether);  // 960 + (40 - 22) returned to usr
-
-        // Assert auction ends
-        (uint256 pos, uint256 tab, uint256 lot, address usr, uint256 tic, uint256 top) = clip.sales(1);
-        assertEq(pos, 0);
-        assertEq(tab, 0); */
-        /* assertEq(lot, 0);
-        assertEq(usr, address(0));
-        assertEq(uint256(tic), 0);
-        assertEq(top, 0); */
-    }
-
-    /* function test_take_above_tab() public takeSetup {
-        // Bid so owe (= 25 * 5 = 125 RAD) > tab (= 110 RAD)
-        // Readjusts slice to be tab/top = 25
-
-
-        Guy(ali).take({
-            id:  1,
-            amt: 25 ether,
-            pay: ray(5 ether), // $5 per gold
-            who: address(ali),
-            data: ''
-        });
-
-        assertEq(vat.gem(ilk, ali), 22 ether);  // Didn't take whole lot
-        assertEq(vat.dai(ali), rad(890 ether)); // Didn't pay more than tab (110)
-        assertEq(vat.gem(ilk, me),  978 ether); // 960 + (40 - 22) returned to usr
+        assertEq(vat.gem(ilk, ali),   0 ether);    // Didn't take any gold
+        assertEq(vat.dai(ali),   rad(0 ether));    // Didn't pay any Dai
+        assertEq(vat.gem(ilk, me),  978 ether);    // 960 + (40 - 22) returned to usr
 
         // Assert auction ends
         (uint256 pos, uint256 tab, uint256 lot, address usr, uint256 tic, uint256 top) = clip.sales(1);
@@ -348,7 +338,7 @@ contract DutchClipperTest is DSTest {
         assertEq(usr, address(0));
         assertEq(uint256(tic), 0);
         assertEq(top, 0);
-    } */
+    }
 
     /* function test_take_at_tab() public takeSetup {
         // Bid so owe (= 22 * 5 = 110 RAD) == tab (= 110 RAD)

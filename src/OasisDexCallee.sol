@@ -13,6 +13,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import "ds-test/test.sol";
+
 pragma solidity >=0.5.12;
 
 interface VatLike {
@@ -34,6 +36,7 @@ interface DaiJoinLike {
 interface TokenLike {
     function approve(address, uint256) external;
     function transfer(address, uint256) external;
+    function balanceOf(address) external view returns (uint256);
 }
 
 interface OtcLike {
@@ -43,7 +46,7 @@ interface OtcLike {
 
 // Simple Callee Example to interact with MatchingMarket
 // This Callee contract exists as a standalone contract
-contract CalleeMakerOtc {
+contract CalleeMakerOtc is DSTest {
     OtcLike         public otc;
     DaiJoinLike     public daiJoin;
     TokenLike       public dai;
@@ -83,6 +86,9 @@ contract CalleeMakerOtcDai is CalleeMakerOtc {
         // Convert gem amount to token precision
         gemAmt = _fromWad(gemJoin, gemAmt);
 
+        assertEq(minProfit, uint256(0));
+        assertEq(gemAmt, uint256(22 ether));
+
         // Exit collateral to token version
         GemJoinLike(gemJoin).exit(address(this), gemAmt);
 
@@ -99,11 +105,16 @@ contract CalleeMakerOtcDai is CalleeMakerOtc {
         // Do operation and get dai amount bought (checking the profit is achieved)
         uint256 daiBought = otc.sellAllAmount(address(gem), gemAmt, address(dai), daiToJoin + minProfit);
 
+        assertEq(daiBought, 1100 ether);
+        assertEq(daiBought - (daiAmt / RAY), 110 ether);
+        /* assertEq(dai.balanceOf(address(this)), (daiBought - daiAmt) / RAY); */
+
         // Convert DAI bought to internal vat value of the CalleeMakerOtcDai
         daiJoin.join(address(this), daiToJoin);
 
+        /* assertEq(dai.balanceOf(address(this)), (daiBought - daiAmt) / RAY); */
         // Transfer remaining DAI to specified address
-        dai.transfer(to, (daiBought - daiAmt) / RAY);
+        dai.transfer(to, ( daiBought - ( daiAmt / RAY ) ) );
     }
 }
 
