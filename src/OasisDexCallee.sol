@@ -13,8 +13,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import "ds-test/test.sol";
-
 pragma solidity >=0.5.12;
 
 interface VatLike {
@@ -46,7 +44,7 @@ interface OtcLike {
 
 // Simple Callee Example to interact with MatchingMarket
 // This Callee contract exists as a standalone contract
-contract CalleeMakerOtc is DSTest {
+contract CalleeMakerOtc {
     OtcLike         public otc;
     DaiJoinLike     public daiJoin;
     TokenLike       public dai;

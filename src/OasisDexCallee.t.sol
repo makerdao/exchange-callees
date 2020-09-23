@@ -99,6 +99,19 @@ contract Guy {
             data: data
         });
     }
+
+    function try_take(
+        uint256 id,
+        uint256 amt,
+        uint256 pay,
+        address who,
+        bytes calldata data
+    )
+        external returns (bool ok)
+    {
+      string memory sig = "take(uint256,uint256,uint256,address,bytes)";
+      (ok,) = address(clip).call(abi.encodeWithSignature(sig, id, amt, pay, who, data));
+    }
 }
 
 contract CalleeOtcDaiTest is DSTest {
@@ -227,7 +240,37 @@ contract CalleeOtcDaiTest is DSTest {
         assertEq(top, 0);
     }
 
-  
+    function execute(uint256 amt, uint256 maxPrice, uint256 minProfit) internal {
+        bytes memory flashData = abi.encode(address(ali),    // Address of User (where profits are sent)
+                                            address(gemA),   // GemJoin adapter of collateral type
+                                            minProfit        // Minimum Dai profit [wad]
+        );
+
+        Guy(ali).take({
+            id:  1,
+            amt: amt,
+            pay: maxPrice,
+            who: address(calleeOtcDai),
+            data: flashData
+        });
+    }
+
+    function try_execute(uint256 amt, uint256 maxPrice, uint256 minProfit) internal returns (bool ok)  {
+        bytes memory flashData = abi.encode(address(ali),    // Address of User (where profits are sent)
+                                            address(gemA),   // GemJoin adapter of collateral type
+                                            minProfit        // Minimum Dai profit [wad]
+        );
+
+        ok = Guy(ali).try_take({
+                  id:  1,
+                  amt: amt,
+                  pay: maxPrice,
+                  who: address(calleeOtcDai),
+                  data: flashData
+             });
+    }
+
+
     function setUp() public {
         hevm = Hevm(address(CHEAT_CODE));
         hevm.warp(startTime);
@@ -314,85 +357,35 @@ contract CalleeOtcDaiTest is DSTest {
     }
 
     function test_flash_take_no_profit() public takeSetup calleeSetup((uint256(5 ether))) {
-        // Bid so owe (= 25 * 5 = 125 RAD) > tab (= 110 RAD), so auction Will only give 22 gold
-
-        // Maker otc has 1000 Dai and willing to buy gold at $5
-        // Ali will use calleeOtcDai to flashloan with Maker Otc and pay back Clipper
-        // Ali will not take any profit, as there is no profit opportunity
-
-        bytes memory flashData = abi.encode(address(ali),      // Address of User (where profits are sent)
-                                            address(gemA),     // GemJoin adapter of collateral type
-                                            uint256(0 ether)   // Minimum Dai profit [wad]
-        );
-
-        Guy(ali).take({
-            id:  1,
-            amt: 25 ether,      // Wants to buy 25 gold
-            pay: ray(5 ether),  // Willing to pay $5 per gold
-            who: address(calleeOtcDai),
-            data: flashData
-        });
-
-        assertEq(vat.gem(ilk, ali),   0 ether);    // Didn't take any gold
-        assertEq(vat.dai(ali),   rad(0 ether));    // Didn't pay any Dai
-        assertEq(vat.gem(ilk, me),  978 ether);    // 960 + (40 - 22) returned to usr
-
-        // Assert auction ends
-        confirm_auction_ending();
-
-    }
-
-    function test_flash_take_exact_profit() public takeSetup calleeSetup((uint256(6 ether))) {
-        // Bid so owe (= 25 * 5 = 125 RAD) > tab (= 110 RAD), so auction Will only give 22 gold
-
-        // Maker otc has 1000 Dai and willing to buy gold at $6
-        // Ali will use calleeOtcDai to flashloan with Maker Otc and pay back Clipper
-        // Ali will set minimum profit to maximum that she can get with Maker Otc
-
-        bytes memory flashData = abi.encode(address(ali),      // Address of User (where profits are sent)
-                                            address(gemA),     // GemJoin adapter of collateral type
-                                            uint256(22 ether)  // Minimum Dai profit [wad]
-        );
-
-
-        // Ali sets the pay = price, so she can get the most amount of collateral to sell for $6
-        Guy(ali).take({
-            id:  1,
-            amt: 25 ether,      // Wants to buy 25 gold
-            pay: ray(5 ether),  // Willing to pay $5 per gold
-            who: address(calleeOtcDai),
-            data: flashData
-        });
-
-        assertEq(vat.gem(ilk, ali),   0 ether);    // Didn't take any gold
-        assertEq(dai.balanceOf(ali), 22 ether);    // ($6 - $5) * 22 = 22 Dai profit
-        assertEq(vat.gem(ilk, me),  978 ether);    // 960 + (40 - 22) returned to usr
-
-        // Assert auction ends
-        confirm_auction_ending();
-    }
-
-    function test_flash_take_under_profit() public takeSetup calleeSetup((uint256(6 ether))) {
         // Bid so owe (= 25 * 5 = 125 RAD) > tab (= 110 RAD), so auction will only give 22 gold
 
-        // Maker otc has 1000 Dai and willing to buy gold at $6
-        // Ali will use calleeOtcDai to flashloan with Maker Otc and pay back Clipper
-        // Ali will accept less than maximum profit
+        // Maker otc has 1000 Dai, buying gold for $5
+        // No profit opportunity
+        execute(25 ether, ray(5 ether), 0 ether);
 
-        bytes memory flashData = abi.encode(address(ali),      // Address of User (where profits are sent)
-                                            address(gemA),     // GemJoin adapter of collateral type
-                                            uint256(10 ether)  // Minimum Dai profit [wad]
-        );
+        assertEq(vat.gem(ilk, ali),   0 ether);    // Didn't take any gold
+        assertEq(dai.balanceOf(ali), 0 ether);    // 0 Dai profit
+        assertEq(vat.gem(ilk, me),  978 ether);    // 960 + (40 - 22) returned to usr
 
+        // Assert auction ends
+        confirm_auction_ending();
 
-        // Ali sets the pay = price, so she can get the most amount of collateral to sell for $6
-        Guy(ali).take({
-            id:  1,
-            amt: 25 ether,      // Wants to buy 25 gold
-            pay: ray(5 ether),  // Willing to pay $5 per gold
-            who: address(calleeOtcDai),
-            data: flashData
-        });
+    }
+
+    function test_flash_take_profit() public takeSetup calleeSetup((uint256(6 ether))) {
+        // Bid so owe (= 25 * 5 = 125 RAD) > tab (= 110 RAD), so auction will only give 22 gold
+
+        // Maker otc has 1000 Dai, buying gold for $6
+        // Profit opportunity of $22
+
+        // Ali sets minimum profit to $30, but it fails
+        assertTrue(!try_execute(25 ether, ray(5 ether), 30 ether));
+
+        // Ali sets minimum profit to exact profit opporunity (now $11)
+        execute(11 ether, ray(5 ether), 11 ether);
+
+        // Ali sets minimum profit to 0 Dai
+        execute(11 ether, ray(5 ether), 11 ether);
 
         assertEq(vat.gem(ilk, ali),   0 ether);    // Didn't take any gold
         assertEq(dai.balanceOf(ali), 22 ether);    // ($6 - $5) * 22 = 22 Dai profit
@@ -400,85 +393,6 @@ contract CalleeOtcDaiTest is DSTest {
 
         // Assert auction ends
         confirm_auction_ending();
-
     }
- /*
-    function testFail_take_bid_too_low() public takeSetup {
-        // Bid so max (= 4) < price (= top = 5) (fails with "Clipper/too-expensive")
-        Guy(ali).take({
-            id:  1,
-            amt: 22 ether,
-            pay: ray(4 ether),
-            who: address(ali),
-            data: ''
-        });
-    }
-
-    function testFail_take_bid_creates_dust() public takeSetup {
-        // Bid so owe (= (22 - 1wei) * 5 = 110 RAD - 1) < tab (= 110 RAD) (fails with "Clipper/dust")
-        Guy(ali).take({
-            id:  1,
-            amt: 22 ether - 1,
-            pay: ray(5 ether),
-            who: address(ali),
-            data: ''
-        });
-    }
-
-    function test_take_multiple_bids_different_prices() public takeSetup {
-        uint256 pos;
-        uint256 tab;
-        uint256 lot;
-        address usr;
-        uint96  tic;
-        uint256 top;
-
-        // Bid so owe (= 10 * 5 = 50 RAD) < tab (= 110 RAD)
-        Guy(ali).take({
-            id:  1,
-            amt: 10 ether,
-            pay: ray(5 ether),
-            who: address(ali),
-            data: ''
-        });
-
-        assertEq(vat.gem(ilk, ali), 10 ether);  // Didn't take whole lot
-        assertEq(vat.dai(ali), rad(950 ether)); // Paid some tab (50)
-        assertEq(vat.gem(ilk, me), 960 ether);  // Collateral not returned (yet)
-
-        // Assert auction DOES NOT end
-        (pos, tab, lot, usr, tic, top) = clip.sales(1);
-        assertEq(pos, 0);
-        assertEq(tab, rad(60 ether));  // 110 - 5 * 10
-        assertEq(lot, 30 ether);       // 40 - 10
-        assertEq(usr, me);
-        assertEq(uint256(tic), now);
-        assertEq(top, ray(5 ether));
-
-        hevm.warp(now + 30);
-
-        Guy(bob).take({
-            id:  1,
-            amt: 30 ether,     // Buy the rest of the lot
-            pay: ray(4 ether), // 5 * 0.99 ** 30 = 3.698501866941401 RAY => max > pay
-            who: address(bob),
-            data: ''
-        });
-
-        // Assert auction is over
-        (pos, tab, lot, usr, tic, top) = clip.sales(1);
-        assertEq(pos, 0);
-        assertEq(tab, 0);
-        assertEq(lot, 0 * WAD);
-        assertEq(usr, address(0));
-        assertEq(uint256(tic), 0);
-        assertEq(top, 0);
-
-        assertEq(vat.gem(ilk, bob), 15 ether);  // Didn't take whole lot
-        assertEq(vat.dai(bob), rad(940 ether)); // Paid rest of tab (60)
-
-        uint256 lotReturn = 30 ether - (rad(60 ether) / ray(4 ether));       // lot - loaf.tab / max = 15
-        assertEq(vat.gem(ilk, me), 960 ether + lotReturn);                   // Collateral returned (10 WAD)
-    } */
+    
 }
-
