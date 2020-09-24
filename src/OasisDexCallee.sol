@@ -109,7 +109,7 @@ contract CalleeMakerOtcDai is CalleeMakerOtc {
 }
 
 // Maker-Otc is MatchingMarket, which is the core contract of OasisDex
-contract CalleeMakerOtcGem is CalleeMakerOtc {
+/* contract CalleeMakerOtcGem is CalleeMakerOtc {
     constructor(address otc_, address clip_, address daiJoin_) public {
         setUp(otc_, clip_, daiJoin_);
     }
@@ -148,5 +148,5 @@ contract CalleeMakerOtcGem is CalleeMakerOtc {
         // Transfer remaining gem to specified address
         gem.transfer(to, gemAmt - gemSold);
     }
-}
+} */
 

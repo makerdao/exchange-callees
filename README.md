@@ -7,7 +7,7 @@ With built-in flash loans, auction participants can accept a collateral advance 
 
 ## Architecture
 
-Each exchange has its own public callee contract, which exposes a function called `clipperCall(owe,slice,data)`. This method is called in by the `Clipper` contract, the collateral auction house of LIQ2.0. After receiving internal `gem` from `Clipper`, it conducts the following steps:
+Each exchange has its own public callee contract, which exposes a function called `clipperCall(owe,slice,data)`. This method is called by the `Clipper` contract, the collateral auction house of LIQ2.0. After receiving internal `gem` (i.e. collateral) from `Clipper`, it conducts the following steps:
 
 1. Converts internal `gem` to ERC20 `gem`
 2. Approves exchange to pull ERC20 `gem`
@@ -16,7 +16,7 @@ Each exchange has its own public callee contract, which exposes a function calle
 5. Forwards ERC20 `dai` profit to external address (if present)
 6. Sends internal `dai` to `Clipper` for repayment
 
-NOTE: NEVER SEND internal or ERC20 `gem`/`dai` to an exchange callee contract.
+NOTE: NEVER DIRECTLY SEND internal/ERC20 `gem`/`dai` to an exchange callee contract.
 
 ## Exchanges supported
 * [OasisDex](https://oasisdex.com/)
