@@ -100,6 +100,12 @@ contract CalleeMakerOtcDai is CalleeMakerOtc {
         // Do operation and get dai amount bought (checking the profit is achieved)
         uint256 daiBought = otc.sellAllAmount(address(gem), gemAmt, address(dai), daiToJoin + minProfit);
 
+        // Although maker-otc reverts if order book is empty, this check is a sanity check for other exhcnages
+        // Transfer any lingering gem to specified address
+        if (gem.balanceOf(address(this)) > 0) {
+            gem.transfer(to, gem.balanceOf(address(this)));
+        }
+
         // Convert DAI bought to internal vat value of the CalleeMakerOtcDai
         daiJoin.join(address(this), daiToJoin);
 

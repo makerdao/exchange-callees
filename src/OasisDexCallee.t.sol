@@ -208,7 +208,7 @@ contract CalleeOtcDaiTest is DSTest {
     modifier calleeSetup(uint256 price) {
         //====== Setup Exchange and Exchange Callee
         // Starting auction price is newPrice + 25% buffer = oldPrice
-        // MockOtc uses the oldPrice, so we can trade immediately after the auction begins
+        // MockOtc uses the price so we can trade immediately after the auction begins
         otc = new MockOtc(price);
         calleeOtcDai = new CalleeMakerOtcDai(address(otc), address(clip), address(daiA));
         //======
@@ -385,7 +385,7 @@ contract CalleeOtcDaiTest is DSTest {
         execute(11 ether, ray(5 ether), 11 ether);
 
         // Ali sets minimum profit to 0 Dai
-        execute(11 ether, ray(5 ether), 11 ether);
+        execute(11 ether, ray(5 ether), 0 ether);
 
         assertEq(vat.gem(ilk, ali),   0 ether);    // Didn't take any gold
         assertEq(dai.balanceOf(ali), 22 ether);    // ($6 - $5) * 22 = 22 Dai profit
@@ -394,5 +394,33 @@ contract CalleeOtcDaiTest is DSTest {
         // Assert auction ends
         confirm_auction_ending();
     }
-    
+
+    function test_flash_take_profit_thin_orderbook() public takeSetup calleeSetup((uint256(6 ether))) {
+        // Bid so owe (= 25 * 5 = 125 RAD) > tab (= 110 RAD), so auction will only give 22 gold
+
+        // Maker otc has 1000 Dai, buying gold for $6
+        // Profit opportunity of $22
+
+        // Send some gem to exchange callee, so it can be sent back to Ali
+        gold.mint(60 ether);
+        gold.transferFrom(me, address(calleeOtcDai), 60 ether);
+
+        // exchange callee holds some gold
+        assertEq(gold.balanceOf(address(calleeOtcDai)), 60 ether);
+
+        // Ali sets minimum profit to exact profit opporunity (now $22)
+        execute(25 ether, ray(5 ether), 22 ether);
+
+        assertEq(vat.gem(ilk, ali),   0 ether);    // Didn't take any internal gold
+        assertEq(dai.balanceOf(ali), 22 ether);    // ($6 - $5) * 22 = 22 Dai profit
+        assertEq(vat.gem(ilk, me),  978 ether);    // 900 + (40 - 22) returned to usr
+
+        assertEq(gold.balanceOf(ali), 60 ether);    // exchange callee forward 60 ERC20 gold to Ali
+        assertEq(gold.balanceOf(me),   0 ether);    // exchange callee did not return any gold to me
+        assertEq(gold.balanceOf(address(calleeOtcDai)), 0 ether); // exchange callee doesn't hold any gold
+
+        // Assert auction ends
+        confirm_auction_ending();
+    }
+
 }
