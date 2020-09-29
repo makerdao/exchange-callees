@@ -12,9 +12,10 @@ Each exchange has its own public callee contract, which exposes a function calle
 1. Converts internal `gem` to ERC20 `gem`
 2. Approves exchange to pull ERC20 `gem`
 3. Trades ERC20 `gem` for ERC20 `dai`
-4. Converts ERC20 `dai` to internal `dai`
-5. Forwards ERC20 `dai` profit to external address (if present)
-6. Sends internal `dai` to `Clipper` for repayment
+4. Forwards any ERC20 `gem` (if present) to external address
+5. Converts ERC20 `dai` to internal `dai`
+6. Forwards ERC20 `dai` profit (if present) to external address
+7. Sends internal `dai` to `Clipper` for repayment
 
 NOTE: NEVER DIRECTLY SEND internal/ERC20 `gem`/`dai` to an exchange callee contract.
 
@@ -23,6 +24,10 @@ NOTE: NEVER DIRECTLY SEND internal/ERC20 `gem`/`dai` to an exchange callee contr
 
 ## Public addresses
 
+## Improvements
+To slow down or defend against [generalized frontrunning bots](https://medium.com/@danrobinson/ethereum-is-a-dark-forest-ecc5f0505dff), consider:
+- Deploy an ownable `exchange-callee` contract and add an `auth` modifier to `clipperCall()`, so only the owner (you) can call the function
+- Using a mempool-shielded transaction service, as outlined in [this blog post](https://samczsun.com/escaping-the-dark-forest/)
 
 ## Testing
 Requires [Dapptools](https://github.com/dapphub/dapptools)
