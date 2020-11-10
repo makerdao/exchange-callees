@@ -26,7 +26,7 @@ NOTE: NEVER DIRECTLY SEND internal/ERC20 `gem`/`dai` to an exchange callee contr
 
 ## Improvements
 To slow down or defend against [generalized frontrunning bots](https://medium.com/@danrobinson/ethereum-is-a-dark-forest-ecc5f0505dff), consider:
-- Deploy an ownable `exchange-callee` contract and add an `auth` modifier to `clipperCall()`, so only the owner (you) can call the function
+- Deploying an ownable `exchange-callee` contract and add an `auth` modifier to `clipperCall()`, so only the owner (you) can call the function
 - Using a mempool-shielded transaction service, as outlined in [this blog post](https://samczsun.com/escaping-the-dark-forest/)
 
 ## Testing
