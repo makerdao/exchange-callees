@@ -1,4 +1,4 @@
-pragma solidity >=0.5.12;
+pragma solidity >=0.6.7;
 
 import "ds-test/test.sol";
 import "ds-token/token.sol";
@@ -85,7 +85,7 @@ contract Guy {
     function take(
         uint256 id,
         uint256 amt,
-        uint256 pay,
+        uint256 max,
         address who,
         bytes calldata data
     )
@@ -94,7 +94,7 @@ contract Guy {
         clip.take({
             id: id,
             amt: amt,
-            pay: pay,
+            max: max,
             who: who,
             data: data
         });
@@ -103,14 +103,14 @@ contract Guy {
     function try_take(
         uint256 id,
         uint256 amt,
-        uint256 pay,
+        uint256 max,
         address who,
         bytes calldata data
     )
         external returns (bool ok)
     {
       string memory sig = "take(uint256,uint256,uint256,address,bytes)";
-      (ok,) = address(clip).call(abi.encodeWithSignature(sig, id, amt, pay, who, data));
+      (ok,) = address(clip).call(abi.encodeWithSignature(sig, id, amt, max, who, data));
     }
 }
 
@@ -164,14 +164,13 @@ contract CalleeOtcDaiTest is DSTest {
 
         // Configure the price curve
         StairstepExponentialDecrease calc = new StairstepExponentialDecrease();
-        calc.file(bytes32("cut"),  ray(0.01 ether)); // 1% decrease
-        calc.file(bytes32("step"), 1);               // Decrease every 1 second
+        calc.file("cut",  ray(0.01 ether)); // 1% decrease
+        calc.file("step", 1);               // Decrease every 1 second
 
-        clip.file(bytes32("buf"),  ray(1.25 ether)); // 25% Initial price buffer
-        clip.file(bytes32("dust"), rad(20   ether)); // $20 dust
-        clip.file(bytes32("calc"), address(calc));   // File price contract
-        clip.file(bytes32("cusp"), ray(0.3 ether));  // 70% drop before reset
-        clip.file(bytes32("tail"), 3600);            // 1 hour before reset
+        clip.file("buf",  ray(1.25 ether)); // 25% Initial price buffer
+        clip.file("calc", address(calc));   // File price contract
+        clip.file("cusp", ray(0.3 ether));  // 70% drop before reset
+        clip.file("tail", 3600);            // 1 hour before reset
 
         // Check my vault before liquidation
         // 40 gold collateral and 100 Dai debt
@@ -249,7 +248,7 @@ contract CalleeOtcDaiTest is DSTest {
         Guy(ali).take({
             id:  1,
             amt: amt,
-            pay: maxPrice,
+            max: maxPrice,
             who: address(calleeOtcDai),
             data: flashData
         });
@@ -264,7 +263,7 @@ contract CalleeOtcDaiTest is DSTest {
         ok = Guy(ali).try_take({
                   id:  1,
                   amt: amt,
-                  pay: maxPrice,
+                  max: maxPrice,
                   who: address(calleeOtcDai),
                   data: flashData
              });
@@ -327,8 +326,9 @@ contract CalleeOtcDaiTest is DSTest {
         clip.rely(address(dog));
 
         dog.file(ilk, "clip", address(clip));
-        dog.file(ilk, "chop", 1.1 ether);    // 10% Liquidation Penalty
-        dog.file("hole", rad(1000 ether));
+        dog.file(ilk, "chop", 1.1 ether); // 10% chop
+        dog.file(ilk, "hole", rad(1000 ether));
+        dog.file("Hole", rad(1000 ether));
         dog.rely(address(clip));
 
         vat.rely(address(clip));
