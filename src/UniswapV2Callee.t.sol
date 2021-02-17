@@ -74,18 +74,6 @@ contract MockUniswapRouter02 is DSMath, DSTest {
         amounts[1] = buyAmt;
     }
 
-    /* // Hardcoded to simulate fixed price Maker Otc
-    function sellAllAmount(address payGem, uint payAmt, address buyGem, uint minFillAmt) public returns (uint buyAmt) {
-        buyAmt = wmul(payAmt, fixedPrice);
-        require(minFillAmt <= buyAmt, "Minimum Fill not reached");
-
-        DSToken(payGem).transferFrom(msg.sender, address(this), payAmt);
-        assertEq(DSToken(payGem).balanceOf(address(this)), payAmt);
-
-        DSToken(buyGem).transfer(msg.sender, buyAmt);
-        assertEq(DSToken(buyGem).balanceOf(msg.sender), buyAmt);
-
-    } */
 }
 
 contract Guy {

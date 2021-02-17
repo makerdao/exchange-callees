@@ -13,14 +13,17 @@ Each exchange has its own public callee contract, which exposes a function calle
 2. Approves exchange to pull ERC20 `gem`
 3. Trades ERC20 `gem` for ERC20 `dai`
 4. Forwards any ERC20 `gem` (if present) to external address
-5. Converts ERC20 `dai` to internal `dai`
+5. Converts ERC20 `dai` to internal `dai` and sends to msg.sender
 6. Forwards ERC20 `dai` profit (if present) to external address
-7. Sends internal `dai` to `Clipper` for repayment
+7. Sends internal `dai` to `Clipper` for repayment (occurs in `Clipper.take`)
 
-NOTE: NEVER DIRECTLY SEND internal/ERC20 `gem`/`dai` to an exchange callee contract.
+NOTE:
+* NEVER DIRECTLY SEND internal/ERC20 `gem`/`dai` to an exchange callee contract.
+* Remember to call `vat.hope(clipper)` from the msg.sender once before calling `Clipper.take`
 
 ## Exchanges supported
 * [OasisDex](https://oasisdex.com/)
+* [UniswapV2](https://uniswap.org/) (Only ETH collateral types are supported at the moment)
 
 ## Public addresses
 
@@ -33,5 +36,5 @@ To slow down or defend against [generalized frontrunning bots](https://medium.co
 Requires [Dapptools](https://github.com/dapphub/dapptools)
 ```
 $ dapp update
-$ dapp test
+$ dapp --use solc:0.6.11 test
 ```

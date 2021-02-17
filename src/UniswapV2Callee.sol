@@ -97,7 +97,8 @@ contract UniswapV2CalleeDai is UniswapV2Callee {
         }
 
         // Assumes that there's a GEM/DAI pool on UniswapV2
-        // If there's not a GEM/DAI pool, then intermediary paths are required: https://uniswap.org/docs/v2/smart-contracts/router02/#swaptokensforexacttokens
+        // If there's not a GEM/DAI pool, then intermediary paths are required
+        // https://uniswap.org/docs/v2/smart-contracts/router02/#swaptokensforexacttokens
         address[] memory path = new address[](2);
         path[0] = address(gem);
         path[1] = address(dai);
