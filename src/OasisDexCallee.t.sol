@@ -1,4 +1,4 @@
-pragma solidity >=0.6.7;
+pragma solidity >=0.6.11;
 
 import "ds-test/test.sol";
 import "ds-token/token.sol";
@@ -164,13 +164,13 @@ contract CalleeOtcDaiTest is DSTest {
 
         // Configure the price curve
         StairstepExponentialDecrease calc = new StairstepExponentialDecrease();
-        calc.file("cut",  ray(0.01 ether)); // 1% decrease
-        calc.file("step", 1);               // Decrease every 1 second
+        calc.file("cut",  RAY - ray(0.01 ether));  // 1% decrease
+        calc.file("step", 1);                      // Decrease every 1 second
 
-        clip.file("buf",  ray(1.25 ether)); // 25% Initial price buffer
-        clip.file("calc", address(calc));   // File price contract
-        clip.file("cusp", ray(0.3 ether));  // 70% drop before reset
-        clip.file("tail", 3600);            // 1 hour before reset
+        clip.file("buf",  ray(1.25 ether));   // 25% Initial price buffer
+        clip.file("calc", address(calc));     // File price contract
+        clip.file("cusp", ray(0.3 ether));    // 70% drop before reset
+        clip.file("tail", 3600);              // 1 hour before reset
 
         // Check my vault before liquidation
         // 40 gold collateral and 100 Dai debt
@@ -180,7 +180,7 @@ contract CalleeOtcDaiTest is DSTest {
 
         // Liquidate my vault and start an auction
         assertEq(clip.kicks(), 0);
-        dog.bark(ilk, me);
+        dog.bark(ilk, me, address(this));
         assertEq(clip.kicks(), 1);
 
         // Ensure vault has been liquidated

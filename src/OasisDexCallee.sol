@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-pragma solidity >=0.6.7;
+pragma solidity >=0.6.11;
 
 interface VatLike {
     function hope(address) external;
@@ -74,6 +74,7 @@ contract CalleeMakerOtcDai is CalleeMakerOtc {
     }
 
     function clipperCall(
+        address sender,         // Clipper Caller and Dai deliveryaddress
         uint256 daiAmt,         // Dai amount to payback[rad]
         uint256 gemAmt,         // Gem amount received [wad]
         bytes calldata data     // Extra data needed (gemJoin)
@@ -107,7 +108,7 @@ contract CalleeMakerOtcDai is CalleeMakerOtc {
         }
 
         // Convert DAI bought to internal vat value of the CalleeMakerOtcDai
-        daiJoin.join(address(this), daiToJoin);
+        daiJoin.join(sender, daiToJoin);
 
         // Transfer remaining DAI to specified address
         dai.transfer(to, ( daiBought - ( daiAmt / RAY ) ) );
