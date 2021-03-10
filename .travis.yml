@@ -9,4 +9,4 @@ before_install:
   - git clone --recursive https://github.com/dapphub/dapptools $HOME/.dapp/dapptools
   - nix-env -f https://github.com/makerdao/makerpkgs/tarball/master -iA dappPkgsVersions.seth-0_8_4.dapp
 script:
-  - dapp --use solc:0.6.11 test
+  - nix-shell --pure --run 'dapp --use solc:0.6.11 test'
