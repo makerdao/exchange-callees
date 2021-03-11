@@ -51,6 +51,16 @@ contract CalleeMakerOtc {
 
     uint256         public constant RAY = 10 ** 27;
 
+    function add(uint x, uint y) internal pure returns (uint z) {
+        require((z = x + y) >= x, "ds-math-add-overflow");
+    }
+    function sub(uint x, uint y) internal pure returns (uint z) {
+        require((z = x - y) <= x, "ds-math-sub-underflow");
+    }
+    function divup(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        z = add(x, sub(y, 1)) / y;
+    }
+
     function setUp(address otc_, address clip_, address daiJoin_) internal {
         otc = OtcLike(otc_);
         daiJoin = DaiJoinLike(daiJoin_);
@@ -63,7 +73,7 @@ contract CalleeMakerOtc {
     }
 
     function _fromWad(address gemJoin, uint256 wad) internal view returns (uint256 amt) {
-        amt = wad / 10 ** (18 - GemJoinLike(gemJoin).dec());
+        amt = wad / 10 ** (sub(18, GemJoinLike(gemJoin).dec()));
     }
 }
 
@@ -93,13 +103,10 @@ contract CalleeMakerOtcDai is CalleeMakerOtc {
         gem.approve(address(otc), gemAmt);
 
         // Calculate amount of DAI to Join (as erc20 WAD value)
-        uint256 daiToJoin = daiAmt / RAY;
-        if (daiToJoin * RAY < daiAmt) {
-            daiToJoin = daiToJoin + 1;
-        }
+        uint256 daiToJoin = divup(daiAmt, RAY);
 
         // Do operation and get dai amount bought (checking the profit is achieved)
-        uint256 daiBought = otc.sellAllAmount(address(gem), gemAmt, address(dai), daiToJoin + minProfit);
+        uint256 daiBought = otc.sellAllAmount(address(gem), gemAmt, address(dai), add(daiToJoin, minProfit));
 
         // Although maker-otc reverts if order book is empty, this check is a sanity check for other exchnages
         // Transfer any lingering gem to specified address
