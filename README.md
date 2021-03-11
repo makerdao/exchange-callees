@@ -36,5 +36,5 @@ To slow down or defend against [generalized frontrunning bots](https://medium.co
 Requires [Dapptools](https://github.com/dapphub/dapptools)
 ```
 $ dapp update
-$ dapp --use solc:0.6.11 test
+$ dapp --use solc:0.6.12 test
 ```
