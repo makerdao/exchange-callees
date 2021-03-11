@@ -169,4 +169,3 @@ contract UniswapV2CalleeDai is UniswapV2Callee {
         gem.transfer(to, gemAmt - gemSold);
     }
 } */
-
