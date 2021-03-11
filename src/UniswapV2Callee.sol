@@ -37,25 +37,23 @@ interface TokenLike {
     function balanceOf(address) external view returns (uint256);
 }
 
-interface OtcLike {
-    function buyAllAmount(address, uint256, address, uint256) external returns (uint256);
-    function sellAllAmount(address, uint256, address, uint256) external returns (uint256);
+interface UniswapV2Router02Like {
+    function swapExactTokensForTokens(uint256, uint256, address[] calldata, address, uint256) external returns (uint[] memory);
 }
 
 // Simple Callee Example to interact with MatchingMarket
 // This Callee contract exists as a standalone contract
-contract CalleeMakerOtc {
-    OtcLike         public otc;
-    DaiJoinLike     public daiJoin;
-    TokenLike       public dai;
+contract UniswapV2Callee {
+    UniswapV2Router02Like   public uniRouter02;
+    DaiJoinLike             public daiJoin;
+    TokenLike               public dai;
 
-    uint256         public constant RAY = 10 ** 27;
+    uint256                 public constant RAY = 10 ** 27;
 
-    function setUp(address otc_, address clip_, address daiJoin_) internal {
-        otc = OtcLike(otc_);
+    function setUp(address uniRouter02_, address clip_, address daiJoin_) internal {
+        uniRouter02 = UniswapV2Router02Like(uniRouter02_);
         daiJoin = DaiJoinLike(daiJoin_);
         dai = daiJoin.dai();
-
 
         daiJoin.vat().hope(clip_);
 
@@ -67,10 +65,10 @@ contract CalleeMakerOtc {
     }
 }
 
-// Maker-Otc is MatchingMarket, which is the core contract of OasisDex
-contract CalleeMakerOtcDai is CalleeMakerOtc {
-    constructor(address otc_, address clip_, address daiJoin_) public {
-        setUp(otc_, clip_, daiJoin_);
+// Uniswapv2Router02 route directs swaps from one pool to another
+contract UniswapV2CalleeDai is UniswapV2Callee {
+    constructor(address uniRouter02_, address clip_, address daiJoin_) public {
+        setUp(uniRouter02_, clip_, daiJoin_);
     }
 
     function clipperCall(
@@ -88,9 +86,9 @@ contract CalleeMakerOtcDai is CalleeMakerOtc {
         // Exit collateral to token version
         GemJoinLike(gemJoin).exit(address(this), gemAmt);
 
-        // Approve otc to take gem
+        // Approve uniRouter02 to take gem
         TokenLike gem = GemJoinLike(gemJoin).gem();
-        gem.approve(address(otc), gemAmt);
+        gem.approve(address(uniRouter02), gemAmt);
 
         // Calculate amount of DAI to Join (as erc20 WAD value)
         uint256 daiToJoin = daiAmt / RAY;
@@ -98,16 +96,31 @@ contract CalleeMakerOtcDai is CalleeMakerOtc {
             daiToJoin = daiToJoin + 1;
         }
 
-        // Do operation and get dai amount bought (checking the profit is achieved)
-        uint256 daiBought = otc.sellAllAmount(address(gem), gemAmt, address(dai), daiToJoin + minProfit);
+        // Assumes that there's a GEM/DAI pool on UniswapV2
+        // If there's not a GEM/DAI pool, then intermediary paths are required
+        // https://uniswap.org/docs/v2/smart-contracts/router02/#swaptokensforexacttokens
+        address[] memory path = new address[](2);
+        path[0] = address(gem);
+        path[1] = address(dai);
 
-        // Although maker-otc reverts if order book is empty, this check is a sanity check for other exchnages
+        // Do operation and get dai amount bought (checking the profit is achieved)
+        uint256[] memory amounts = uniRouter02.swapExactTokensForTokens(
+                                                  gemAmt,
+                                                  daiToJoin + minProfit,
+                                                  path,
+                                                  address(this),
+                                                  block.timestamp
+        );
+
+        uint256 daiBought = amounts[1];
+
+        // Although Uniswap will accept all gems, this check is a sanity check, just in case
         // Transfer any lingering gem to specified address
         if (gem.balanceOf(address(this)) > 0) {
             gem.transfer(to, gem.balanceOf(address(this)));
         }
 
-        // Convert DAI bought to internal vat value of the msg.sneder of Clipper.take
+        // Convert DAI bought to internal vat value of the msg.sender of Clipper.take
         daiJoin.join(sender, daiToJoin);
 
         // Transfer remaining DAI to specified address
@@ -116,7 +129,7 @@ contract CalleeMakerOtcDai is CalleeMakerOtc {
 }
 
 // Maker-Otc is MatchingMarket, which is the core contract of OasisDex
-/* contract CalleeMakerOtcGem is CalleeMakerOtc {
+/* contract UniswapV2CalleeGem is UniswapV2Callee {
     constructor(address otc_, address clip_, address daiJoin_) public {
         setUp(otc_, clip_, daiJoin_);
     }

@@ -1,4 +1,4 @@
 all    :; dapp build
 clean  :; dapp clean
-test   :; dapp test
-deploy :; dapp create AuctionProxyActions
+test   :; dapp --use solc:0.6.11 test
+deploy :; dapp create
