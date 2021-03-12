@@ -124,7 +124,7 @@ contract UniswapV2CalleeDai is UniswapV2Callee {
         daiJoin.join(sender, daiToJoin);
 
         // Transfer remaining DAI to specified address
-        dai.transfer(to, ( daiBought - ( daiAmt / RAY ) ) );
+        dai.transfer(to, dai.balanceOf(address(this)));
     }
 }
 

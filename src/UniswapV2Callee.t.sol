@@ -430,7 +430,7 @@ contract UniswapV2CalleeDaiTest is DSTest {
         confirm_auction_ending();
     }
 
-    function testFail_rounding_error() // this shouldn't fail
+    function test_rounding_error()
         public takeSetup(1) calleeSetup((uint256(7 ether))) {
         execute(1 ether, ray(6 ether), 0 ether);
     }
