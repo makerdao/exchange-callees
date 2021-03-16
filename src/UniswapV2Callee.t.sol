@@ -159,7 +159,9 @@ contract UniswapV2CalleeDaiTest is DSTest {
 
     uint256 constant startTime = 604411200; // Used to avoid issues with `now`
 
-    modifier takeSetup() {
+    modifier takeSetup(
+        uint256 offset            // used to create potential rounding errors
+    ) {
         uint256 pos;
         uint256 tab;
         uint256 lot;
@@ -174,7 +176,7 @@ contract UniswapV2CalleeDaiTest is DSTest {
         calc.file("cut",  RAY - ray(0.01 ether));  // 1% decrease
         calc.file("step", 1);                      // Decrease every 1 second
 
-        clip.file("buf",  ray(1.25 ether));   // 25% Initial price buffer
+        clip.file("buf",  ray(1.25 ether) + offset); // 25% Initial price buffer
         clip.file("calc", address(calc));     // File price contract
         clip.file("cusp", ray(0.3 ether));    // 70% drop before reset
         clip.file("tail", 3600);              // 1 hour before reset
@@ -202,7 +204,7 @@ contract UniswapV2CalleeDaiTest is DSTest {
         assertEq(lot, 40 ether);
         assertEq(usr, me);
         assertEq(uint256(tic), now);
-        assertEq(top, ray(5 ether)); // $4 plus 25% price cushion = $5
+        assertEq(top, ray(5 ether) + 4 * offset); // $4 plus 25% price cushion = $5
 
         // Ensure alice and bob have 0 gold and 0 Dai each
         assertEq(vat.gem(ilk, ali), 0);
@@ -363,7 +365,7 @@ contract UniswapV2CalleeDaiTest is DSTest {
 
     }
 
-    function test_flash_take_no_profit() public takeSetup calleeSetup((uint256(5 ether))) {
+    function test_flash_take_no_profit() public takeSetup(0) calleeSetup((uint256(5 ether))) {
         // Bid so owe (= 25 * 5 = 125 RAD) > tab (= 110 RAD), so auction will only give 22 gold
 
         // uniRouter02 has 1000 Dai, buying gold for $5
@@ -379,7 +381,7 @@ contract UniswapV2CalleeDaiTest is DSTest {
 
     }
 
-    function test_flash_take_profit() public takeSetup calleeSetup((uint256(6 ether))) {
+    function test_flash_take_profit() public takeSetup(0) calleeSetup((uint256(6 ether))) {
         // Bid so owe (= 25 * 5 = 125 RAD) > tab (= 110 RAD), so auction will only give 22 gold
 
         // uniRouter02 has 1000 Dai, buying gold for $6
@@ -402,7 +404,7 @@ contract UniswapV2CalleeDaiTest is DSTest {
         confirm_auction_ending();
     }
 
-    function test_flash_take_profit_thin_orderbook() public takeSetup calleeSetup((uint256(6 ether))) {
+    function test_flash_take_profit_thin_orderbook() public takeSetup(0) calleeSetup((uint256(6 ether))) {
         // Bid so owe (= 25 * 5 = 125 RAD) > tab (= 110 RAD), so auction will only give 22 gold
 
         // uniRouter02 has 1000 Dai, buying gold for $6
@@ -430,4 +432,8 @@ contract UniswapV2CalleeDaiTest is DSTest {
         confirm_auction_ending();
     }
 
+    function test_rounding_error()
+        public takeSetup(1) calleeSetup((uint256(7 ether))) {
+        execute(1 ether, ray(6 ether), 0 ether);
+    }
 }

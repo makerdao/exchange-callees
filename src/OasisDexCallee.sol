@@ -119,7 +119,7 @@ contract CalleeMakerOtcDai is CalleeMakerOtc {
         daiJoin.join(sender, daiToJoin);
 
         // Transfer remaining DAI to specified address
-        dai.transfer(to, ( daiBought - ( daiAmt / RAY ) ) );
+        dai.transfer(to, dai.balanceOf(address(this)));
     }
 }
 
@@ -164,4 +164,3 @@ contract CalleeMakerOtcDai is CalleeMakerOtc {
         gem.transfer(to, gemAmt - gemSold);
     }
 } */
-
