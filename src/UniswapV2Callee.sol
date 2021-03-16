@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2020 Maker Ecosystem Growth Holdings, INC.
 //
 // This program is free software: you can redistribute it and/or modify
@@ -13,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-pragma solidity >=0.6.11;
+pragma solidity >=0.6.12;
 
 interface VatLike {
     function hope(address) external;
@@ -50,6 +51,16 @@ contract UniswapV2Callee {
 
     uint256                 public constant RAY = 10 ** 27;
 
+    function add(uint x, uint y) internal pure returns (uint z) {
+        require((z = x + y) >= x, "ds-math-add-overflow");
+    }
+    function sub(uint x, uint y) internal pure returns (uint z) {
+        require((z = x - y) <= x, "ds-math-sub-underflow");
+    }
+    function divup(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        z = add(x, sub(y, 1)) / y;
+    }
+
     function setUp(address uniRouter02_, address clip_, address daiJoin_) internal {
         uniRouter02 = UniswapV2Router02Like(uniRouter02_);
         daiJoin = DaiJoinLike(daiJoin_);
@@ -61,7 +72,7 @@ contract UniswapV2Callee {
     }
 
     function _fromWad(address gemJoin, uint256 wad) internal view returns (uint256 amt) {
-        amt = wad / 10 ** (18 - GemJoinLike(gemJoin).dec());
+        amt = wad / 10 ** (sub(18, GemJoinLike(gemJoin).dec()));
     }
 }
 
@@ -91,10 +102,7 @@ contract UniswapV2CalleeDai is UniswapV2Callee {
         gem.approve(address(uniRouter02), gemAmt);
 
         // Calculate amount of DAI to Join (as erc20 WAD value)
-        uint256 daiToJoin = daiAmt / RAY;
-        if (daiToJoin * RAY < daiAmt) {
-            daiToJoin = daiToJoin + 1;
-        }
+        uint256 daiToJoin = divup(daiAmt, RAY);
 
         // Assumes that there's a GEM/DAI pool on UniswapV2
         // If there's not a GEM/DAI pool, then intermediary paths are required
@@ -106,7 +114,7 @@ contract UniswapV2CalleeDai is UniswapV2Callee {
         // Do operation and get dai amount bought (checking the profit is achieved)
         uint256[] memory amounts = uniRouter02.swapExactTokensForTokens(
                                                   gemAmt,
-                                                  daiToJoin + minProfit,
+                                                  add(daiToJoin, minProfit),
                                                   path,
                                                   address(this),
                                                   block.timestamp

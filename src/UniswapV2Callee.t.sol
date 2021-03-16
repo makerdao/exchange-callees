@@ -1,4 +1,5 @@
-pragma solidity >=0.6.11;
+// SPDX-License-Identifier: AGPL-3.0-or-later
+pragma solidity >=0.6.12;
 
 import "ds-test/test.sol";
 import "ds-token/token.sol";
@@ -60,6 +61,7 @@ contract MockUniswapRouter02 is DSMath, DSTest {
     // Hardcoded to simulate fixed price Uniswap
     /* uniRouter02.swapExactTokensForTokens(gemAmt, daiToJoin + minProfit, path, address(this), block.timestamp); */
     function swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts) {
+        to; deadline; // silence warning
         uint buyAmt = wmul(amountIn, fixedPrice);
         require(amountOutMin <= buyAmt, "Minimum Fill not reached");
 
