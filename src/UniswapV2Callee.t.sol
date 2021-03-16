@@ -68,8 +68,8 @@ contract MockUniswapRouter02 is DSMath, DSTest {
         DSToken(path[0]).transferFrom(msg.sender, address(this), amountIn);
         assertEq(DSToken(path[0]).balanceOf(address(this)), amountIn);
 
-        DSToken(path[1]).transfer(msg.sender, buyAmt);
-        assertEq(DSToken(path[1]).balanceOf(msg.sender), buyAmt);
+        DSToken(path[path.length - 1]).transfer(msg.sender, buyAmt);
+        assertEq(DSToken(path[path.length - 1]).balanceOf(msg.sender), buyAmt);
 
         amounts = new uint[](2);
         amounts[0] = amountIn;
@@ -249,9 +249,22 @@ contract UniswapV2CalleeDaiTest is DSTest {
     }
 
     function execute(uint256 amt, uint256 maxPrice, uint256 minProfit) internal {
+        address[] memory path = new address[](2);
+        path[0] = address(gold);
+        path[1] = address(dai);
+        execute(amt, maxPrice, minProfit, path);
+    }
+
+    function execute(
+        uint256 amt,
+        uint256 maxPrice,
+        uint256 minProfit,
+        address[] memory path
+    ) internal {
         bytes memory flashData = abi.encode(address(ali),    // Address of User (where profits are sent)
                                             address(gemA),   // GemJoin adapter of collateral type
-                                            minProfit        // Minimum Dai profit [wad]
+                                            minProfit,       // Minimum Dai profit [wad]
+                                            path             // uni path
         );
 
         Guy(ali).take({
@@ -264,9 +277,22 @@ contract UniswapV2CalleeDaiTest is DSTest {
     }
 
     function try_execute(uint256 amt, uint256 maxPrice, uint256 minProfit) internal returns (bool ok)  {
+        address[] memory path = new address[](2);
+        path[0] = address(gold);
+        path[1] = address(dai);
+        return try_execute(amt, maxPrice, minProfit, path);
+    }
+
+    function try_execute(
+        uint256 amt,
+        uint256 maxPrice,
+        uint256 minProfit,
+        address[] memory path
+    ) internal returns (bool ok)  {
         bytes memory flashData = abi.encode(address(ali),    // Address of User (where profits are sent)
                                             address(gemA),   // GemJoin adapter of collateral type
-                                            minProfit        // Minimum Dai profit [wad]
+                                            minProfit,       // Minimum Dai profit [wad]
+                                            path             // uni path
         );
 
         ok = Guy(ali).try_take({
@@ -435,5 +461,14 @@ contract UniswapV2CalleeDaiTest is DSTest {
     function test_rounding_error()
         public takeSetup(1) calleeSetup((uint256(7 ether))) {
         execute(1 ether, ray(6 ether), 0 ether);
+    }
+
+    function test_complex_path()
+        public takeSetup(0) calleeSetup((uint256(6 ether))) {
+        address[] memory path = new address[](3);
+        path[0] = address(gold);
+        path[1] = address(0);
+        path[2] = address(dai);
+        execute(1 ether, ray(6 ether), 0 ether, path);
     }
 }
