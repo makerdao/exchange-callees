@@ -89,7 +89,12 @@ contract UniswapV2CalleeDai is UniswapV2Callee {
         bytes calldata data     // Extra data needed (gemJoin)
     ) external {
         // Get address to send remaining DAI, gemJoin adapter and minProfit in DAI to make
-        (address to, address gemJoin, uint256 minProfit) = abi.decode(data, (address, address, uint256));
+        (
+            address to,
+            address gemJoin,
+            uint256 minProfit,
+            address[] memory path
+        ) = abi.decode(data, (address, address, uint256, address[]));
 
         // Convert gem amount to token precision
         gemAmt = _fromWad(gemJoin, gemAmt);
@@ -103,13 +108,6 @@ contract UniswapV2CalleeDai is UniswapV2Callee {
 
         // Calculate amount of DAI to Join (as erc20 WAD value)
         uint256 daiToJoin = divup(daiAmt, RAY);
-
-        // Assumes that there's a GEM/DAI pool on UniswapV2
-        // If there's not a GEM/DAI pool, then intermediary paths are required
-        // https://uniswap.org/docs/v2/smart-contracts/router02/#swaptokensforexacttokens
-        address[] memory path = new address[](2);
-        path[0] = address(gem);
-        path[1] = address(dai);
 
         // Do operation and get dai amount bought (checking the profit is achieved)
         uint256[] memory amounts = uniRouter02.swapExactTokensForTokens(
