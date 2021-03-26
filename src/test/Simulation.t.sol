@@ -14,9 +14,15 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import "ds-test/test.sol";
+pragma solidity >=0.6.12;
 
-interface UniV2Router02 {
+import "ds-test/test.sol";
+import "dss-interfaces/Interfaces.sol";
+import { Dog } from "dss/dog.sol";
+import { Clipper } from "dss/clip.sol";
+import { UniswapV2CalleeDai } from "../UniswapV2Callee.sol";
+
+interface UniV2Router02Abstract {
     function swapExactTokensForTokens(
         uint256 amountIn,
         uint256 amountOutMin,
@@ -26,33 +32,76 @@ interface UniV2Router02 {
     ) external returns (uint[] memory amounts);
 }
 
-interface Weth {
+interface WethAbstract is GemAbstract {
     function deposit() external payable;
-    function transfer(address guy, uint256 wad) external;
-    function approve(address guy, uint256 wad) external;
-    function balanceOf(address guy) external returns (uint256);
-}
-
-interface Dai {
-    function balanceOf(address guy) external returns (uint256);
 }
 
 contract Constants {
-    uint256 WAD = 1E18;
-    address uniV2Router02Address = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
-    address wethAddress = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
-    address daiAddress = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
+
+    // mainnet UniswapV2Router02 address
+    address constant uniAddr = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
+
+    uint256 constant WAD = 1E18;
+    bytes32 constant ilkName = "ETH-A";
+
+    address wethAddr;
+    address daiAddr;
+    address vatAddr;
+    address wethJoinAddr;
+    address spotterAddr;
+    address daiJoinAddr;
+
+    UniV2Router02Abstract uniRouter;
+    WethAbstract weth;
+    VatAbstract vat;
+    GemJoinAbstract wethJoin;
+    DaiAbstract dai;
+
+    Dog dog;
+    Clipper clipper;
+    UniswapV2CalleeDai callee;
+
+    function setAddresses() private {
+        ChainlogHelper helper = new ChainlogHelper();
+        ChainlogAbstract chainLog = helper.ABSTRACT();
+        wethAddr = chainLog.getAddress("ETH");
+        daiAddr = chainLog.getAddress("MCD_DAI");
+        vatAddr = chainLog.getAddress("MCD_VAT");
+        wethJoinAddr = chainLog.getAddress("MCD_JOIN_ETH_A");
+        spotterAddr = chainLog.getAddress("MCD_SPOT");
+        daiJoinAddr = chainLog.getAddress("MCD_JOIN_DAI");
+    }
+
+    function setInterfaces() private {
+        uniRouter = UniV2Router02Abstract(uniAddr);
+        weth = WethAbstract(wethAddr);
+        vat = VatAbstract(vatAddr);
+        dai = DaiAbstract(daiAddr);
+        wethJoin = GemJoinAbstract(wethJoinAddr);
+    }
+
+    function deployContracts() private {
+        // TODO: change dog and clipper to interface mainnet deployments when
+        // available
+        dog = new Dog(vatAddr);
+        clipper = new Clipper(vatAddr, spotterAddr, address(dog), ilkName);
+        callee = new UniswapV2CalleeDai(uniAddr, address(clipper), daiJoinAddr);
+    }
+
+    constructor () public {
+        setAddresses();
+        setInterfaces();
+        deployContracts();
+    }
 }
 
 contract Guy is Constants {
-    UniV2Router02 uniRouter;
-    Weth weth;
-    constructor () public {
-        uniRouter = UniV2Router02(uniV2Router02Address);
-        weth = Weth(wethAddress);
-        weth.approve(address(uniRouter), type(uint256).max);
+
+    constructor() public {
+        weth.approve(uniAddr, type(uint256).max);
     }
-    function swapExactTokensForTokens (
+
+    function swapExactTokensForTokens(
         uint256 amountIn,
         uint256 amountOutMin,
         address[] calldata path,
@@ -70,23 +119,31 @@ contract Guy is Constants {
 }
 
 contract SimulationTests is DSTest, Constants {
+
     Guy ali;
-    Weth weth;
-    Dai dai;
+
     function setUp() public {
         ali = new Guy();
-        weth = Weth(wethAddress);
-        weth.deposit{value: 2 * WAD}();
-        weth.transfer(address(ali), 2 * WAD);
-        dai = Dai(daiAddress);
+    }
+
+    function getWeth(uint256 value) private {
+        weth.deposit{ value: value }();
+        weth.transfer(address(ali), value);
+    }
+
+    function joinWeth(uint256 value) private {
+        weth.deposit{ value: value }();
+        weth.approve(wethJoinAddr, type(uint256).max);
+        wethJoin.join(address(ali), value);
     }
 
     function testSwap() public {
+        getWeth(2 * WAD);
         uint256 amountIn = 1 * WAD;
         uint256 amountOutMin = 1500 * WAD;
         address[] memory path = new address[](2);
-        path[0] = address(weth);
-        path[1] = address(dai);
+        path[0] = wethAddr;
+        path[1] = daiAddr;
         address to = address(ali);
         uint256 deadline = block.timestamp;
         uint256 wethPre = weth.balanceOf(address(ali));
@@ -102,5 +159,9 @@ contract SimulationTests is DSTest, Constants {
         uint256 daiPost = dai.balanceOf(address(ali));
         assertEq(wethPost, wethPre - amountIn);
         assertGe(daiPost, daiPre + amountOutMin);
+    }
+
+    function testFlash() public {
+        joinWeth(2 * WAD);
     }
 }
