@@ -54,8 +54,8 @@ contract Constants {
     UniV2Router02Abstract uniRouter;
     WethAbstract weth;
     VatAbstract vat;
-    GemJoinAbstract wethJoin;
     DaiAbstract dai;
+    GemJoinAbstract wethJoin;
 
     Dog dog;
     Clipper clipper;
@@ -65,8 +65,8 @@ contract Constants {
         ChainlogHelper helper = new ChainlogHelper();
         ChainlogAbstract chainLog = helper.ABSTRACT();
         wethAddr = chainLog.getAddress("ETH");
-        daiAddr = chainLog.getAddress("MCD_DAI");
         vatAddr = chainLog.getAddress("MCD_VAT");
+        daiAddr = chainLog.getAddress("MCD_DAI");
         wethJoinAddr = chainLog.getAddress("MCD_JOIN_ETH_A");
         spotterAddr = chainLog.getAddress("MCD_SPOT");
         daiJoinAddr = chainLog.getAddress("MCD_JOIN_DAI");
@@ -99,6 +99,7 @@ contract Guy is Constants {
 
     constructor() public {
         weth.approve(uniAddr, type(uint256).max);
+        vat.hope(msg.sender);
     }
 
     function swapExactTokensForTokens(
@@ -121,20 +122,16 @@ contract Guy is Constants {
 contract SimulationTests is DSTest, Constants {
 
     Guy ali;
+    address aliAddr;
 
     function setUp() public {
         ali = new Guy();
+        aliAddr = address(ali);
     }
 
     function getWeth(uint256 value) private {
         weth.deposit{ value: value }();
-        weth.transfer(address(ali), value);
-    }
-
-    function joinWeth(uint256 value) private {
-        weth.deposit{ value: value }();
-        weth.approve(wethJoinAddr, type(uint256).max);
-        wethJoin.join(address(ali), value);
+        weth.transfer(aliAddr, value);
     }
 
     function testSwap() public {
@@ -144,10 +141,10 @@ contract SimulationTests is DSTest, Constants {
         address[] memory path = new address[](2);
         path[0] = wethAddr;
         path[1] = daiAddr;
-        address to = address(ali);
+        address to = aliAddr;
         uint256 deadline = block.timestamp;
-        uint256 wethPre = weth.balanceOf(address(ali));
-        uint256 daiPre = dai.balanceOf(address(ali));
+        uint256 wethPre = weth.balanceOf(aliAddr);
+        uint256 daiPre = dai.balanceOf(aliAddr);
         ali.swapExactTokensForTokens(
             amountIn,
             amountOutMin,
@@ -155,13 +152,27 @@ contract SimulationTests is DSTest, Constants {
             to,
             deadline
         );
-        uint256 wethPost = weth.balanceOf(address(ali));
-        uint256 daiPost = dai.balanceOf(address(ali));
+        uint256 wethPost = weth.balanceOf(aliAddr);
+        uint256 daiPost = dai.balanceOf(aliAddr);
         assertEq(wethPost, wethPre - amountIn);
         assertGe(daiPost, daiPre + amountOutMin);
     }
 
+    function joinWeth(uint256 value) private {
+        weth.deposit{ value: value }();
+        weth.approve(wethJoinAddr, type(uint256).max);
+        wethJoin.join(aliAddr, value);
+    }
+
+    function frobMax() private {
+        uint256 ink = vat.gem(ilkName, aliAddr);
+        (, uint256 rate, uint256 spot, ,) = vat.ilks(ilkName);
+        uint256 art = ink * spot / rate;
+        vat.frob(ilkName, aliAddr, aliAddr, aliAddr, int256(ink), int256(art));
+    }
+
     function testFlash() public {
-        joinWeth(2 * WAD);
+        joinWeth(20 * WAD);
+        frobMax();
     }
 }
