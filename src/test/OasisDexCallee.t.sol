@@ -15,7 +15,7 @@ import {Clipper} from "dss/clip.sol";
 import "dss/abaci.sol";
 import "dss/dog.sol";
 
-import {CalleeMakerOtcDai} from "./OasisDexCallee.sol";
+import {CalleeMakerOtcDai} from "../OasisDexCallee.sol";
 
 interface Hevm {
     function warp(uint256) external;

@@ -15,7 +15,7 @@ import {Clipper} from "dss/clip.sol";
 import "dss/abaci.sol";
 import "dss/dog.sol";
 
-import {UniswapV2CalleeDai} from "./UniswapV2Callee.sol";
+import {UniswapV2CalleeDai} from "../UniswapV2Callee.sol";
 
 interface Hevm {
     function warp(uint256) external;
