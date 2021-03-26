@@ -1,3 +1,19 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2021 Maker Ecosystem Growth Holdings, INC.
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published
+// by the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 import "ds-test/test.sol";
 
 interface UniV2Router02 {
@@ -21,13 +37,20 @@ interface Dai {
     function balanceOf(address guy) external returns (uint256);
 }
 
-contract Guy {
+contract Constants {
+    uint256 WAD = 1E18;
+    address uniV2Router02Address = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
+    address wethAddress = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address daiAddress = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
+}
+
+contract Guy is Constants {
     UniV2Router02 uniRouter;
     Weth weth;
     constructor () public {
-        uniRouter = UniV2Router02(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
-        weth = Weth(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-        weth.approve(address(uniRouter), uint256(-1));
+        uniRouter = UniV2Router02(uniV2Router02Address);
+        weth = Weth(wethAddress);
+        weth.approve(address(uniRouter), type(uint256).max);
     }
     function swapExactTokensForTokens (
         uint256 amountIn,
@@ -46,17 +69,16 @@ contract Guy {
     }
 }
 
-contract SimulationTests is DSTest {
-    uint256 WAD = 1E18;
+contract SimulationTests is DSTest, Constants {
     Guy ali;
     Weth weth;
     Dai dai;
     function setUp() public {
         ali = new Guy();
-        weth = Weth(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+        weth = Weth(wethAddress);
         weth.deposit{value: 2 * WAD}();
         weth.transfer(address(ali), 2 * WAD);
-        dai = Dai(0x6B175474E89094C44Da98b954EedeAC495271d0F);
+        dai = Dai(daiAddress);
     }
 
     function testSwap() public {
