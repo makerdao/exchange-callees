@@ -42,9 +42,10 @@ contract Constants {
     address constant uniAddr = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
 
     uint256 constant WAD = 1E18;
-    bytes32 constant ilkName = "ETH-A";
+    bytes32 constant ilkName = "LINK-A";
 
     address wethAddr;
+    address linkAddr;
     address daiAddr;
     address vatAddr;
     address wethJoinAddr;
@@ -55,6 +56,7 @@ contract Constants {
 
     UniV2Router02Abstract uniRouter;
     WethAbstract weth;
+    GemAbstract link;
     VatAbstract vat;
     DaiAbstract dai;
     GemJoinAbstract wethJoin;
@@ -68,6 +70,7 @@ contract Constants {
         ChainlogHelper helper = new ChainlogHelper();
         ChainlogAbstract chainLog = helper.ABSTRACT();
         wethAddr = chainLog.getAddress("ETH");
+        linkAddr = chainLog.getAddress("LINK");
         vatAddr = chainLog.getAddress("MCD_VAT");
         daiAddr = chainLog.getAddress("MCD_DAI");
         wethJoinAddr = chainLog.getAddress("MCD_JOIN_ETH_A");
@@ -80,6 +83,7 @@ contract Constants {
     function setInterfaces() private {
         uniRouter = UniV2Router02Abstract(uniAddr);
         weth = WethAbstract(wethAddr);
+        link = GemAbstract(linkAddr);
         vat = VatAbstract(vatAddr);
         dai = DaiAbstract(daiAddr);
         wethJoin = GemJoinAbstract(wethJoinAddr);
@@ -104,6 +108,7 @@ contract Guy is Constants {
 
     constructor() public {
         weth.approve(uniAddr, type(uint256).max);
+        link.approve(uniAddr, type(uint256).max);
         vat.hope(msg.sender);
     }
 
@@ -139,27 +144,70 @@ contract SimulationTests is DSTest, Constants {
         weth.transfer(aliAddr, value);
     }
 
-    function testSwap() public {
+    function testSwapEthDai() public {
         getWeth(2 * WAD);
         uint256 amountIn = 1 * WAD;
         uint256 amountOutMin = 1500 * WAD;
         address[] memory path = new address[](2);
         path[0] = wethAddr;
         path[1] = daiAddr;
-        address to = aliAddr;
-        uint256 deadline = block.timestamp;
         uint256 wethPre = weth.balanceOf(aliAddr);
         uint256 daiPre = dai.balanceOf(aliAddr);
-        ali.swapExactTokensForTokens(
-            amountIn,
-            amountOutMin,
-            path,
-            to,
-            deadline
-        );
+        ali.swapExactTokensForTokens({
+            amountIn: amountIn,
+            amountOutMin: amountOutMin,
+            path: path,
+            to: aliAddr,
+            deadline: block.timestamp
+        });
         uint256 wethPost = weth.balanceOf(aliAddr);
         uint256 daiPost = dai.balanceOf(aliAddr);
         assertEq(wethPost, wethPre - amountIn);
+        assertGe(daiPost, daiPre + amountOutMin);
+    }
+
+    function testSwapEthLink() public {
+        getWeth(2 * WAD);
+        uint256 amountIn = 1 * WAD;
+        uint256 amountOutMin = 10 * WAD;
+        address[] memory path = new address[](2);
+        path[0] = wethAddr;
+        path[1] = linkAddr;
+        uint256 wethPre = weth.balanceOf(aliAddr);
+        uint256 linkPre = link.balanceOf(aliAddr);
+        ali.swapExactTokensForTokens({
+            amountIn: amountIn,
+            amountOutMin: amountOutMin,
+            path: path,
+            to: aliAddr,
+            deadline: block.timestamp
+        });
+        uint256 wethPost = weth.balanceOf(aliAddr);
+        uint256 linkPost = link.balanceOf(aliAddr);
+        assertEq(wethPost, wethPre - amountIn);
+        assertGe(linkPost, linkPre + amountOutMin);
+    }
+
+    function testSwapLinkDai() public {
+        testSwapEthLink();
+        uint256 amountIn = 1 * WAD;
+        uint256 amountOutMin = 35 * WAD;
+        address[] memory path = new address[](3);
+        path[0] = linkAddr;
+        path[1] = wethAddr;
+        path[2] = daiAddr;
+        uint256 linkPre = link.balanceOf(aliAddr);
+        uint256 daiPre = dai.balanceOf(aliAddr);
+        ali.swapExactTokensForTokens({
+            amountIn: amountIn,
+            amountOutMin: amountOutMin,
+            path: path,
+            to: aliAddr,
+            deadline: block.timestamp
+        });
+        uint256 linkPost = link.balanceOf(aliAddr);
+        uint256 daiPost = dai.balanceOf(aliAddr);
+        assertEq(linkPost, linkPre - amountIn);
         assertGe(daiPost, daiPre + amountOutMin);
     }
 
