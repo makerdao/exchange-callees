@@ -48,7 +48,7 @@ contract Constants {
     address linkAddr;
     address daiAddr;
     address vatAddr;
-    address wethJoinAddr;
+    address linkJoinAddr;
     address spotterAddr;
     address daiJoinAddr;
     address dogAddr;
@@ -59,7 +59,7 @@ contract Constants {
     GemAbstract link;
     VatAbstract vat;
     DaiAbstract dai;
-    GemJoinAbstract wethJoin;
+    GemJoinAbstract linkJoin;
     DogAbstract dog;
     JugAbstract jug;
 
@@ -73,7 +73,7 @@ contract Constants {
         linkAddr = chainLog.getAddress("LINK");
         vatAddr = chainLog.getAddress("MCD_VAT");
         daiAddr = chainLog.getAddress("MCD_DAI");
-        wethJoinAddr = chainLog.getAddress("MCD_JOIN_ETH_A");
+        linkJoinAddr = chainLog.getAddress("MCD_JOIN_LINK_A");
         spotterAddr = chainLog.getAddress("MCD_SPOT");
         daiJoinAddr = chainLog.getAddress("MCD_JOIN_DAI");
         dogAddr = chainLog.getAddress("MCD_DOG");
@@ -86,7 +86,7 @@ contract Constants {
         link = GemAbstract(linkAddr);
         vat = VatAbstract(vatAddr);
         dai = DaiAbstract(daiAddr);
-        wethJoin = GemJoinAbstract(wethJoinAddr);
+        linkJoin = GemJoinAbstract(linkJoinAddr);
         dog = DogAbstract(dogAddr);
         jug = JugAbstract(jugAddr);
     }
@@ -109,6 +109,7 @@ contract Guy is Constants {
     constructor() public {
         weth.approve(uniAddr, type(uint256).max);
         link.approve(uniAddr, type(uint256).max);
+        link.approve(msg.sender, type(uint256).max);
         vat.hope(msg.sender);
     }
 
@@ -139,42 +140,23 @@ contract SimulationTests is DSTest, Constants {
         aliAddr = address(ali);
     }
 
-    function getWeth(uint256 value) private {
+    function wrapEth(uint256 value) private {
         weth.deposit{ value: value }();
         weth.transfer(aliAddr, value);
     }
 
-    function testSwapEthDai() public {
-        getWeth(2 * WAD);
-        uint256 amountIn = 1 * WAD;
-        uint256 amountOutMin = 1500 * WAD;
-        address[] memory path = new address[](2);
-        path[0] = wethAddr;
-        path[1] = daiAddr;
-        uint256 wethPre = weth.balanceOf(aliAddr);
-        uint256 daiPre = dai.balanceOf(aliAddr);
-        ali.swapExactTokensForTokens({
-            amountIn: amountIn,
-            amountOutMin: amountOutMin,
-            path: path,
-            to: aliAddr,
-            deadline: block.timestamp
-        });
-        uint256 wethPost = weth.balanceOf(aliAddr);
-        uint256 daiPost = dai.balanceOf(aliAddr);
-        assertEq(wethPost, wethPre - amountIn);
-        assertGe(daiPost, daiPre + amountOutMin);
+    function testWrapEth() public {
+        uint256 balancePre = weth.balanceOf(aliAddr);
+        uint256 value = 1 * WAD;
+        wrapEth(value);
+        uint256 balancePost = weth.balanceOf(aliAddr);
+        assertEq(balancePost, balancePre + value);
     }
 
-    function testSwapEthLink() public {
-        getWeth(2 * WAD);
-        uint256 amountIn = 1 * WAD;
-        uint256 amountOutMin = 10 * WAD;
+    function swapEthLink(uint256 amountIn, uint256 amountOutMin) private {
         address[] memory path = new address[](2);
         path[0] = wethAddr;
         path[1] = linkAddr;
-        uint256 wethPre = weth.balanceOf(aliAddr);
-        uint256 linkPre = link.balanceOf(aliAddr);
         ali.swapExactTokensForTokens({
             amountIn: amountIn,
             amountOutMin: amountOutMin,
@@ -182,22 +164,26 @@ contract SimulationTests is DSTest, Constants {
             to: aliAddr,
             deadline: block.timestamp
         });
+    }
+
+    function testSwapEthLink() public {
+        wrapEth(10 * WAD);
+        uint256 amountIn = 10 * WAD;
+        uint256 amountOutMin = 100 * WAD;
+        uint256 wethPre = weth.balanceOf(aliAddr);
+        uint256 linkPre = link.balanceOf(aliAddr);
+        swapEthLink(amountIn, amountOutMin);
         uint256 wethPost = weth.balanceOf(aliAddr);
         uint256 linkPost = link.balanceOf(aliAddr);
         assertEq(wethPost, wethPre - amountIn);
         assertGe(linkPost, linkPre + amountOutMin);
     }
 
-    function testSwapLinkDai() public {
-        testSwapEthLink();
-        uint256 amountIn = 1 * WAD;
-        uint256 amountOutMin = 35 * WAD;
+    function swapLinkDai(uint256 amountIn, uint256 amountOutMin) private {
         address[] memory path = new address[](3);
         path[0] = linkAddr;
         path[1] = wethAddr;
         path[2] = daiAddr;
-        uint256 linkPre = link.balanceOf(aliAddr);
-        uint256 daiPre = dai.balanceOf(aliAddr);
         ali.swapExactTokensForTokens({
             amountIn: amountIn,
             amountOutMin: amountOutMin,
@@ -205,28 +191,72 @@ contract SimulationTests is DSTest, Constants {
             to: aliAddr,
             deadline: block.timestamp
         });
+    }
+
+    function testSwapLinkDai() public {
+        wrapEth(10 * WAD);
+        swapEthLink(10 * WAD, 100 * WAD);
+        uint256 linkPre = link.balanceOf(aliAddr);
+        uint256 daiPre = dai.balanceOf(aliAddr);
+        uint256 amountIn = 100 * WAD;
+        uint256 amountOutMin = 1000 * WAD;
+        swapLinkDai(amountIn, amountOutMin);
         uint256 linkPost = link.balanceOf(aliAddr);
         uint256 daiPost = dai.balanceOf(aliAddr);
         assertEq(linkPost, linkPre - amountIn);
         assertGe(daiPost, daiPre + amountOutMin);
     }
 
-    function joinWeth(uint256 value) private {
-        weth.deposit{ value: value }();
-        weth.approve(wethJoinAddr, type(uint256).max);
-        wethJoin.join(aliAddr, value);
+    function joinLink(uint256 value) private {
+        link.transferFrom(aliAddr, address(this), value);
+        link.approve(linkJoinAddr, type(uint256).max);
+        linkJoin.join(aliAddr, value);
     }
 
-    function frobMax() private {
-        uint256 ink = vat.gem(ilkName, aliAddr);
+    function testJoinLink() public {
+        uint256 value = 100 * WAD;
+        wrapEth(10 * WAD);
+        swapEthLink(10 * WAD, value);
+        joinLink(value);
+        assertEq(vat.gem(ilkName, aliAddr), value);
+    }
+
+    function frobMax(uint256 gem) private {
+        uint256 ink = gem;
         (, uint256 rate, uint256 spot, ,) = vat.ilks(ilkName);
         uint256 art = ink * spot / rate;
         vat.frob(ilkName, aliAddr, aliAddr, aliAddr, int256(ink), int256(art));
     }
 
-    function testFlash() public {
-        joinWeth(20 * WAD);
-        frobMax();
+    function testFrobMax() public {
+        wrapEth(50 * WAD);
+        swapEthLink(50 * WAD, 500 * WAD);
+        joinLink(500 * WAD);
+        frobMax(500 * WAD);
+        assertEq(vat.gem(ilkName, aliAddr), 0);
+        (uint256 ink, uint256 actualArt) = vat.urns(ilkName, aliAddr);
+        assertEq(ink, 500 * WAD);
+        (, uint256 rate, uint256 spot, ,) = vat.ilks(ilkName);
+        uint256 expectedArt = ink * spot / rate;
+        assertEq(actualArt, expectedArt);
+    }
+
+    function drip() private {
         jug.drip(ilkName);
+    }
+
+    function testDrip() public {
+        (, uint256 ratePre, , , ) = vat.ilks(ilkName);
+        drip();
+        (, uint256 ratePost, , , ) = vat.ilks(ilkName);
+        assertGt(ratePost, ratePre);
+    }
+
+    function testFlash() public {
+        wrapEth(50 * WAD);
+        swapEthLink(50 * WAD, 500 * WAD);
+        joinLink(500 * WAD);
+        frobMax(500 * WAD);
+        drip();
     }
 }
