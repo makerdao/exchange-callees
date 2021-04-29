@@ -51,6 +51,7 @@ contract Constants {
     address spotterAddr;
     address daiJoinAddr;
     address dogAddr;
+    address jugAddr;
 
     UniV2Router02Abstract uniRouter;
     WethAbstract weth;
@@ -58,6 +59,7 @@ contract Constants {
     DaiAbstract dai;
     GemJoinAbstract wethJoin;
     DogAbstract dog;
+    JugAbstract jug;
 
     Clipper clipper;
     UniswapV2CalleeDai callee;
@@ -72,6 +74,7 @@ contract Constants {
         spotterAddr = chainLog.getAddress("MCD_SPOT");
         daiJoinAddr = chainLog.getAddress("MCD_JOIN_DAI");
         dogAddr = chainLog.getAddress("MCD_DOG");
+        jugAddr = chainLog.getAddress("MCD_JUG");
     }
 
     function setInterfaces() private {
@@ -81,6 +84,7 @@ contract Constants {
         dai = DaiAbstract(daiAddr);
         wethJoin = GemJoinAbstract(wethJoinAddr);
         dog = DogAbstract(dogAddr);
+        jug = JugAbstract(jugAddr);
     }
 
     function deployContracts() private {
@@ -175,5 +179,6 @@ contract SimulationTests is DSTest, Constants {
     function testFlash() public {
         joinWeth(20 * WAD);
         frobMax();
+        jug.drip(ilkName);
     }
 }
