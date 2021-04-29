@@ -218,7 +218,7 @@ contract UniswapV2CalleeDaiTest is DSTest {
         // Starting auction price is newPrice + 25% buffer = oldPrice
         // MockUniswapRouter02 uses the price so we can trade immediately after the auction begins
         uniRouter02 = new MockUniswapRouter02(price);
-        uniCalleeDai = new UniswapV2CalleeDai(address(uniRouter02), address(clip), address(daiA));
+        uniCalleeDai = new UniswapV2CalleeDai(address(uniRouter02), address(daiA));
         //======
 
         vat.mint(address(me), rad(1000 ether));

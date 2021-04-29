@@ -17,6 +17,7 @@
 pragma solidity >=0.6.12;
 
 interface VatLike {
+    function can(address, address) external view returns (uint256);
     function hope(address) external;
 }
 
@@ -61,12 +62,10 @@ contract UniswapV2Callee {
         z = add(x, sub(y, 1)) / y;
     }
 
-    function setUp(address uniRouter02_, address clip_, address daiJoin_) internal {
+    function setUp(address uniRouter02_, address daiJoin_) internal {
         uniRouter02 = UniswapV2Router02Like(uniRouter02_);
         daiJoin = DaiJoinLike(daiJoin_);
         dai = daiJoin.dai();
-
-        daiJoin.vat().hope(clip_);
 
         dai.approve(daiJoin_, uint256(-1));
     }
@@ -78,8 +77,8 @@ contract UniswapV2Callee {
 
 // Uniswapv2Router02 route directs swaps from one pool to another
 contract UniswapV2CalleeDai is UniswapV2Callee {
-    constructor(address uniRouter02_, address clip_, address daiJoin_) public {
-        setUp(uniRouter02_, clip_, daiJoin_);
+    constructor(address uniRouter02_, address daiJoin_) public {
+        setUp(uniRouter02_, daiJoin_);
     }
 
     function clipperCall(
@@ -115,10 +114,8 @@ contract UniswapV2CalleeDai is UniswapV2Callee {
                                                   add(daiToJoin, minProfit),
                                                   path,
                                                   address(this),
-                                                  block.timestamp
+                                                  block.timestamp + 10 minutes
         );
-
-        uint256 daiBought = amounts[1];
 
         // Although Uniswap will accept all gems, this check is a sanity check, just in case
         // Transfer any lingering gem to specified address
@@ -127,6 +124,7 @@ contract UniswapV2CalleeDai is UniswapV2Callee {
         }
 
         // Convert DAI bought to internal vat value of the msg.sender of Clipper.take
+        if (daiJoin.vat().can(address(this), sender) == 0) daiJoin.vat().hope(sender);
         daiJoin.join(sender, daiToJoin);
 
         // Transfer remaining DAI to specified address
