@@ -18,8 +18,8 @@ pragma solidity >=0.6.12;
 
 import "ds-test/test.sol";
 import "dss-interfaces/Interfaces.sol";
-import { Dog } from "dss/dog.sol";
-import { Clipper } from "dss/clip.sol";
+import { Clipper } from "dss/clip.sol"; // TODO: remove when ETH-A clipper
+                                        // becames available on mainnet
 import { UniswapV2CalleeDai } from "../UniswapV2Callee.sol";
 
 interface UniV2Router02Abstract {
@@ -50,14 +50,15 @@ contract Constants {
     address wethJoinAddr;
     address spotterAddr;
     address daiJoinAddr;
+    address dogAddr;
 
     UniV2Router02Abstract uniRouter;
     WethAbstract weth;
     VatAbstract vat;
     DaiAbstract dai;
     GemJoinAbstract wethJoin;
+    DogAbstract dog;
 
-    Dog dog;
     Clipper clipper;
     UniswapV2CalleeDai callee;
 
@@ -70,6 +71,7 @@ contract Constants {
         wethJoinAddr = chainLog.getAddress("MCD_JOIN_ETH_A");
         spotterAddr = chainLog.getAddress("MCD_SPOT");
         daiJoinAddr = chainLog.getAddress("MCD_JOIN_DAI");
+        dogAddr = chainLog.getAddress("MCD_DOG");
     }
 
     function setInterfaces() private {
@@ -78,12 +80,11 @@ contract Constants {
         vat = VatAbstract(vatAddr);
         dai = DaiAbstract(daiAddr);
         wethJoin = GemJoinAbstract(wethJoinAddr);
+        dog = DogAbstract(dogAddr);
     }
 
     function deployContracts() private {
-        // TODO: change dog and clipper to interface mainnet deployments when
-        // available
-        dog = new Dog(vatAddr);
+        // TODO: change clipper to ETH-A mainnet deployment when available
         clipper = new Clipper(vatAddr, spotterAddr, address(dog), ilkName);
         callee = new UniswapV2CalleeDai(uniAddr, address(clipper), daiJoinAddr);
     }
