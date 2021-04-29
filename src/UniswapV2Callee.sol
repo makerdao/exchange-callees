@@ -109,12 +109,12 @@ contract UniswapV2CalleeDai is UniswapV2Callee {
         uint256 daiToJoin = divup(daiAmt, RAY);
 
         // Do operation and get dai amount bought (checking the profit is achieved)
-        uint256[] memory amounts = uniRouter02.swapExactTokensForTokens(
-                                                  gemAmt,
-                                                  add(daiToJoin, minProfit),
-                                                  path,
-                                                  address(this),
-                                                  block.timestamp
+        uniRouter02.swapExactTokensForTokens(
+            gemAmt,
+            add(daiToJoin, minProfit),
+            path,
+            address(this),
+            block.timestamp
         );
 
         // Although Uniswap will accept all gems, this check is a sanity check, just in case
