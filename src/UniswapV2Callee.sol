@@ -114,7 +114,7 @@ contract UniswapV2CalleeDai is UniswapV2Callee {
                                                   add(daiToJoin, minProfit),
                                                   path,
                                                   address(this),
-                                                  block.timestamp + 10 minutes
+                                                  block.timestamp
         );
 
         // Although Uniswap will accept all gems, this check is a sanity check, just in case
