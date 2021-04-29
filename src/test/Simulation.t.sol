@@ -252,11 +252,25 @@ contract SimulationTests is DSTest, Constants {
         assertGt(ratePost, ratePre);
     }
 
+    function bark() private {
+        dog.bark(ilkName, aliAddr, aliAddr);
+    }
+
+    function testBark() public {
+        wrapEth(50 * WAD);
+        swapEthLink(50 * WAD, 500 * WAD);
+        joinLink(500 * WAD);
+        frobMax(500 * WAD);
+        drip();
+        bark(); // TODO test clipper values
+    }
+
     function testFlash() public {
         wrapEth(50 * WAD);
         swapEthLink(50 * WAD, 500 * WAD);
         joinLink(500 * WAD);
         frobMax(500 * WAD);
         drip();
+        bark();
     }
 }
