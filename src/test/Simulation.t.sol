@@ -40,6 +40,7 @@ contract Constants {
     address constant uniAddr = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
 
     uint256 constant WAD = 1E18;
+    uint256 constant RAY = 1E27;
     bytes32 constant ilkName = "LINK-A";
 
     address wethAddr;
@@ -251,17 +252,26 @@ contract SimulationTests is DSTest, Constants {
         assertGt(ratePost, ratePre);
     }
 
-    function bark() private {
+    function bark() private returns (uint256 auctionId) {
         dog.bark(ilkName, aliAddr, aliAddr);
+        auctionId = clip.kicks();
     }
 
     function testBark() public {
+        uint256 kicksPre = clip.kicks();
         wrapEth(50 * WAD);
         swapEthLink(50 * WAD, 500 * WAD);
         joinLink(500 * WAD);
         frobMax(500 * WAD);
         drip();
-        bark(); // TODO test clipper values
+        uint256 auctionId = bark();
+        uint256 kicksPost = clip.kicks();
+        assertEq(auctionId, kicksPost);
+        assertEq(kicksPost, kicksPre + 1);
+        (, , uint256 lot, address usr, uint96 tic, ) = clip.sales(auctionId);
+        assertEq(usr, aliAddr);
+        assertEq(lot, 500 * WAD);
+        assertEq(tic, block.timestamp);
     }
 
     function testFlash() public {
@@ -270,6 +280,13 @@ contract SimulationTests is DSTest, Constants {
         joinLink(500 * WAD);
         frobMax(500 * WAD);
         drip();
-        bark();
+        uint256 auctionId = bark();
+        vat.hope(clipAddr);
+        address[] memory path = new address[](3);
+        path[0] = linkAddr;
+        path[1] = wethAddr;
+        path[2] = daiAddr;
+        bytes memory data = abi.encode(aliAddr, linkJoinAddr, 0, path);
+        // clip.take(auctionId, 500 * WAD, 200 * RAY, aliAddr, data);
     }
 }
