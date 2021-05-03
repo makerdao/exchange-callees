@@ -7,6 +7,7 @@ With built-in flash loans, auction participants can accept a collateral advance 
 
 **NOTE: These contracts are intended as a code example, and have not been audited or tested in a production environment.**
 
+
 ## Architecture
 
 Each exchange has its own public callee contract, which exposes a function called `clipperCall(owe,slice,data)`. This method is called by the `Clipper` contract, the collateral auction house of LIQ2.0. After receiving internal `gem` (i.e. collateral) from `Clipper`, it conducts the following steps:
