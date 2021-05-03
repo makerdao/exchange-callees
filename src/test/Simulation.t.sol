@@ -104,7 +104,7 @@ contract Constants {
     }
 }
 
-contract Guy is Constants {
+contract VaultHolder is Constants {
 
     constructor() public {
         weth.approve(uniAddr, type(uint256).max);
@@ -132,11 +132,11 @@ contract Guy is Constants {
 
 contract SimulationTests is DSTest, Constants {
 
-    Guy ali;
+    VaultHolder ali;
     address aliAddr;
 
     function setUp() public {
-        ali = new Guy();
+        ali = new VaultHolder();
         aliAddr = address(ali);
     }
 
