@@ -338,7 +338,7 @@ contract SimulationTests is DSTest, Constants {
         hevm.warp(block.timestamp + 50 minutes);
         uint256 daiBobPre = dai.balanceOf(bobAddr);
         uint256 linkBobPre = link.balanceOf(bobAddr);
-        take(auctionId, 500 * WAD, 500 * RAY, 1000 * WAD);
+        take(auctionId, 500 * WAD, 500 * RAY, 100 * WAD);
         uint256 daiBobPost = dai.balanceOf(bobAddr);
         uint256 linkBobPost = link.balanceOf(bobAddr);
         assertGt(daiBobPost, daiBobPre + 1 * WAD);
