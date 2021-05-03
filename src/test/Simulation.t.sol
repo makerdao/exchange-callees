@@ -285,20 +285,85 @@ contract SimulationTests is DSTest, Constants {
         assertEq(tic, block.timestamp);
     }
 
-    function testFlash() public {
+    function take(
+        uint256 auctionId,
+        uint256 amt,
+        uint256 max,
+        uint256 minProfit
+    ) public {
+        vat.hope(clipAddr);
+        address[] memory path = new address[](3);
+        path[0] = linkAddr;
+        path[1] = wethAddr;
+        path[2] = daiAddr;
+        bytes memory data = abi.encode(bobAddr, linkJoinAddr, minProfit, path);
+        clip.take(auctionId, amt, max, bobAddr, data);
+    }
+
+    function testTakeBasic() public {
         wrapEth(50 * WAD);
         swapEthLink(50 * WAD, 500 * WAD);
         joinLink(500 * WAD);
         frobMax(500 * WAD);
         drip();
         uint256 auctionId = bark();
-        hevm.warp(block.timestamp + 40 minutes);
-        vat.hope(clipAddr);
-        address[] memory path = new address[](3);
-        path[0] = linkAddr;
-        path[1] = wethAddr;
-        path[2] = daiAddr;
-        bytes memory data = abi.encode(address(this), linkJoinAddr, 0, path);
-        clip.take(auctionId, 500 * WAD, 41 * RAY, bobAddr, data);
+        hevm.warp(block.timestamp + 50 minutes);
+        take(auctionId, 500 * WAD, 500 * RAY, 0);
+    }
+
+    function testTakeNoProfit() public {
+        wrapEth(50 * WAD);
+        swapEthLink(50 * WAD, 500 * WAD);
+        joinLink(500 * WAD);
+        frobMax(500 * WAD);
+        drip();
+        uint256 auctionId = bark();
+        hevm.warp(block.timestamp + 50 minutes);
+        uint256 daiBobPre = dai.balanceOf(bobAddr);
+        uint256 linkBobPre = link.balanceOf(bobAddr);
+        take(auctionId, 500 * WAD, 500 * RAY, 0);
+        uint256 daiBobPost = dai.balanceOf(bobAddr);
+        uint256 linkBobPost = link.balanceOf(bobAddr);
+        assertGe(daiBobPost, daiBobPre);
+        assertEq(linkBobPre, linkBobPost);
+    }
+
+    function testTakeProfit() public {
+        wrapEth(50 * WAD);
+        swapEthLink(50 * WAD, 500 * WAD);
+        joinLink(500 * WAD);
+        frobMax(500 * WAD);
+        drip();
+        uint256 auctionId = bark();
+        hevm.warp(block.timestamp + 50 minutes);
+        uint256 daiBobPre = dai.balanceOf(bobAddr);
+        uint256 linkBobPre = link.balanceOf(bobAddr);
+        take(auctionId, 500 * WAD, 500 * RAY, 1000 * WAD);
+        uint256 daiBobPost = dai.balanceOf(bobAddr);
+        uint256 linkBobPost = link.balanceOf(bobAddr);
+        assertGt(daiBobPost, daiBobPre + 1 * WAD);
+        assertEq(linkBobPre, linkBobPost);
+    }
+
+    function testFailTakeInsufficientProfit() public {
+        wrapEth(50 * WAD);
+        swapEthLink(50 * WAD, 500 * WAD);
+        joinLink(500 * WAD);
+        frobMax(500 * WAD);
+        drip();
+        uint256 auctionId = bark();
+        hevm.warp(block.timestamp + 50 minutes);
+        take(auctionId, 500 * WAD, 500 * RAY, 5000 * WAD);
+    }
+
+    function testFailTakeTooExpensive() public {
+        wrapEth(50 * WAD);
+        swapEthLink(50 * WAD, 500 * WAD);
+        joinLink(500 * WAD);
+        frobMax(500 * WAD);
+        drip();
+        uint256 auctionId = bark();
+        hevm.warp(block.timestamp + 30 minutes);
+        take(auctionId, 500 * WAD, 5 * RAY, 0);
     }
 }

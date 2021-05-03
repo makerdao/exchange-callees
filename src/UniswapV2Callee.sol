@@ -88,12 +88,11 @@ contract UniswapV2CalleeDai is UniswapV2Callee {
         uint256 gemAmt,         // Gem amount received [wad]
         bytes calldata data     // Extra data needed (gemJoin)
     ) external {
-        // Get address to send remaining DAI, gemJoin adapter and minProfit in DAI to make
         (
-            address to,
-            address gemJoin,
-            uint256 minProfit,
-            address[] memory path
+            address to,           // address to send remaining DAI to
+            address gemJoin,      // gemJoin adapter address
+            uint256 minProfit,    // minimum profit in DAI to make [wad]
+            address[] memory path // Uniswap pool path
         ) = abi.decode(data, (address, address, uint256, address[]));
 
         // Convert gem amount to token precision
