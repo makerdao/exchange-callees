@@ -20,6 +20,10 @@ import "ds-test/test.sol";
 import "dss-interfaces/Interfaces.sol";
 import { UniswapV2CalleeDai } from "../UniswapV2Callee.sol";
 
+interface Hevm {
+    function warp(uint256) external;
+}
+
 interface UniV2Router02Abstract {
     function swapExactTokensForTokens(
         uint256 amountIn,
@@ -38,6 +42,7 @@ contract Constants {
 
     // mainnet UniswapV2Router02 address
     address constant uniAddr = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
+    address constant hevmAddr = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
 
     uint256 constant WAD = 1E18;
     uint256 constant RAY = 1E27;
@@ -54,6 +59,7 @@ contract Constants {
     address jugAddr;
     address clipAddr;
 
+    Hevm hevm;
     UniV2Router02Abstract uniRouter;
     WethAbstract weth;
     GemAbstract link;
@@ -82,6 +88,7 @@ contract Constants {
     }
 
     function setInterfaces() private {
+        hevm = Hevm(hevmAddr);
         uniRouter = UniV2Router02Abstract(uniAddr);
         weth = WethAbstract(wethAddr);
         link = GemAbstract(linkAddr);
@@ -134,10 +141,14 @@ contract SimulationTests is DSTest, Constants {
 
     VaultHolder ali;
     address aliAddr;
+    UniswapV2CalleeDai bob;
+    address bobAddr;
 
     function setUp() public {
         ali = new VaultHolder();
         aliAddr = address(ali);
+        bob = new UniswapV2CalleeDai(uniAddr, clipAddr, daiJoinAddr);
+        bobAddr = address(bob);
     }
 
     function wrapEth(uint256 value) private {
@@ -281,12 +292,13 @@ contract SimulationTests is DSTest, Constants {
         frobMax(500 * WAD);
         drip();
         uint256 auctionId = bark();
+        hevm.warp(block.timestamp + 40 minutes);
         vat.hope(clipAddr);
         address[] memory path = new address[](3);
         path[0] = linkAddr;
         path[1] = wethAddr;
         path[2] = daiAddr;
-        bytes memory data = abi.encode(aliAddr, linkJoinAddr, 0, path);
-        // clip.take(auctionId, 500 * WAD, 200 * RAY, aliAddr, data);
+        bytes memory data = abi.encode(address(this), linkJoinAddr, 0, path);
+        clip.take(auctionId, 500 * WAD, 41 * RAY, bobAddr, data);
     }
 }
