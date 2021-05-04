@@ -62,13 +62,10 @@ contract CalleeMakerOtc {
         z = add(x, sub(y, 1)) / y;
     }
 
-    function setUp(address otc_, address clip_, address daiJoin_) internal {
+    function setUp(address otc_, address daiJoin_) internal {
         otc = OtcLike(otc_);
         daiJoin = DaiJoinLike(daiJoin_);
         dai = daiJoin.dai();
-
-
-        daiJoin.vat().hope(clip_);
 
         dai.approve(daiJoin_, uint256(-1));
     }
@@ -80,8 +77,8 @@ contract CalleeMakerOtc {
 
 // Maker-Otc is MatchingMarket, which is the core contract of OasisDex
 contract CalleeMakerOtcDai is CalleeMakerOtc {
-    constructor(address otc_, address clip_, address daiJoin_) public {
-        setUp(otc_, clip_, daiJoin_);
+    constructor(address otc_, address daiJoin_) public {
+        setUp(otc_, daiJoin_);
     }
 
     function clipperCall(
@@ -106,8 +103,8 @@ contract CalleeMakerOtcDai is CalleeMakerOtc {
         // Calculate amount of DAI to Join (as erc20 WAD value)
         uint256 daiToJoin = divup(daiAmt, RAY);
 
-        // Do operation and get dai amount bought (checking the profit is achieved)
-        uint256 daiBought = otc.sellAllAmount(address(gem), gemAmt, address(dai), add(daiToJoin, minProfit));
+        // Do operation
+        otc.sellAllAmount(address(gem), gemAmt, address(dai), add(daiToJoin, minProfit));
 
         // Although maker-otc reverts if order book is empty, this check is a sanity check for other exchnages
         // Transfer any lingering gem to specified address

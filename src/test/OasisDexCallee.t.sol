@@ -212,7 +212,7 @@ contract CalleeOtcDaiTest is DSTest {
         // Starting auction price is newPrice + 25% buffer = oldPrice
         // MockOtc uses the price so we can trade immediately after the auction begins
         otc = new MockOtc(price);
-        calleeOtcDai = new CalleeMakerOtcDai(address(otc), address(clip), address(daiA));
+        calleeOtcDai = new CalleeMakerOtcDai(address(otc), address(daiA));
         //======
 
         vat.mint(address(me), rad(1000 ether));
