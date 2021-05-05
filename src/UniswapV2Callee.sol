@@ -61,12 +61,10 @@ contract UniswapV2Callee {
         z = add(x, sub(y, 1)) / y;
     }
 
-    function setUp(address uniRouter02_, address clip_, address daiJoin_) internal {
+    function setUp(address uniRouter02_, address daiJoin_) internal {
         uniRouter02 = UniswapV2Router02Like(uniRouter02_);
         daiJoin = DaiJoinLike(daiJoin_);
         dai = daiJoin.dai();
-
-        daiJoin.vat().hope(clip_);
 
         dai.approve(daiJoin_, uint256(-1));
     }
@@ -78,8 +76,8 @@ contract UniswapV2Callee {
 
 // Uniswapv2Router02 route directs swaps from one pool to another
 contract UniswapV2CalleeDai is UniswapV2Callee {
-    constructor(address uniRouter02_, address clip_, address daiJoin_) public {
-        setUp(uniRouter02_, clip_, daiJoin_);
+    constructor(address uniRouter02_, address daiJoin_) public {
+        setUp(uniRouter02_, daiJoin_);
     }
 
     function clipperCall(
@@ -109,15 +107,13 @@ contract UniswapV2CalleeDai is UniswapV2Callee {
         uint256 daiToJoin = divup(daiAmt, RAY);
 
         // Do operation and get dai amount bought (checking the profit is achieved)
-        uint256[] memory amounts = uniRouter02.swapExactTokensForTokens(
-                                                  gemAmt,
-                                                  add(daiToJoin, minProfit),
-                                                  path,
-                                                  address(this),
-                                                  block.timestamp
+        uniRouter02.swapExactTokensForTokens(
+            gemAmt,
+            add(daiToJoin, minProfit),
+            path,
+            address(this),
+            block.timestamp
         );
-
-        uint256 daiBought = amounts[1];
 
         // Although Uniswap will accept all gems, this check is a sanity check, just in case
         // Transfer any lingering gem to specified address

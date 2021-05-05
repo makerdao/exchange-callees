@@ -101,7 +101,7 @@ contract Constants {
     }
 
     function deployContracts() private {
-        callee = new UniswapV2CalleeDai(uniAddr, clipAddr, daiJoinAddr);
+        callee = new UniswapV2CalleeDai(uniAddr, daiJoinAddr);
     }
 
     constructor () public {
@@ -147,7 +147,7 @@ contract SimulationTests is DSTest, Constants {
     function setUp() public {
         ali = new VaultHolder();
         aliAddr = address(ali);
-        bob = new UniswapV2CalleeDai(uniAddr, clipAddr, daiJoinAddr);
+        bob = new UniswapV2CalleeDai(uniAddr, daiJoinAddr);
         bobAddr = address(bob);
     }
 
