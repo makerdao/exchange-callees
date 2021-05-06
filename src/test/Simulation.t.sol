@@ -164,6 +164,32 @@ contract SimulationTests is DSTest, Constants {
         assertEq(balancePost, balancePre + value);
     }
 
+    function swapEthDai(uint256 amountIn, uint256 amountOutMin) private {
+        address[] memory path = new address[](2);
+        path[0] = wethAddr;
+        path[1] = daiAddr;
+        ali.swapExactTokensForTokens({
+            amountIn: amountIn,
+            amountOutMin: amountOutMin,
+            path: path,
+            to: aliAddr,
+            deadline: block.timestamp
+        });
+    }
+
+    function testSwapEthDai() public {
+        wrapEth(1 * WAD);
+        uint256 amountIn = 1 * WAD;
+        uint256 amountOutMin = 100 * WAD;
+        uint256 wethPre = weth.balanceOf(aliAddr);
+        uint256 daiPre = dai.balanceOf(aliAddr);
+        swapEthDai(amountIn, amountOutMin);
+        uint256 wethPost = weth.balanceOf(aliAddr);
+        uint256 daiPost = dai.balanceOf(aliAddr);
+        assertEq(wethPost, wethPre - amountIn);
+        assertGe(daiPost, daiPre + amountOutMin);
+    }
+
     function swapEthLink(uint256 amountIn, uint256 amountOutMin) private {
         address[] memory path = new address[](2);
         path[0] = wethAddr;
