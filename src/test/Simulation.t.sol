@@ -20,8 +20,12 @@ import "ds-test/test.sol";
 import "dss-interfaces/Interfaces.sol";
 import { UniswapV2CalleeDai } from "../UniswapV2Callee.sol";
 
+import "dss/clip.sol";
+import "dss/abaci.sol";
+
 interface Hevm {
     function warp(uint256) external;
+    function store(address c, bytes32 loc, bytes32 val) external;
 }
 
 interface UniV2Router02Abstract {
@@ -69,6 +73,7 @@ contract Constants {
 
     uint256 constant WAD = 1E18;
     uint256 constant RAY = 1E27;
+    uint256 constant RAD = 1E45;
     bytes32 constant linkName = "LINK-A";
     bytes32 constant lpDaiEthName = "UNIV2DAIETH-A";
 
@@ -84,6 +89,10 @@ contract Constants {
     address linkClipAddr;
     address lpDaiEthAddr;
     address lpDaiEthJoinAddr;
+    address lpDaiEthClipAddr;
+    address vowAddr;
+    address lpDaiEthCalcAddr;
+    address lpDaiEthPipAddr;
 
     Hevm hevm;
     UniV2Router02Abstract uniRouter;
@@ -97,8 +106,7 @@ contract Constants {
     ClipAbstract linkClip;
     GemAbstract lpDaiEth;
     GemJoinAbstract lpDaiEthJoin;
-
-    UniswapV2CalleeDai callee;
+    LPOsmAbstract lpDaiEthPip;
 
     function setAddresses() private {
         ChainlogHelper helper = new ChainlogHelper();
@@ -115,6 +123,8 @@ contract Constants {
         linkClipAddr = chainLog.getAddress("MCD_CLIP_LINK_A");
         lpDaiEthAddr = chainLog.getAddress("UNIV2DAIETH");
         lpDaiEthJoinAddr = chainLog.getAddress("MCD_JOIN_UNIV2DAIETH_A");
+        vowAddr = chainLog.getAddress("MCD_VOW");
+        lpDaiEthPipAddr = chainLog.getAddress("PIP_UNIV2DAIETH");
     }
 
     function setInterfaces() private {
@@ -130,16 +140,12 @@ contract Constants {
         linkClip = ClipAbstract(linkClipAddr);
         lpDaiEth = GemAbstract(lpDaiEthAddr);
         lpDaiEthJoin = GemJoinAbstract(lpDaiEthJoinAddr);
-    }
-
-    function deployContracts() private {
-        callee = new UniswapV2CalleeDai(uniAddr, daiJoinAddr);
+        lpDaiEthPip = LPOsmAbstract(lpDaiEthPipAddr);
     }
 
     constructor () public {
         setAddresses();
         setInterfaces();
-        deployContracts();
     }
 }
 
@@ -175,12 +181,60 @@ contract SimulationTests is DSTest, Constants {
     address aliAddr;
     UniswapV2CalleeDai bob;
     address bobAddr;
+    Clipper lpDaiEthClip;
+    StairstepExponentialDecrease lpDaiEthCalc;
+    UniswapV2CalleeDai callee;
+
+    function getPermissions() private {
+        hevm.store(
+            dogAddr,
+            keccak256(abi.encode(address(this), uint256(0))),
+            bytes32(uint256(1))
+        );
+        hevm.store(
+            vatAddr,
+            keccak256(abi.encode(address(this), uint256(0))),
+            bytes32(uint256(1))
+        );
+        hevm.store(
+            lpDaiEthPipAddr,
+            keccak256(abi.encode(address(this), uint256(0))),
+            bytes32(uint256(1))
+        );
+    }
+
+    function deployLpDaiEthClip() private {
+        getPermissions();
+        lpDaiEthClip = new Clipper(vatAddr, spotterAddr, dogAddr, lpDaiEthName);
+        lpDaiEthClipAddr = address(lpDaiEthClip);
+        dog.file(lpDaiEthName, "clip", lpDaiEthClipAddr);
+        lpDaiEthClip.file("vow", vowAddr);
+        lpDaiEthCalc = new StairstepExponentialDecrease();
+        lpDaiEthCalcAddr = address(lpDaiEthCalc);
+        lpDaiEthClip.file("calc", lpDaiEthCalcAddr);
+        vat.rely(lpDaiEthClipAddr);
+        dog.rely(lpDaiEthClipAddr);
+        lpDaiEthClip.rely(dogAddr);
+        lpDaiEthPip.kiss(lpDaiEthClipAddr);
+        dog.file(lpDaiEthName, "hole", 22_000_000 * RAD);
+        dog.file(lpDaiEthName, "chop", 113 * WAD / 100);
+        lpDaiEthClip.file("buf", 130 * RAY / 100);
+        lpDaiEthClip.file("tail", 140 minutes);
+        lpDaiEthClip.file("cusp", 40 * RAY / 100);
+        lpDaiEthClip.file("chip", 1 * WAD / 1000);
+        lpDaiEthClip.file("tip", 0);
+        lpDaiEthCalc.file("cut", 99 * RAY / 100);
+        lpDaiEthCalc.file("step", 90 seconds);
+        lpDaiEthClip.upchost();
+    }
 
     function setUp() public {
+        callee = new UniswapV2CalleeDai(uniAddr, daiJoinAddr);
         ali = new VaultHolder();
         aliAddr = address(ali);
         bob = new UniswapV2CalleeDai(uniAddr, daiJoinAddr);
         bobAddr = address(bob);
+        deployLpDaiEthClip();
     }
 
     function wrapEth(uint256 value, address to) private {
@@ -396,6 +450,11 @@ contract SimulationTests is DSTest, Constants {
         auctionId = linkClip.kicks();
     }
 
+    function barkLpDaiEth() private returns (uint256 auctionId) {
+        dog.bark(lpDaiEthName, aliAddr, aliAddr);
+        auctionId = lpDaiEthClip.kicks();
+    }
+
     function testBarkLink() public {
         uint256 kicksPre = linkClip.kicks();
         wrapEth(20 * WAD, aliAddr);
@@ -412,6 +471,26 @@ contract SimulationTests is DSTest, Constants {
         assertEq(lot, 200 * WAD);
         assertEq(tic, block.timestamp);
     }
+
+    function testBarkLpDaiEth() public {
+        uint256 kicksPre = lpDaiEthClip.kicks();
+        wrapEth(10 * WAD, address(this));
+        weth.approve(uniAddr, type(uint256).max);
+        swapEthDai(10 * WAD, 1000 * WAD);
+        dai.approve(uniAddr, type(uint256).max);
+        getLpDaiEth();
+        joinLpDaiEth(300 * WAD);
+        frobMax(300 * WAD, lpDaiEthName);
+        drip(lpDaiEthName);
+        uint256 auctionId = barkLpDaiEth();
+        uint256 kicksPost = lpDaiEthClip.kicks();
+        assertEq(auctionId, kicksPost);
+        assertEq(kicksPost, kicksPre + 1);
+        (
+         ,, uint256 lot, address usr, uint96 tic,
+         ) = lpDaiEthClip.sales(auctionId);
+        assertEq(usr, aliAddr);
+        assertEq(lot, 300 * WAD);
         assertEq(tic, block.timestamp);
     }
 
