@@ -70,6 +70,7 @@ contract Constants {
     uint256 constant WAD = 1E18;
     uint256 constant RAY = 1E27;
     bytes32 constant linkName = "LINK-A";
+    bytes32 constant lpDaiEthName = "UNIV2DAIETH-A";
 
     address wethAddr;
     address linkAddr;
@@ -82,6 +83,7 @@ contract Constants {
     address jugAddr;
     address clipAddr;
     address lpDaiEthAddr;
+    address lpDaiEthJoinAddr;
 
     Hevm hevm;
     UniV2Router02Abstract uniRouter;
@@ -94,6 +96,7 @@ contract Constants {
     JugAbstract jug;
     ClipAbstract clip;
     GemAbstract lpDaiEth;
+    GemJoinAbstract lpDaiEthJoin;
 
     UniswapV2CalleeDai callee;
 
@@ -111,6 +114,7 @@ contract Constants {
         jugAddr = chainLog.getAddress("MCD_JUG");
         clipAddr = chainLog.getAddress("MCD_CLIP_LINK_A");
         lpDaiEthAddr = chainLog.getAddress("UNIV2DAIETH");
+        lpDaiEthJoinAddr = chainLog.getAddress("MCD_JOIN_UNIV2DAIETH_A");
     }
 
     function setInterfaces() private {
@@ -125,6 +129,7 @@ contract Constants {
         jug = JugAbstract(jugAddr);
         clip = ClipAbstract(clipAddr);
         lpDaiEth = GemAbstract(lpDaiEthAddr);
+        lpDaiEthJoin = GemJoinAbstract(lpDaiEthJoinAddr);
     }
 
     function deployContracts() private {
@@ -335,6 +340,24 @@ contract SimulationTests is DSTest, Constants {
         swapEthLink(10 * WAD, value);
         joinLink(value);
         assertEq(vat.gem(linkName, aliAddr), value);
+    }
+
+    function joinLpDaiEth(uint256 value) private {
+        lpDaiEth.approve(lpDaiEthJoinAddr, value);
+        lpDaiEthJoin.join(aliAddr, value);
+    }
+
+    function testJoinLpDaiEth() public {
+        wrapEth(1 * WAD, address(this));
+        weth.approve(uniAddr, type(uint256).max);
+        swapEthDai(1 * WAD, 100 * WAD);
+        dai.approve(uniAddr, type(uint256).max);
+        getLpDaiEth();
+        uint256 gemPre = vat.gem(lpDaiEthName, aliAddr);
+        uint256 value = 30 * WAD;
+        joinLpDaiEth(value);
+        uint256 gemPost = vat.gem(lpDaiEthName, aliAddr);
+        assertEq(gemPost, gemPre + value);
     }
 
     function frobMax(uint256 gem) private {
