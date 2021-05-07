@@ -224,9 +224,9 @@ contract SimulationTests is DSTest, Constants {
     }
 
     function getLpDaiEth() private {
-        uniRouter.addLiquidityETH{value: 1 ether}({
+        uniRouter.addLiquidityETH{value: 10 ether}({
             token: daiAddr,
-            amountTokenDesired: 3000 * WAD,
+            amountTokenDesired: 30000 * WAD,
             amountTokenMin: 50 * WAD,
             amountETHMin: 1 szabo,
             to: address(this),
@@ -237,9 +237,9 @@ contract SimulationTests is DSTest, Constants {
     receive() external payable {}
 
     function testGetLpDaiEth() public {
-        wrapEth(1 * WAD, address(this));
+        wrapEth(10 * WAD, address(this));
         weth.approve(uniAddr, type(uint256).max);
-        swapEthDai(1 * WAD, 100 * WAD);
+        swapEthDai(10 * WAD, 1000 * WAD);
         dai.approve(uniAddr, type(uint256).max);
         uint256 lpDaiEthPre = lpDaiEth.balanceOf(address(this));
         getLpDaiEth();
@@ -259,9 +259,9 @@ contract SimulationTests is DSTest, Constants {
     }
 
     function testBurnLpDaiEth() public {
-        wrapEth(1 * WAD, address(this));
+        wrapEth(10 * WAD, address(this));
         weth.approve(uniAddr, type(uint256).max);
-        swapEthDai(1 * WAD, 100 * WAD);
+        swapEthDai(10 * WAD, 1000 * WAD);
         dai.approve(uniAddr, type(uint256).max);
         getLpDaiEth();
         lpDaiEth.approve(uniAddr, type(uint256).max);
@@ -348,13 +348,13 @@ contract SimulationTests is DSTest, Constants {
     }
 
     function testJoinLpDaiEth() public {
-        wrapEth(1 * WAD, address(this));
+        wrapEth(10 * WAD, address(this));
         weth.approve(uniAddr, type(uint256).max);
-        swapEthDai(1 * WAD, 100 * WAD);
+        swapEthDai(10 * WAD, 1000 * WAD);
         dai.approve(uniAddr, type(uint256).max);
         getLpDaiEth();
         uint256 gemPre = vat.gem(lpDaiEthName, aliAddr);
-        uint256 value = 30 * WAD;
+        uint256 value = 300 * WAD;
         joinLpDaiEth(value);
         uint256 gemPost = vat.gem(lpDaiEthName, aliAddr);
         assertEq(gemPost, gemPre + value);
