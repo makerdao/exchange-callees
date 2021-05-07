@@ -368,13 +368,13 @@ contract SimulationTests is DSTest, Constants {
     }
 
     function testFrobMax() public {
-        wrapEth(50 * WAD, aliAddr);
-        swapEthLink(50 * WAD, 500 * WAD);
-        joinLink(500 * WAD);
-        frobMax(500 * WAD, linkName);
+        wrapEth(20 * WAD, aliAddr);
+        swapEthLink(20 * WAD, 200 * WAD);
+        joinLink(200 * WAD);
+        frobMax(200 * WAD, linkName);
         assertEq(vat.gem(linkName, aliAddr), 0);
         (uint256 ink, uint256 actualArt) = vat.urns(linkName, aliAddr);
-        assertEq(ink, 500 * WAD);
+        assertEq(ink, 200 * WAD);
         (, uint256 rate, uint256 spot, ,) = vat.ilks(linkName);
         uint256 expectedArt = ink * spot / rate;
         assertEq(actualArt, expectedArt);
@@ -398,10 +398,10 @@ contract SimulationTests is DSTest, Constants {
 
     function testBarkLink() public {
         uint256 kicksPre = linkClip.kicks();
-        wrapEth(50 * WAD, aliAddr);
-        swapEthLink(50 * WAD, 500 * WAD);
-        joinLink(500 * WAD);
-        frobMax(500 * WAD, linkName);
+        wrapEth(20 * WAD, aliAddr);
+        swapEthLink(20 * WAD, 200 * WAD);
+        joinLink(200 * WAD);
+        frobMax(200 * WAD, linkName);
         drip(linkName);
         uint256 auctionId = barkLink();
         uint256 kicksPost = linkClip.kicks();
@@ -409,7 +409,9 @@ contract SimulationTests is DSTest, Constants {
         assertEq(kicksPost, kicksPre + 1);
         (,, uint256 lot, address usr, uint96 tic,) = linkClip.sales(auctionId);
         assertEq(usr, aliAddr);
-        assertEq(lot, 500 * WAD);
+        assertEq(lot, 200 * WAD);
+        assertEq(tic, block.timestamp);
+    }
         assertEq(tic, block.timestamp);
     }
 
@@ -429,27 +431,27 @@ contract SimulationTests is DSTest, Constants {
     }
 
     function testTakeLinkBasic() public {
-        wrapEth(50 * WAD, aliAddr);
-        swapEthLink(50 * WAD, 500 * WAD);
-        joinLink(500 * WAD);
-        frobMax(500 * WAD, linkName);
+        wrapEth(20 * WAD, aliAddr);
+        swapEthLink(20 * WAD, 200 * WAD);
+        joinLink(200 * WAD);
+        frobMax(200 * WAD, linkName);
         drip(linkName);
         uint256 auctionId = barkLink();
         hevm.warp(block.timestamp + 50 minutes);
-        takeLink(auctionId, 500 * WAD, 500 * RAY, 0);
+        takeLink(auctionId, 200 * WAD, 200 * RAY, 0);
     }
 
     function testTakeLinkNoProfit() public {
-        wrapEth(50 * WAD, aliAddr);
-        swapEthLink(50 * WAD, 500 * WAD);
-        joinLink(500 * WAD);
-        frobMax(500 * WAD, linkName);
+        wrapEth(20 * WAD, aliAddr);
+        swapEthLink(20 * WAD, 200 * WAD);
+        joinLink(200 * WAD);
+        frobMax(200 * WAD, linkName);
         drip(linkName);
         uint256 auctionId = barkLink();
         hevm.warp(block.timestamp + 50 minutes);
         uint256 daiBobPre = dai.balanceOf(bobAddr);
         uint256 linkBobPre = link.balanceOf(bobAddr);
-        takeLink(auctionId, 500 * WAD, 500 * RAY, 0);
+        takeLink(auctionId, 200 * WAD, 200 * RAY, 0);
         uint256 daiBobPost = dai.balanceOf(bobAddr);
         uint256 linkBobPost = link.balanceOf(bobAddr);
         assertGe(daiBobPost, daiBobPre);
@@ -457,16 +459,16 @@ contract SimulationTests is DSTest, Constants {
     }
 
     function testTakeLinkProfit() public {
-        wrapEth(50 * WAD, aliAddr);
-        swapEthLink(50 * WAD, 500 * WAD);
-        joinLink(500 * WAD);
-        frobMax(500 * WAD, linkName);
+        wrapEth(20 * WAD, aliAddr);
+        swapEthLink(20 * WAD, 200 * WAD);
+        joinLink(200 * WAD);
+        frobMax(200 * WAD, linkName);
         drip(linkName);
         uint256 auctionId = barkLink();
         hevm.warp(block.timestamp + 50 minutes);
         uint256 daiBobPre = dai.balanceOf(bobAddr);
         uint256 linkBobPre = link.balanceOf(bobAddr);
-        takeLink(auctionId, 500 * WAD, 500 * RAY, 100 * WAD);
+        takeLink(auctionId, 200 * WAD, 200 * RAY, 50 * WAD);
         uint256 daiBobPost = dai.balanceOf(bobAddr);
         uint256 linkBobPost = link.balanceOf(bobAddr);
         assertGt(daiBobPost, daiBobPre + 1 * WAD);
@@ -474,24 +476,24 @@ contract SimulationTests is DSTest, Constants {
     }
 
     function testFailTakeLinkInsufficientProfit() public {
-        wrapEth(50 * WAD, aliAddr);
-        swapEthLink(50 * WAD, 500 * WAD);
-        joinLink(500 * WAD);
-        frobMax(500 * WAD, linkName);
+        wrapEth(20 * WAD, aliAddr);
+        swapEthLink(20 * WAD, 200 * WAD);
+        joinLink(200 * WAD);
+        frobMax(200 * WAD, linkName);
         drip(linkName);
         uint256 auctionId = barkLink();
         hevm.warp(block.timestamp + 50 minutes);
-        takeLink(auctionId, 500 * WAD, 500 * RAY, 5000 * WAD);
+        takeLink(auctionId, 200 * WAD, 200 * RAY, 5000 * WAD);
     }
 
     function testFailTakeLinkTooExpensive() public {
-        wrapEth(50 * WAD, aliAddr);
-        swapEthLink(50 * WAD, 500 * WAD);
-        joinLink(500 * WAD);
-        frobMax(500 * WAD, linkName);
+        wrapEth(20 * WAD, aliAddr);
+        swapEthLink(20 * WAD, 200 * WAD);
+        joinLink(200 * WAD);
+        frobMax(200 * WAD, linkName);
         drip(linkName);
         uint256 auctionId = barkLink();
         hevm.warp(block.timestamp + 30 minutes);
-        takeLink(auctionId, 500 * WAD, 5 * RAY, 0);
+        takeLink(auctionId, 200 * WAD, 5 * RAY, 0);
     }
 }
