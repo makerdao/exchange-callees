@@ -151,15 +151,15 @@ contract SimulationTests is DSTest, Constants {
         bobAddr = address(bob);
     }
 
-    function wrapEth(uint256 value) private {
+    function wrapEth(uint256 value, address to) private {
         weth.deposit{ value: value }();
-        weth.transfer(aliAddr, value);
+        weth.transfer(to, value);
     }
 
     function testWrapEth() public {
         uint256 balancePre = weth.balanceOf(aliAddr);
         uint256 value = 1 * WAD;
-        wrapEth(value);
+        wrapEth(value, aliAddr);
         uint256 balancePost = weth.balanceOf(aliAddr);
         assertEq(balancePost, balancePre + value);
     }
@@ -204,7 +204,7 @@ contract SimulationTests is DSTest, Constants {
     }
 
     function testSwapEthLink() public {
-        wrapEth(10 * WAD);
+        wrapEth(10 * WAD, aliAddr);
         uint256 amountIn = 10 * WAD;
         uint256 amountOutMin = 100 * WAD;
         uint256 wethPre = weth.balanceOf(aliAddr);
@@ -231,7 +231,7 @@ contract SimulationTests is DSTest, Constants {
     }
 
     function testSwapLinkDai() public {
-        wrapEth(10 * WAD);
+        wrapEth(10 * WAD, aliAddr);
         swapEthLink(10 * WAD, 100 * WAD);
         uint256 linkPre = link.balanceOf(aliAddr);
         uint256 daiPre = dai.balanceOf(aliAddr);
@@ -252,7 +252,7 @@ contract SimulationTests is DSTest, Constants {
 
     function testJoinLink() public {
         uint256 value = 100 * WAD;
-        wrapEth(10 * WAD);
+        wrapEth(10 * WAD, aliAddr);
         swapEthLink(10 * WAD, value);
         joinLink(value);
         assertEq(vat.gem(ilkName, aliAddr), value);
@@ -266,7 +266,7 @@ contract SimulationTests is DSTest, Constants {
     }
 
     function testFrobMax() public {
-        wrapEth(50 * WAD);
+        wrapEth(50 * WAD, aliAddr);
         swapEthLink(50 * WAD, 500 * WAD);
         joinLink(500 * WAD);
         frobMax(500 * WAD);
@@ -296,7 +296,7 @@ contract SimulationTests is DSTest, Constants {
 
     function testBark() public {
         uint256 kicksPre = clip.kicks();
-        wrapEth(50 * WAD);
+        wrapEth(50 * WAD, aliAddr);
         swapEthLink(50 * WAD, 500 * WAD);
         joinLink(500 * WAD);
         frobMax(500 * WAD);
@@ -327,7 +327,7 @@ contract SimulationTests is DSTest, Constants {
     }
 
     function testTakeBasic() public {
-        wrapEth(50 * WAD);
+        wrapEth(50 * WAD, aliAddr);
         swapEthLink(50 * WAD, 500 * WAD);
         joinLink(500 * WAD);
         frobMax(500 * WAD);
@@ -338,7 +338,7 @@ contract SimulationTests is DSTest, Constants {
     }
 
     function testTakeNoProfit() public {
-        wrapEth(50 * WAD);
+        wrapEth(50 * WAD, aliAddr);
         swapEthLink(50 * WAD, 500 * WAD);
         joinLink(500 * WAD);
         frobMax(500 * WAD);
@@ -355,7 +355,7 @@ contract SimulationTests is DSTest, Constants {
     }
 
     function testTakeProfit() public {
-        wrapEth(50 * WAD);
+        wrapEth(50 * WAD, aliAddr);
         swapEthLink(50 * WAD, 500 * WAD);
         joinLink(500 * WAD);
         frobMax(500 * WAD);
@@ -372,7 +372,7 @@ contract SimulationTests is DSTest, Constants {
     }
 
     function testFailTakeInsufficientProfit() public {
-        wrapEth(50 * WAD);
+        wrapEth(50 * WAD, aliAddr);
         swapEthLink(50 * WAD, 500 * WAD);
         joinLink(500 * WAD);
         frobMax(500 * WAD);
@@ -383,7 +383,7 @@ contract SimulationTests is DSTest, Constants {
     }
 
     function testFailTakeTooExpensive() public {
-        wrapEth(50 * WAD);
+        wrapEth(50 * WAD, aliAddr);
         swapEthLink(50 * WAD, 500 * WAD);
         joinLink(500 * WAD);
         frobMax(500 * WAD);
