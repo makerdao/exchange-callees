@@ -69,7 +69,7 @@ contract Constants {
 
     uint256 constant WAD = 1E18;
     uint256 constant RAY = 1E27;
-    bytes32 constant ilkName = "LINK-A";
+    bytes32 constant linkName = "LINK-A";
 
     address wethAddr;
     address linkAddr;
@@ -334,14 +334,14 @@ contract SimulationTests is DSTest, Constants {
         wrapEth(10 * WAD, aliAddr);
         swapEthLink(10 * WAD, value);
         joinLink(value);
-        assertEq(vat.gem(ilkName, aliAddr), value);
+        assertEq(vat.gem(linkName, aliAddr), value);
     }
 
     function frobMax(uint256 gem) private {
         uint256 ink = gem;
-        (, uint256 rate, uint256 spot, ,) = vat.ilks(ilkName);
+        (, uint256 rate, uint256 spot, ,) = vat.ilks(linkName);
         uint256 art = ink * spot / rate;
-        vat.frob(ilkName, aliAddr, aliAddr, aliAddr, int256(ink), int256(art));
+        vat.frob(linkName, aliAddr, aliAddr, aliAddr, int256(ink), int256(art));
     }
 
     function testFrobMax() public {
@@ -349,27 +349,27 @@ contract SimulationTests is DSTest, Constants {
         swapEthLink(50 * WAD, 500 * WAD);
         joinLink(500 * WAD);
         frobMax(500 * WAD);
-        assertEq(vat.gem(ilkName, aliAddr), 0);
-        (uint256 ink, uint256 actualArt) = vat.urns(ilkName, aliAddr);
+        assertEq(vat.gem(linkName, aliAddr), 0);
+        (uint256 ink, uint256 actualArt) = vat.urns(linkName, aliAddr);
         assertEq(ink, 500 * WAD);
-        (, uint256 rate, uint256 spot, ,) = vat.ilks(ilkName);
+        (, uint256 rate, uint256 spot, ,) = vat.ilks(linkName);
         uint256 expectedArt = ink * spot / rate;
         assertEq(actualArt, expectedArt);
     }
 
     function drip() private {
-        jug.drip(ilkName);
+        jug.drip(linkName);
     }
 
     function testDrip() public {
-        (, uint256 ratePre, , , ) = vat.ilks(ilkName);
+        (, uint256 ratePre, , , ) = vat.ilks(linkName);
         drip();
-        (, uint256 ratePost, , , ) = vat.ilks(ilkName);
+        (, uint256 ratePost, , , ) = vat.ilks(linkName);
         assertGt(ratePost, ratePre);
     }
 
     function bark() private returns (uint256 auctionId) {
-        dog.bark(ilkName, aliAddr, aliAddr);
+        dog.bark(linkName, aliAddr, aliAddr);
         auctionId = clip.kicks();
     }
 
