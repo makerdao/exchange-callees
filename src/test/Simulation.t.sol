@@ -360,18 +360,18 @@ contract SimulationTests is DSTest, Constants {
         assertEq(gemPost, gemPre + value);
     }
 
-    function frobMax(uint256 gem) private {
+    function frobMax(uint256 gem, bytes32 ilkName) private {
         uint256 ink = gem;
-        (, uint256 rate, uint256 spot, ,) = vat.ilks(linkName);
+        (, uint256 rate, uint256 spot, ,) = vat.ilks(ilkName);
         uint256 art = ink * spot / rate;
-        vat.frob(linkName, aliAddr, aliAddr, aliAddr, int256(ink), int256(art));
+        vat.frob(ilkName, aliAddr, aliAddr, aliAddr, int256(ink), int256(art));
     }
 
     function testFrobMax() public {
         wrapEth(50 * WAD, aliAddr);
         swapEthLink(50 * WAD, 500 * WAD);
         joinLink(500 * WAD);
-        frobMax(500 * WAD);
+        frobMax(500 * WAD, linkName);
         assertEq(vat.gem(linkName, aliAddr), 0);
         (uint256 ink, uint256 actualArt) = vat.urns(linkName, aliAddr);
         assertEq(ink, 500 * WAD);
@@ -401,7 +401,7 @@ contract SimulationTests is DSTest, Constants {
         wrapEth(50 * WAD, aliAddr);
         swapEthLink(50 * WAD, 500 * WAD);
         joinLink(500 * WAD);
-        frobMax(500 * WAD);
+        frobMax(500 * WAD, linkName);
         drip();
         uint256 auctionId = bark();
         uint256 kicksPost = clip.kicks();
@@ -432,7 +432,7 @@ contract SimulationTests is DSTest, Constants {
         wrapEth(50 * WAD, aliAddr);
         swapEthLink(50 * WAD, 500 * WAD);
         joinLink(500 * WAD);
-        frobMax(500 * WAD);
+        frobMax(500 * WAD, linkName);
         drip();
         uint256 auctionId = bark();
         hevm.warp(block.timestamp + 50 minutes);
@@ -443,7 +443,7 @@ contract SimulationTests is DSTest, Constants {
         wrapEth(50 * WAD, aliAddr);
         swapEthLink(50 * WAD, 500 * WAD);
         joinLink(500 * WAD);
-        frobMax(500 * WAD);
+        frobMax(500 * WAD, linkName);
         drip();
         uint256 auctionId = bark();
         hevm.warp(block.timestamp + 50 minutes);
@@ -460,7 +460,7 @@ contract SimulationTests is DSTest, Constants {
         wrapEth(50 * WAD, aliAddr);
         swapEthLink(50 * WAD, 500 * WAD);
         joinLink(500 * WAD);
-        frobMax(500 * WAD);
+        frobMax(500 * WAD, linkName);
         drip();
         uint256 auctionId = bark();
         hevm.warp(block.timestamp + 50 minutes);
@@ -477,7 +477,7 @@ contract SimulationTests is DSTest, Constants {
         wrapEth(50 * WAD, aliAddr);
         swapEthLink(50 * WAD, 500 * WAD);
         joinLink(500 * WAD);
-        frobMax(500 * WAD);
+        frobMax(500 * WAD, linkName);
         drip();
         uint256 auctionId = bark();
         hevm.warp(block.timestamp + 50 minutes);
@@ -488,7 +488,7 @@ contract SimulationTests is DSTest, Constants {
         wrapEth(50 * WAD, aliAddr);
         swapEthLink(50 * WAD, 500 * WAD);
         joinLink(500 * WAD);
-        frobMax(500 * WAD);
+        frobMax(500 * WAD, linkName);
         drip();
         uint256 auctionId = bark();
         hevm.warp(block.timestamp + 30 minutes);
