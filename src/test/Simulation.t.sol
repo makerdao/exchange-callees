@@ -81,7 +81,7 @@ contract Constants {
     address daiJoinAddr;
     address dogAddr;
     address jugAddr;
-    address clipAddr;
+    address linkClipAddr;
     address lpDaiEthAddr;
     address lpDaiEthJoinAddr;
 
@@ -94,7 +94,7 @@ contract Constants {
     GemJoinAbstract linkJoin;
     DogAbstract dog;
     JugAbstract jug;
-    ClipAbstract clip;
+    ClipAbstract linkClip;
     GemAbstract lpDaiEth;
     GemJoinAbstract lpDaiEthJoin;
 
@@ -112,7 +112,7 @@ contract Constants {
         daiJoinAddr = chainLog.getAddress("MCD_JOIN_DAI");
         dogAddr = chainLog.getAddress("MCD_DOG");
         jugAddr = chainLog.getAddress("MCD_JUG");
-        clipAddr = chainLog.getAddress("MCD_CLIP_LINK_A");
+        linkClipAddr = chainLog.getAddress("MCD_CLIP_LINK_A");
         lpDaiEthAddr = chainLog.getAddress("UNIV2DAIETH");
         lpDaiEthJoinAddr = chainLog.getAddress("MCD_JOIN_UNIV2DAIETH_A");
     }
@@ -127,7 +127,7 @@ contract Constants {
         linkJoin = GemJoinAbstract(linkJoinAddr);
         dog = DogAbstract(dogAddr);
         jug = JugAbstract(jugAddr);
-        clip = ClipAbstract(clipAddr);
+        linkClip = ClipAbstract(linkClipAddr);
         lpDaiEth = GemAbstract(lpDaiEthAddr);
         lpDaiEthJoin = GemJoinAbstract(lpDaiEthJoinAddr);
     }
@@ -393,21 +393,21 @@ contract SimulationTests is DSTest, Constants {
 
     function barkLink() private returns (uint256 auctionId) {
         dog.bark(linkName, aliAddr, aliAddr);
-        auctionId = clip.kicks();
+        auctionId = linkClip.kicks();
     }
 
     function testBarkLink() public {
-        uint256 kicksPre = clip.kicks();
+        uint256 kicksPre = linkClip.kicks();
         wrapEth(50 * WAD, aliAddr);
         swapEthLink(50 * WAD, 500 * WAD);
         joinLink(500 * WAD);
         frobMax(500 * WAD, linkName);
         drip(linkName);
         uint256 auctionId = barkLink();
-        uint256 kicksPost = clip.kicks();
+        uint256 kicksPost = linkClip.kicks();
         assertEq(auctionId, kicksPost);
         assertEq(kicksPost, kicksPre + 1);
-        (, , uint256 lot, address usr, uint96 tic, ) = clip.sales(auctionId);
+        (,, uint256 lot, address usr, uint96 tic,) = linkClip.sales(auctionId);
         assertEq(usr, aliAddr);
         assertEq(lot, 500 * WAD);
         assertEq(tic, block.timestamp);
@@ -419,13 +419,13 @@ contract SimulationTests is DSTest, Constants {
         uint256 max,
         uint256 minProfit
     ) public {
-        vat.hope(clipAddr);
+        vat.hope(linkClipAddr);
         address[] memory path = new address[](3);
         path[0] = linkAddr;
         path[1] = wethAddr;
         path[2] = daiAddr;
         bytes memory data = abi.encode(bobAddr, linkJoinAddr, minProfit, path);
-        clip.take(auctionId, amt, max, bobAddr, data);
+        linkClip.take(auctionId, amt, max, bobAddr, data);
     }
 
     function testTakeLinkBasic() public {
