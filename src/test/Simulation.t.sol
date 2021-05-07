@@ -46,6 +46,15 @@ interface UniV2Router02Abstract {
         uint amountETH,
         uint liquidity
     );
+
+    function removeLiquidityETH(
+        address token,
+        uint liquidity,
+        uint amountTokenMin,
+        uint amountETHMin,
+        address to,
+        uint deadline
+    ) external returns (uint amountToken, uint amountETH);
 }
 
 interface WethAbstract is GemAbstract {
@@ -231,6 +240,33 @@ contract SimulationTests is DSTest, Constants {
         getLpDaiEth();
         uint256 lpDaiEthPost = lpDaiEth.balanceOf(address(this));
         assertGt(lpDaiEthPost, lpDaiEthPre);
+    }
+
+    function burnLpDaiEth() private {
+        uniRouter.removeLiquidityETH({
+            token: daiAddr,
+            liquidity: 30 * WAD,
+            amountTokenMin: 1 * WAD,
+            amountETHMin: 1 szabo,
+            to: address(this),
+            deadline: block.timestamp + 1 days
+        });
+    }
+
+    function testBurnLpDaiEth() public {
+        wrapEth(1 * WAD, address(this));
+        weth.approve(uniAddr, type(uint256).max);
+        swapEthDai(1 * WAD, 100 * WAD);
+        dai.approve(uniAddr, type(uint256).max);
+        getLpDaiEth();
+        lpDaiEth.approve(uniAddr, type(uint256).max);
+        uint256 lpDaiEthPre = lpDaiEth.balanceOf(address(this));
+        uint256 ethPre = address(this).balance;
+        burnLpDaiEth();
+        uint256 lpDaiEthPost = lpDaiEth.balanceOf(address(this));
+        uint256 ethPost = address(this).balance;
+        assertLt(lpDaiEthPost, lpDaiEthPre);
+        assertGt(ethPost, ethPre);
     }
 
     function swapEthLink(uint256 amountIn, uint256 amountOutMin) private {
