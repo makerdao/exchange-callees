@@ -25,6 +25,7 @@ interface Hevm {
 }
 
 interface UniV2Router02Abstract {
+
     function swapExactTokensForTokens(
         uint256 amountIn,
         uint256 amountOutMin,
@@ -32,6 +33,19 @@ interface UniV2Router02Abstract {
         address to,
         uint256 deadline
     ) external returns (uint[] memory amounts);
+
+    function addLiquidityETH(
+        address token,
+        uint amountTokenDesired,
+        uint amountTokenMin,
+        uint amountETHMin,
+        address to,
+        uint deadline
+    ) external payable returns (
+        uint amountToken,
+        uint amountETH,
+        uint liquidity
+    );
 }
 
 interface WethAbstract is GemAbstract {
@@ -58,6 +72,7 @@ contract Constants {
     address dogAddr;
     address jugAddr;
     address clipAddr;
+    address lpDaiEthAddr;
 
     Hevm hevm;
     UniV2Router02Abstract uniRouter;
@@ -69,6 +84,7 @@ contract Constants {
     DogAbstract dog;
     JugAbstract jug;
     ClipAbstract clip;
+    GemAbstract lpDaiEth;
 
     UniswapV2CalleeDai callee;
 
@@ -85,6 +101,7 @@ contract Constants {
         dogAddr = chainLog.getAddress("MCD_DOG");
         jugAddr = chainLog.getAddress("MCD_JUG");
         clipAddr = chainLog.getAddress("MCD_CLIP_LINK_A");
+        lpDaiEthAddr = chainLog.getAddress("UNIV2DAIETH");
     }
 
     function setInterfaces() private {
@@ -98,6 +115,7 @@ contract Constants {
         dog = DogAbstract(dogAddr);
         jug = JugAbstract(jugAddr);
         clip = ClipAbstract(clipAddr);
+        lpDaiEth = GemAbstract(lpDaiEthAddr);
     }
 
     function deployContracts() private {
@@ -189,6 +207,30 @@ contract SimulationTests is DSTest, Constants {
         uint256 daiPost = dai.balanceOf(address(this));
         assertEq(wethPost, wethPre - amountIn);
         assertGe(daiPost, daiPre + amountOutMin);
+    }
+
+    function getLpDaiEth() private {
+        uniRouter.addLiquidityETH{value: 1 ether}({
+            token: daiAddr,
+            amountTokenDesired: 3000 * WAD,
+            amountTokenMin: 50 * WAD,
+            amountETHMin: 1 szabo,
+            to: address(this),
+            deadline: block.timestamp + 1 days
+        });
+    }
+
+    receive() external payable {}
+
+    function testGetLpDaiEth() public {
+        wrapEth(1 * WAD, address(this));
+        weth.approve(uniAddr, type(uint256).max);
+        swapEthDai(1 * WAD, 100 * WAD);
+        dai.approve(uniAddr, type(uint256).max);
+        uint256 lpDaiEthPre = lpDaiEth.balanceOf(address(this));
+        getLpDaiEth();
+        uint256 lpDaiEthPost = lpDaiEth.balanceOf(address(this));
+        assertGt(lpDaiEthPost, lpDaiEthPre);
     }
 
     function swapEthLink(uint256 amountIn, uint256 amountOutMin) private {
