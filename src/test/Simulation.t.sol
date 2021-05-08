@@ -51,11 +51,12 @@ interface UniV2Router02Abstract {
         uint liquidity
     );
 
-    function removeLiquidityETH(
-        address token,
+    function removeLiquidity(
+        address tokenA,
+        address tokenB,
         uint liquidity,
-        uint amountTokenMin,
-        uint amountETHMin,
+        uint amountAMin,
+        uint amountBMin,
         address to,
         uint deadline
     ) external returns (uint amountToken, uint amountETH);
@@ -302,11 +303,12 @@ contract SimulationTests is DSTest, Constants {
     }
 
     function burnLpDaiEth() private {
-        uniRouter.removeLiquidityETH({
-            token: daiAddr,
+        uniRouter.removeLiquidity({
+            tokenA: daiAddr,
+            tokenB: wethAddr,
             liquidity: 30 * WAD,
-            amountTokenMin: 1 * WAD,
-            amountETHMin: 1 szabo,
+            amountAMin: 1 * WAD,
+            amountBMin: 1 szabo,
             to: address(this),
             deadline: block.timestamp + 1 days
         });
@@ -320,12 +322,15 @@ contract SimulationTests is DSTest, Constants {
         getLpDaiEth();
         lpDaiEth.approve(uniAddr, type(uint256).max);
         uint256 lpDaiEthPre = lpDaiEth.balanceOf(address(this));
-        uint256 ethPre = address(this).balance;
+        uint256 daiPre = dai.balanceOf(address(this));
+        uint256 wethPre = weth.balanceOf(address(this));
         burnLpDaiEth();
         uint256 lpDaiEthPost = lpDaiEth.balanceOf(address(this));
-        uint256 ethPost = address(this).balance;
+        uint256 daiPost = dai.balanceOf(address(this));
+        uint256 wethPost = weth.balanceOf(address(this));
         assertLt(lpDaiEthPost, lpDaiEthPre);
-        assertGt(ethPost, ethPre);
+        assertGt(daiPost, daiPre);
+        assertGt(wethPost, wethPre);
     }
 
     function swapEthLink(uint256 amountIn, uint256 amountOutMin) private {
