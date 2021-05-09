@@ -36,10 +36,21 @@ interface TokenLike {
     function approve(address, uint256) external;
     function transfer(address, uint256) external;
     function balanceOf(address) external view returns (uint256);
+    function token0() external view returns (TokenLike);
+    function token1() external view returns (TokenLike);
 }
 
 interface UniswapV2Router02Like {
     function swapExactTokensForTokens(uint256, uint256, address[] calldata, address, uint256) external returns (uint[] memory);
+    function removeLiquidity(
+        address tokenA,
+        address tokenB,
+        uint liquidity,
+        uint amountAMin,
+        uint amountBMin,
+        address to,
+        uint deadline
+    ) external returns (uint amountA, uint amountB);
 }
 
 // Simple Callee Example to interact with MatchingMarket
@@ -80,6 +91,25 @@ contract UniswapV2CalleeDai is UniswapV2Callee {
         setUp(uniRouter02_, daiJoin_);
     }
 
+    function swapGemForDai(
+        TokenLike token,
+        address[] memory path,
+        address to
+    ) internal {
+        uint256 amountIn = token.balanceOf(address(this));
+        token.approve(address(uniRouter02), amountIn);
+        uniRouter02.swapExactTokensForTokens(
+            amountIn,
+            0, // amountOutMin is zero because minProfit is checked at the end
+            path,
+            address(this),
+            block.timestamp
+        );
+        if (token.balanceOf(address(this)) > 0) {
+            token.transfer(to, token.balanceOf(address(this)));
+        }
+    }
+
     function clipperCall(
         address sender,         // Clipper Caller and Dai deliveryaddress
         uint256 daiAmt,         // Dai amount to payback[rad]
@@ -90,8 +120,9 @@ contract UniswapV2CalleeDai is UniswapV2Callee {
             address to,           // address to send remaining DAI to
             address gemJoin,      // gemJoin adapter address
             uint256 minProfit,    // minimum profit in DAI to make [wad]
-            address[] memory path // Uniswap pool path
-        ) = abi.decode(data, (address, address, uint256, address[]));
+            address[] memory pathA, // Uniswap pool path
+            address[] memory pathB  // path of token B (LP tokens only)
+        ) = abi.decode(data, (address, address, uint256, address[], address[]));
 
         // Convert gem amount to token precision
         gemAmt = _fromWad(gemJoin, gemAmt);
@@ -107,13 +138,36 @@ contract UniswapV2CalleeDai is UniswapV2Callee {
         uint256 daiToJoin = divup(daiAmt, RAY);
 
         // Do operation and get dai amount bought (checking the profit is achieved)
-        uniRouter02.swapExactTokensForTokens(
-            gemAmt,
-            add(daiToJoin, minProfit),
-            path,
-            address(this),
-            block.timestamp
-        );
+        try gem.token0() returns (TokenLike tokenA) { // gem is an LP token
+            TokenLike tokenB = gem.token1();
+            uniRouter02.removeLiquidity({ // burn token to obtain its components
+                tokenA: address(tokenA),
+                tokenB: address(tokenB),
+                liquidity: gemAmt,
+                amountAMin: 0, // minProfit is checked below
+                amountBMin: 0,
+                to: address(this),
+                deadline: block.timestamp
+            });
+            if (address(tokenA) != address(dai)) {
+                swapGemForDai(tokenA, pathA, to);
+            }
+            if (address(tokenB) != address(dai)) {
+                swapGemForDai(tokenB, pathB, to);
+            }
+            require(
+                dai.balanceOf(address(this)) >= add(daiToJoin, minProfit),
+                "UniswapV2Callee/insufficient-profit"
+            );
+        } catch {                                     // gem is not an LP token
+            uniRouter02.swapExactTokensForTokens(
+                gemAmt,
+                add(daiToJoin, minProfit),
+                pathA,
+                address(this),
+                block.timestamp
+            );
+        }
 
         // Although Uniswap will accept all gems, this check is a sanity check, just in case
         // Transfer any lingering gem to specified address
