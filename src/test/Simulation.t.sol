@@ -75,6 +75,11 @@ contract Constants {
     uint256 constant WAD = 1E18;
     uint256 constant RAY = 1E27;
     uint256 constant RAD = 1E45;
+
+    function wmul(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        z = x * y / WAD;
+    }
+
     bytes32 constant linkName = "LINK-A";
     bytes32 constant lpDaiEthName = "UNIV2DAIETH-A";
 
@@ -94,6 +99,7 @@ contract Constants {
     address vowAddr;
     address lpDaiEthCalcAddr;
     address lpDaiEthPipAddr;
+    address linkPipAddr;
 
     Hevm hevm;
     UniV2Router02Abstract uniRouter;
@@ -108,6 +114,7 @@ contract Constants {
     GemAbstract lpDaiEth;
     GemJoinAbstract lpDaiEthJoin;
     LPOsmAbstract lpDaiEthPip;
+    OsmAbstract linkPip;
 
     function setAddresses() private {
         ChainlogHelper helper = new ChainlogHelper();
@@ -126,6 +133,7 @@ contract Constants {
         lpDaiEthJoinAddr = chainLog.getAddress("MCD_JOIN_UNIV2DAIETH_A");
         vowAddr = chainLog.getAddress("MCD_VOW");
         lpDaiEthPipAddr = chainLog.getAddress("PIP_UNIV2DAIETH");
+        linkPipAddr = chainLog.getAddress("PIP_LINK");
     }
 
     function setInterfaces() private {
@@ -142,6 +150,7 @@ contract Constants {
         lpDaiEth = GemAbstract(lpDaiEthAddr);
         lpDaiEthJoin = GemJoinAbstract(lpDaiEthJoinAddr);
         lpDaiEthPip = LPOsmAbstract(lpDaiEthPipAddr);
+        linkPip = OsmAbstract(linkPipAddr);
     }
 
     constructor () public {
@@ -202,6 +211,11 @@ contract SimulationTests is DSTest, Constants {
             keccak256(abi.encode(address(this), uint256(0))),
             bytes32(uint256(1))
         );
+        hevm.store(
+            linkPipAddr,
+            keccak256(abi.encode(address(this), uint256(0))),
+            bytes32(uint256(1))
+        );
     }
 
     function deployLpDaiEthClip() private {
@@ -236,6 +250,11 @@ contract SimulationTests is DSTest, Constants {
         bob = new UniswapV2CalleeDai(uniAddr, daiJoinAddr);
         bobAddr = address(bob);
         deployLpDaiEthClip();
+    }
+
+    function getLinkPrice() private returns (uint256 val) {
+        linkPip.kiss(address(this));
+        val = uint256(linkPip.read());
     }
 
     function wrapEth(uint256 value, address to) private {
@@ -379,7 +398,8 @@ contract SimulationTests is DSTest, Constants {
         uint256 linkPre = link.balanceOf(aliAddr);
         uint256 daiPre = dai.balanceOf(aliAddr);
         uint256 amountIn = 100 * WAD;
-        uint256 amountOutMin = 1000 * WAD;
+        uint256 linkPrice = getLinkPrice();
+        uint256 amountOutMin = wmul(amountIn, linkPrice) * 9 / 10;
         swapLinkDai(amountIn, amountOutMin);
         uint256 linkPost = link.balanceOf(aliAddr);
         uint256 daiPost = dai.balanceOf(aliAddr);
