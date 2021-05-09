@@ -455,11 +455,6 @@ contract SimulationTests is DSTest, Constants {
         auctionId = linkClip.kicks();
     }
 
-    function barkLpDaiEth() private returns (uint256 auctionId) {
-        dog.bark(lpDaiEthName, aliAddr, aliAddr);
-        auctionId = lpDaiEthClip.kicks();
-    }
-
     function testBarkLink() public {
         uint256 kicksPre = linkClip.kicks();
         wrapEth(20 * WAD, aliAddr);
@@ -475,6 +470,11 @@ contract SimulationTests is DSTest, Constants {
         assertEq(usr, aliAddr);
         assertEq(lot, 200 * WAD);
         assertEq(tic, block.timestamp);
+    }
+
+    function barkLpDaiEth() private returns (uint256 auctionId) {
+        dog.bark(lpDaiEthName, aliAddr, aliAddr);
+        auctionId = lpDaiEthClip.kicks();
     }
 
     function testBarkLpDaiEth() public {
@@ -519,36 +519,6 @@ contract SimulationTests is DSTest, Constants {
             pathB
         );
         linkClip.take(auctionId, amt, max, bobAddr, data);
-    }
-
-    function takeLpDaiEth(
-        uint256 auctionId,
-        uint256 amt,
-        uint256 max,
-        uint256 minProfit
-    ) public {
-        vat.hope(lpDaiEthClipAddr);
-        address[] memory pathA;
-        address[] memory pathB = new address[](2);
-        pathB[0] = wethAddr;
-        pathB[1] = daiAddr;
-        bytes memory data
-            = abi.encode(bobAddr, lpDaiEthJoinAddr, minProfit, pathA, pathB);
-        lpDaiEthClip.take(auctionId, amt, max, bobAddr, data);
-    }
-
-    function testTakeLpDaiEthBasic() public {
-        wrapEth(10 * WAD, address(this));
-        weth.approve(uniAddr, type(uint256).max);
-        swapEthDai(10 * WAD, 1000 * WAD);
-        dai.approve(uniAddr, type(uint256).max);
-        getLpDaiEth();
-        joinLpDaiEth(300 * WAD);
-        frobMax(300 * WAD, lpDaiEthName);
-        drip(lpDaiEthName);
-        uint256 auctionId = barkLpDaiEth();
-        hevm.warp(block.timestamp + 50 minutes);
-        takeLpDaiEth(auctionId, 300 * WAD, 300 * RAY, 0);
     }
 
     function testTakeLinkBasic() public {
@@ -616,5 +586,35 @@ contract SimulationTests is DSTest, Constants {
         uint256 auctionId = barkLink();
         hevm.warp(block.timestamp + 30 minutes);
         takeLink(auctionId, 200 * WAD, 5 * RAY, 0);
+    }
+
+    function takeLpDaiEth(
+        uint256 auctionId,
+        uint256 amt,
+        uint256 max,
+        uint256 minProfit
+    ) public {
+        vat.hope(lpDaiEthClipAddr);
+        address[] memory pathA;
+        address[] memory pathB = new address[](2);
+        pathB[0] = wethAddr;
+        pathB[1] = daiAddr;
+        bytes memory data
+            = abi.encode(bobAddr, lpDaiEthJoinAddr, minProfit, pathA, pathB);
+        lpDaiEthClip.take(auctionId, amt, max, bobAddr, data);
+    }
+
+    function testTakeLpDaiEthBasic() public {
+        wrapEth(10 * WAD, address(this));
+        weth.approve(uniAddr, type(uint256).max);
+        swapEthDai(10 * WAD, 1000 * WAD);
+        dai.approve(uniAddr, type(uint256).max);
+        getLpDaiEth();
+        joinLpDaiEth(300 * WAD);
+        frobMax(300 * WAD, lpDaiEthName);
+        drip(lpDaiEthName);
+        uint256 auctionId = barkLpDaiEth();
+        hevm.warp(block.timestamp + 50 minutes);
+        takeLpDaiEth(auctionId, 300 * WAD, 300 * RAY, 0);
     }
 }
