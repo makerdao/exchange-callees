@@ -447,13 +447,13 @@ contract SimulationTests is DSTest, Constants {
     }
 
     function testFrobMax() public {
-        wrapEth(20 * WAD, aliAddr);
-        swapEthLink(20 * WAD, 200 * WAD);
-        joinLink(200 * WAD);
-        frobMax(200 * WAD, linkName);
+        wrapEth(200 * WAD, aliAddr);
+        swapEthLink(200 * WAD, 2_000 * WAD);
+        joinLink(2_000 * WAD);
+        frobMax(2_000 * WAD, linkName);
         assertEq(vat.gem(linkName, aliAddr), 0);
         (uint256 ink, uint256 actualArt) = vat.urns(linkName, aliAddr);
-        assertEq(ink, 200 * WAD);
+        assertEq(ink, 2_000 * WAD);
         (, uint256 rate, uint256 spot, ,) = vat.ilks(linkName);
         uint256 expectedArt = ink * spot / rate;
         assertEq(actualArt, expectedArt);
@@ -477,10 +477,10 @@ contract SimulationTests is DSTest, Constants {
 
     function testBarkLink() public {
         uint256 kicksPre = linkClip.kicks();
-        wrapEth(20 * WAD, aliAddr);
-        swapEthLink(20 * WAD, 200 * WAD);
-        joinLink(200 * WAD);
-        frobMax(200 * WAD, linkName);
+        wrapEth(200 * WAD, aliAddr);
+        swapEthLink(200 * WAD, 2_000 * WAD);
+        joinLink(2_000 * WAD);
+        frobMax(2_000 * WAD, linkName);
         drip(linkName);
         uint256 auctionId = barkLink();
         uint256 kicksPost = linkClip.kicks();
@@ -488,7 +488,7 @@ contract SimulationTests is DSTest, Constants {
         assertEq(kicksPost, kicksPre + 1);
         (,, uint256 lot, address usr, uint96 tic,) = linkClip.sales(auctionId);
         assertEq(usr, aliAddr);
-        assertEq(lot, 200 * WAD);
+        assertEq(lot, 2_000 * WAD);
         assertEq(tic, block.timestamp);
     }
 
@@ -542,27 +542,27 @@ contract SimulationTests is DSTest, Constants {
     }
 
     function testTakeLinkBasic() public {
-        wrapEth(20 * WAD, aliAddr);
-        swapEthLink(20 * WAD, 200 * WAD);
-        joinLink(200 * WAD);
-        frobMax(200 * WAD, linkName);
+        wrapEth(200 * WAD, aliAddr);
+        swapEthLink(200 * WAD, 2000 * WAD);
+        joinLink(2_000 * WAD);
+        frobMax(2_000 * WAD, linkName);
         drip(linkName);
         uint256 auctionId = barkLink();
         hevm.warp(block.timestamp + 50 minutes);
-        takeLink(auctionId, 200 * WAD, 200 * RAY, 0);
+        takeLink(auctionId, 2_000 * WAD, 2_000 * RAY, 0);
     }
 
     function testTakeLinkNoProfit() public {
-        wrapEth(20 * WAD, aliAddr);
-        swapEthLink(20 * WAD, 200 * WAD);
-        joinLink(200 * WAD);
-        frobMax(200 * WAD, linkName);
+        wrapEth(200 * WAD, aliAddr);
+        swapEthLink(200 * WAD, 2_000 * WAD);
+        joinLink(2_000 * WAD);
+        frobMax(2_000 * WAD, linkName);
         drip(linkName);
         uint256 auctionId = barkLink();
         hevm.warp(block.timestamp + 50 minutes);
         uint256 daiBobPre = dai.balanceOf(bobAddr);
         uint256 linkBobPre = link.balanceOf(bobAddr);
-        takeLink(auctionId, 200 * WAD, 200 * RAY, 0);
+        takeLink(auctionId, 2_000 * WAD, 2_000 * RAY, 0);
         uint256 daiBobPost = dai.balanceOf(bobAddr);
         uint256 linkBobPost = link.balanceOf(bobAddr);
         assertGe(daiBobPost, daiBobPre);
@@ -570,16 +570,16 @@ contract SimulationTests is DSTest, Constants {
     }
 
     function testTakeLinkProfit() public {
-        wrapEth(20 * WAD, aliAddr);
-        swapEthLink(20 * WAD, 200 * WAD);
-        joinLink(200 * WAD);
-        frobMax(200 * WAD, linkName);
+        wrapEth(200 * WAD, aliAddr);
+        swapEthLink(200 * WAD, 2_000 * WAD);
+        joinLink(2_000 * WAD);
+        frobMax(2_000 * WAD, linkName);
         drip(linkName);
         uint256 auctionId = barkLink();
         hevm.warp(block.timestamp + 50 minutes);
         uint256 daiBobPre = dai.balanceOf(bobAddr);
         uint256 linkBobPre = link.balanceOf(bobAddr);
-        takeLink(auctionId, 200 * WAD, 200 * RAY, 50 * WAD);
+        takeLink(auctionId, 2_000 * WAD, 2_000 * RAY, 50 * WAD);
         uint256 daiBobPost = dai.balanceOf(bobAddr);
         uint256 linkBobPost = link.balanceOf(bobAddr);
         assertGt(daiBobPost, daiBobPre + 1 * WAD);
