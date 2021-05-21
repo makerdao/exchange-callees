@@ -60,6 +60,9 @@ interface UniV2Router02Abstract {
         address to,
         uint deadline
     ) external returns (uint amountToken, uint amountETH);
+
+    function getAmountIn(uint amountOut, uint reserveIn, uint reserveOut) 
+        external pure returns (uint amountIn);
 }
 
 interface WethAbstract is GemAbstract {
@@ -275,8 +278,11 @@ contract SimulationTests is DSTest, Constants {
         assertEq(balancePost, balancePre + value);
     }
 
-    function swapWethDai(uint256 amountWeth) 
-        private returns (uint256 amountDai) {
+    function getDai(uint256 amountDai) private {
+        (uint112 reserveDai, uint112 reserveWeth, ) = lpDaiEth.getReserves();
+        uint256 amountWeth = uniRouter.getAmountIn(amountDai, reserveWeth, reserveDai);
+        wrapEth(amountWeth, address(this));
+        weth.approve(uniAddr, amountWeth);
         address[] memory path = new address[](2);
         path[0] = wethAddr;
         path[1] = daiAddr;
@@ -287,20 +293,17 @@ contract SimulationTests is DSTest, Constants {
             to: address(this),
             deadline: block.timestamp
         });
-        amountDai = dai.balanceOf(address(this));
     }
 
-    function testSwapWethDai() public {
-        uint256 amountEth = 1 * WAD;
-        wrapEth(amountEth, address(this));
-        weth.approve(uniAddr, type(uint256).max);
-        uint256 wethPre = weth.balanceOf(address(this));
+    function swapWethDai(uint256 i) public {}
+
+    function testGetDai() public {
+        uint256 amountDai = 10 * WAD;
         uint256 daiPre = dai.balanceOf(address(this));
-        uint256 amountDai = swapWethDai(amountEth);
-        uint256 wethPost = weth.balanceOf(address(this));
+        getDai(amountDai);
         uint256 daiPost = dai.balanceOf(address(this));
-        assertEq(wethPost, wethPre - amountEth);
-        assertEq(daiPost, daiPre + amountDai);
+        assertGt(daiPost, daiPre + amountDai);
+        assertEq(daiPost / 10_000, (daiPre + amountDai) / 10_000);
     }
 
     function getLpDaiEth(uint256 amountEth) private returns (uint256 amount) {
