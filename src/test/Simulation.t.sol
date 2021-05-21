@@ -275,31 +275,32 @@ contract SimulationTests is DSTest, Constants {
         assertEq(balancePost, balancePre + value);
     }
 
-    function swapEthDai(uint256 amountIn, uint256 amountOutMin) private {
+    function swapWethDai(uint256 amountWeth) 
+        private returns (uint256 amountDai) {
         address[] memory path = new address[](2);
         path[0] = wethAddr;
         path[1] = daiAddr;
         uniRouter.swapExactTokensForTokens({
-            amountIn: amountIn,
-            amountOutMin: amountOutMin,
+            amountIn: amountWeth,
+            amountOutMin: 0,
             path: path,
             to: address(this),
             deadline: block.timestamp
         });
+        amountDai = dai.balanceOf(address(this));
     }
 
-    function testSwapEthDai() public {
-        wrapEth(1 * WAD, address(this));
+    function testSwapWethDai() public {
+        uint256 amountEth = 1 * WAD;
+        wrapEth(amountEth, address(this));
         weth.approve(uniAddr, type(uint256).max);
-        uint256 amountIn = 1 * WAD;
-        uint256 amountOutMin = 100 * WAD;
         uint256 wethPre = weth.balanceOf(address(this));
         uint256 daiPre = dai.balanceOf(address(this));
-        swapEthDai(amountIn, amountOutMin);
+        uint256 amountDai = swapWethDai(amountEth);
         uint256 wethPost = weth.balanceOf(address(this));
         uint256 daiPost = dai.balanceOf(address(this));
-        assertEq(wethPost, wethPre - amountIn);
-        assertGe(daiPost, daiPre + amountOutMin);
+        assertEq(wethPost, wethPre - amountEth);
+        assertEq(daiPost, daiPre + amountDai);
     }
 
     function getLpDaiEth(uint256 amountEth) private returns (uint256 amount) {
@@ -321,7 +322,7 @@ contract SimulationTests is DSTest, Constants {
     function testGetLpDaiEth() public {
         wrapEth(10 * WAD, address(this));
         weth.approve(uniAddr, type(uint256).max);
-        swapEthDai(10 * WAD, 1000 * WAD);
+        swapWethDai(10 * WAD);
         dai.approve(uniAddr, type(uint256).max);
         uint256 lpDaiEthPre = lpDaiEth.balanceOf(address(this));
         uint256 amount = getLpDaiEth(10 * WAD);
@@ -345,7 +346,7 @@ contract SimulationTests is DSTest, Constants {
     function testBurnLpDaiEth() public {
         wrapEth(10 * WAD, address(this));
         weth.approve(uniAddr, type(uint256).max);
-        swapEthDai(10 * WAD, 1000 * WAD);
+        swapWethDai(10 * WAD);
         dai.approve(uniAddr, type(uint256).max);
         getLpDaiEth(10 * WAD);
         lpDaiEth.approve(uniAddr, type(uint256).max);
@@ -438,7 +439,7 @@ contract SimulationTests is DSTest, Constants {
     function testJoinLpDaiEth() public {
         wrapEth(10 * WAD, address(this));
         weth.approve(uniAddr, type(uint256).max);
-        swapEthDai(10 * WAD, 1000 * WAD);
+        swapWethDai(10 * WAD);
         dai.approve(uniAddr, type(uint256).max);
         uint256 amount = getLpDaiEth(10 * WAD);
         uint256 gemPre = vat.gem(lpDaiEthName, aliAddr);
@@ -509,7 +510,7 @@ contract SimulationTests is DSTest, Constants {
         uint256 kicksPre = lpDaiEthClip.kicks();
         wrapEth(10 * WAD, address(this));
         weth.approve(uniAddr, type(uint256).max);
-        swapEthDai(10 * WAD, 1000 * WAD);
+        swapWethDai(10 * WAD);
         dai.approve(uniAddr, type(uint256).max);
         uint256 amount = getLpDaiEth(10 * WAD);
         joinLpDaiEth(amount);
@@ -635,7 +636,7 @@ contract SimulationTests is DSTest, Constants {
     function testTakeLpDaiEthBasic() public {
         wrapEth(10 * WAD, address(this));
         weth.approve(uniAddr, type(uint256).max);
-        swapEthDai(10 * WAD, 1000 * WAD);
+        swapWethDai(10 * WAD);
         dai.approve(uniAddr, type(uint256).max);
         uint256 amount = getLpDaiEth(10 * WAD);
         joinLpDaiEth(amount);
