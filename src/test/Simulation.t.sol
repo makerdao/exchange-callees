@@ -556,7 +556,7 @@ contract SimulationTests is DSTest, Constants {
         frobMax(2_000 * WAD, linkName);
         drip(linkName);
         uint256 auctionId = barkLink();
-        hevm.warp(block.timestamp + 50 minutes);
+        hevm.warp(block.timestamp + 1 hours);
         takeLink(auctionId, 2_000 * WAD, 2_000 * RAY, 0);
     }
 
@@ -567,7 +567,7 @@ contract SimulationTests is DSTest, Constants {
         frobMax(2_000 * WAD, linkName);
         drip(linkName);
         uint256 auctionId = barkLink();
-        hevm.warp(block.timestamp + 50 minutes);
+        hevm.warp(block.timestamp + 1 hours);
         uint256 daiBobPre = dai.balanceOf(bobAddr);
         uint256 linkBobPre = link.balanceOf(bobAddr);
         takeLink(auctionId, 2_000 * WAD, 2_000 * RAY, 0);
@@ -584,7 +584,7 @@ contract SimulationTests is DSTest, Constants {
         frobMax(2_000 * WAD, linkName);
         drip(linkName);
         uint256 auctionId = barkLink();
-        hevm.warp(block.timestamp + 50 minutes);
+        hevm.warp(block.timestamp + 1 hours);
         uint256 daiBobPre = dai.balanceOf(bobAddr);
         uint256 linkBobPre = link.balanceOf(bobAddr);
         takeLink(auctionId, 2_000 * WAD, 2_000 * RAY, 50 * WAD);
@@ -601,7 +601,7 @@ contract SimulationTests is DSTest, Constants {
         frobMax(200 * WAD, linkName);
         drip(linkName);
         uint256 auctionId = barkLink();
-        hevm.warp(block.timestamp + 50 minutes);
+        hevm.warp(block.timestamp + 1 hours);
         takeLink(auctionId, 200 * WAD, 200 * RAY, 5000 * WAD);
     }
 
