@@ -352,34 +352,41 @@ contract SimulationTests is DSTest, Constants {
         uint256 expected = 1000 * WAD;
         getLpDaiEth(expected);
         uint256 actual = lpDaiEth.balanceOf(address(this));
+        assertGt(actual, expected);
         assertLt(actual - expected, actual / 10);
     }
 
-    function burnLpDaiEth() private {
+    function burnLpDaiEth(uint256 amount) private {
         uniRouter.removeLiquidity({
             tokenA: daiAddr,
             tokenB: wethAddr,
-            liquidity: 30 * WAD,
-            amountAMin: 1 * WAD,
-            amountBMin: 1 szabo,
+            liquidity: amount,
+            amountAMin: 0,
+            amountBMin: 0,
             to: address(this),
-            deadline: block.timestamp + 1 days
+            deadline: block.timestamp
         });
     }
 
     function testBurnLpDaiEth() public {
-        getLpDaiEth(30 * WAD);
-        lpDaiEth.approve(uniAddr, type(uint256).max);
-        uint256 lpDaiEthPre = lpDaiEth.balanceOf(address(this));
-        uint256 daiPre = dai.balanceOf(address(this));
-        uint256 wethPre = weth.balanceOf(address(this));
-        burnLpDaiEth();
-        uint256 lpDaiEthPost = lpDaiEth.balanceOf(address(this));
-        uint256 daiPost = dai.balanceOf(address(this));
-        uint256 wethPost = weth.balanceOf(address(this));
-        assertLt(lpDaiEthPost, lpDaiEthPre);
-        assertGt(daiPost, daiPre);
-        assertGt(wethPost, wethPre);
+        uint256 totalSupply = lpDaiEth.totalSupply();
+        (uint112 reserveDai, uint112 reserveWeth,) = lpDaiEth.getReserves();
+        uint256 amount = 30 * WAD;
+        getLpDaiEth(amount);
+        assertGt(lpDaiEth.balanceOf(address(this)), amount);
+        assertLt(dai.balanceOf(address(this)), 1 * WAD);
+        assertEq(weth.balanceOf(address(this)), 0);
+        lpDaiEth.approve(uniAddr, amount);
+        burnLpDaiEth(amount);
+        assertLt(lpDaiEth.balanceOf(address(this)), amount / 10);
+        assertEq(
+            dai.balanceOf(address(this)) / WAD,
+            amount * reserveDai / totalSupply / WAD
+        );
+        assertEq(
+            weth.balanceOf(address(this)) / WAD,
+            amount * reserveWeth / totalSupply / WAD
+        );
     }
 
     function swapEthLink(uint256 amountIn, uint256 amountOutMin) private {
