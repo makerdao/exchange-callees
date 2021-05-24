@@ -132,6 +132,7 @@ contract Constants {
     address lpDaiEthCalcAddr;
     address lpDaiEthPipAddr;
     address linkPipAddr;
+    address ethPipAddr;
 
     Hevm hevm;
     UniV2Router02Abstract uniRouter;
@@ -147,6 +148,7 @@ contract Constants {
     GemJoinAbstract lpDaiEthJoin;
     LPOsmAbstract lpDaiEthPip;
     OsmAbstract linkPip;
+    OsmAbstract ethPip;
 
     function setAddresses() private {
         ChainlogHelper helper = new ChainlogHelper();
@@ -166,6 +168,7 @@ contract Constants {
         vowAddr = chainLog.getAddress("MCD_VOW");
         lpDaiEthPipAddr = chainLog.getAddress("PIP_UNIV2DAIETH");
         linkPipAddr = chainLog.getAddress("PIP_LINK");
+        ethPipAddr = chainLog.getAddress("PIP_ETH");
     }
 
     function setInterfaces() private {
@@ -183,6 +186,7 @@ contract Constants {
         lpDaiEthJoin = GemJoinAbstract(lpDaiEthJoinAddr);
         lpDaiEthPip = LPOsmAbstract(lpDaiEthPipAddr);
         linkPip = OsmAbstract(linkPipAddr);
+        ethPip = OsmAbstract(ethPipAddr);
     }
 
     constructor () public {
@@ -248,6 +252,13 @@ contract SimulationTests is DSTest, Constants {
             keccak256(abi.encode(address(this), uint256(0))),
             bytes32(uint256(1))
         );
+        linkPip.kiss(address(this));
+        hevm.store(
+            ethPipAddr,
+            keccak256(abi.encode(address(this), uint256(0))),
+            bytes32(uint256(1))
+        );
+        ethPip.kiss(address(this));
     }
 
     function deployLpDaiEthClip() private {
@@ -285,8 +296,23 @@ contract SimulationTests is DSTest, Constants {
     }
 
     function getLinkPrice() private returns (uint256 val) {
-        linkPip.kiss(address(this));
         val = uint256(linkPip.read());
+    }
+
+    function testGetLinkPrice() public {
+        uint256 price = getLinkPrice();
+        assertGt(price, 0);
+        log_named_uint("LINK price", price / WAD);
+    }
+
+    function getEthPrice() private returns (uint256 val) {
+        val = uint256(ethPip.read());
+    }
+
+    function testGetEthPrice() public {
+        uint256 price = getEthPrice();
+        assertGt(price, 0);
+        log_named_uint("ETH price", price / WAD);
     }
 
     function wrapEth(uint256 value, address to) private {
