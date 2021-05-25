@@ -490,8 +490,7 @@ contract SimulationTests is DSTest, Constants {
         assertEq(gemPost, gemPre + amount);
     }
 
-    function frobMax(uint256 gem, bytes32 ilkName)
-    private returns (uint256 art) {
+    function frobMax(uint256 gem, bytes32 ilkName) private {
         uint256 ink = gem;
         (, uint256 rate, uint256 spot, ,) = vat.ilks(ilkName);
         uint256 art = ink * spot / rate;
@@ -591,6 +590,7 @@ contract SimulationTests is DSTest, Constants {
     }
 
     function testTakeLinkBasic() public {
+        uint256 minProfit = 0;
         (,,,, uint256 dustRad) = vat.ilks(linkName);
         uint256 amountLink = dustRad / RAY;
         getLink(amountLink);
@@ -598,12 +598,22 @@ contract SimulationTests is DSTest, Constants {
         frobMax(amountLink, linkName);
         drip(linkName);
         uint256 auctionId = barkLink();
-        hevm.warp(block.timestamp + 1 hours);
-        takeLink(auctionId, amountLink, 2_000 * RAY, 0);
+        (, uint256 auctionPrice,,) = linkClip.getStatus(auctionId);
+        uint256 linkPrice = getLinkPrice();
+        while (
+            amountLink * auctionPrice / uint256(1e9) 
+            > amountLink * linkPrice + minProfit
+        ) {
+            hevm.warp(block.timestamp + 10 minutes);
+            (, auctionPrice,,) = linkClip.getStatus(auctionId);
+        }
+        takeLink(auctionId, amountLink, auctionPrice, minProfit);
     }
 
     function testTakeLinkNoProfit() public {
-        uint256 amountLink = 2_000 * WAD;
+        uint256 minProfit = 0;
+        (,,,, uint256 dustRad) = vat.ilks(linkName);
+        uint256 amountLink = dustRad / RAY;
         getLink(amountLink);
         joinLink(amountLink);
         frobMax(amountLink, linkName);
