@@ -589,7 +589,7 @@ contract SimulationTests is DSTest, Constants {
         linkClip.take(auctionId, amt, max, bobAddr, data);
     }
 
-    function testTakeLinkBasic() public {
+    function testTakeLinkNoProfit() public {
         uint256 minProfit = 0;
         (,,,, uint256 dustRad) = vat.ilks(linkName);
         uint256 amountLink = dustRad / RAY;
@@ -608,10 +608,11 @@ contract SimulationTests is DSTest, Constants {
             (, auctionPrice,,) = linkClip.getStatus(auctionId);
         }
         takeLink(auctionId, amountLink, auctionPrice, minProfit);
+        assertGe(dai.balanceOf(bobAddr), minProfit);
     }
 
-    function testTakeLinkNoProfit() public {
-        uint256 minProfit = 0;
+    function testTakeLinkProfit() public {
+        uint256 minProfit = 100 * WAD;
         (,,,, uint256 dustRad) = vat.ilks(linkName);
         uint256 amountLink = dustRad / RAY;
         getLink(amountLink);
@@ -619,31 +620,17 @@ contract SimulationTests is DSTest, Constants {
         frobMax(amountLink, linkName);
         drip(linkName);
         uint256 auctionId = barkLink();
-        hevm.warp(block.timestamp + 1 hours);
-        uint256 daiBobPre = dai.balanceOf(bobAddr);
-        uint256 linkBobPre = link.balanceOf(bobAddr);
-        takeLink(auctionId, 2_000 * WAD, 2_000 * RAY, 0);
-        uint256 daiBobPost = dai.balanceOf(bobAddr);
-        uint256 linkBobPost = link.balanceOf(bobAddr);
-        assertGe(daiBobPost, daiBobPre);
-        assertEq(linkBobPre, linkBobPost);
-    }
-
-    function testTakeLinkProfit() public {
-        uint256 amountLink = 2_000 * WAD;
-        getLink(amountLink);
-        joinLink(amountLink);
-        frobMax(amountLink, linkName);
-        drip(linkName);
-        uint256 auctionId = barkLink();
-        hevm.warp(block.timestamp + 1 hours);
-        uint256 daiBobPre = dai.balanceOf(bobAddr);
-        uint256 linkBobPre = link.balanceOf(bobAddr);
-        takeLink(auctionId, amountLink, 2_000 * RAY, 50 * WAD);
-        uint256 daiBobPost = dai.balanceOf(bobAddr);
-        uint256 linkBobPost = link.balanceOf(bobAddr);
-        assertGt(daiBobPost, daiBobPre + 1 * WAD);
-        assertEq(linkBobPre, linkBobPost);
+        (, uint256 auctionPrice,,) = linkClip.getStatus(auctionId);
+        uint256 linkPrice = getLinkPrice();
+        while (
+            amountLink * auctionPrice / uint256(1e9) 
+            > amountLink * linkPrice + minProfit
+        ) {
+            hevm.warp(block.timestamp + 10 minutes);
+            (, auctionPrice,,) = linkClip.getStatus(auctionId);
+        }
+        takeLink(auctionId, amountLink, auctionPrice, minProfit);
+        assertGe(dai.balanceOf(bobAddr), minProfit);
     }
 
     function testFailTakeLinkInsufficientProfit() public {
