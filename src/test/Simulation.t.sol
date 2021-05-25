@@ -457,10 +457,11 @@ contract SimulationTests is DSTest, Constants {
         assertEq(dai.balanceOf(address(this)), 0);
         swapLinkDai(amountLink);
         uint256 linkPrice = getLinkPrice();
-        assertLt(
-            dai.balanceOf(address(this)) - amountLink * linkPrice / WAD, 
-            dai.balanceOf(address(this)) / 10
-        );
+        uint256 expected = amountLink * linkPrice / WAD;
+        uint256 actual = dai.balanceOf(address(this));
+        uint256 diff = expected > actual ? 
+        expected - actual : actual - expected;
+        assertLt(diff, expected / 10);
     }
 
     function joinLink(uint256 amount) private {
