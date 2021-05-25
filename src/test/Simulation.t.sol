@@ -539,7 +539,7 @@ contract SimulationTests is DSTest, Constants {
         assertEq(kicksPost, kicksPre + 1);
         (,, uint256 lot, address usr, uint96 tic,) = linkClip.sales(auctionId);
         assertEq(usr, aliAddr);
-        assertEq(lot, 2_000 * WAD);
+        assertEq(lot, amountLink);
         assertEq(tic, block.timestamp);
     }
 
@@ -549,8 +549,8 @@ contract SimulationTests is DSTest, Constants {
     }
 
     function testBarkLpDaiEth() public {
-        uint256 kicksPre = lpDaiEthClip.kicks();
         uint256 amount = 100 * WAD;
+        uint256 kicksPre = lpDaiEthClip.kicks();
         getLpDaiEth(amount);
         joinLpDaiEth(amount);
         frobMax(amount, lpDaiEthName);
@@ -590,7 +590,8 @@ contract SimulationTests is DSTest, Constants {
     }
 
     function testTakeLinkBasic() public {
-        uint256 amountLink = 2_000 * WAD;
+        (,,,, uint256 dustRad) = vat.ilks(linkName);
+        uint256 amountLink = dustRad / RAY;
         getLink(amountLink);
         joinLink(amountLink);
         frobMax(amountLink, linkName);
@@ -627,7 +628,7 @@ contract SimulationTests is DSTest, Constants {
         hevm.warp(block.timestamp + 1 hours);
         uint256 daiBobPre = dai.balanceOf(bobAddr);
         uint256 linkBobPre = link.balanceOf(bobAddr);
-        takeLink(auctionId, 2_000 * WAD, 2_000 * RAY, 50 * WAD);
+        takeLink(auctionId, amountLink, 2_000 * RAY, 50 * WAD);
         uint256 daiBobPost = dai.balanceOf(bobAddr);
         uint256 linkBobPost = link.balanceOf(bobAddr);
         assertGt(daiBobPost, daiBobPre + 1 * WAD);
@@ -681,5 +682,31 @@ contract SimulationTests is DSTest, Constants {
         uint256 auctionId = barkLpDaiEth();
         hevm.warp(block.timestamp + 50 minutes);
         takeLpDaiEth(auctionId, amount, 300 * RAY, 0);
+    }
+
+    function testTakeLpDaiEthNoProfit() public {
+        uint256 amount = 100 * WAD;
+        getLpDaiEth(amount);
+        joinLpDaiEth(amount);
+        frobMax(amount, lpDaiEthName);
+        drip(lpDaiEthName);
+        uint256 auctionId = barkLpDaiEth();
+        hevm.warp(block.timestamp + 50 minutes);
+        assertEq(dai.balanceOf(bobAddr), 0);
+        takeLpDaiEth(auctionId, amount, 300 * RAY, 0);
+        assertGe(dai.balanceOf(bobAddr), 0);
+    }
+
+    function testTakeLpDaiEthProfit() public {
+        uint256 amount = 100 * WAD;
+        getLpDaiEth(amount);
+        joinLpDaiEth(amount);
+        frobMax(amount, lpDaiEthName);
+        drip(lpDaiEthName);
+        uint256 auctionId = barkLpDaiEth();
+        hevm.warp(block.timestamp + 50 minutes);
+        assertEq(dai.balanceOf(bobAddr), 0);
+        takeLpDaiEth(auctionId, amount, 300 * RAY, 50 * WAD);
+        assertGe(dai.balanceOf(bobAddr), 0);
     }
 }
