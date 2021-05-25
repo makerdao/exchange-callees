@@ -415,73 +415,72 @@ contract SimulationTests is DSTest, Constants {
         );
     }
 
-    function swapEthLink(uint256 amountIn, uint256 amountOutMin) private {
+    function getLink(uint256 amountLink) private {
+        uint256 linkPrice = getLinkPrice();
+        uint256 ethPrice = getEthPrice();
+        uint256 amountEth = amountLink * linkPrice / ethPrice * 11 / 10;
+        wrapEth(amountEth, address(this));
+        weth.approve(uniAddr, amountEth);
         address[] memory path = new address[](2);
         path[0] = wethAddr;
         path[1] = linkAddr;
-        ali.swapExactTokensForTokens({
-            amountIn: amountIn,
-            amountOutMin: amountOutMin,
+        uniRouter.swapExactTokensForTokens({
+            amountIn: amountEth,
+            amountOutMin: 0,
             path: path,
-            to: aliAddr,
+            to: address(this),
             deadline: block.timestamp
         });
     }
 
-    function testSwapEthLink() public {
-        wrapEth(10 * WAD, aliAddr);
-        uint256 amountIn = 10 * WAD;
-        uint256 amountOutMin = 100 * WAD;
-        uint256 wethPre = weth.balanceOf(aliAddr);
-        uint256 linkPre = link.balanceOf(aliAddr);
-        swapEthLink(amountIn, amountOutMin);
-        uint256 wethPost = weth.balanceOf(aliAddr);
-        uint256 linkPost = link.balanceOf(aliAddr);
-        assertEq(wethPost, wethPre - amountIn);
-        assertGe(linkPost, linkPre + amountOutMin);
+    function testGetLink() public {
+        uint256 amount = 10 * WAD;
+        assertEq(link.balanceOf(address(this)), 0);
+        getLink(amount);
+        assertGt(link.balanceOf(address(this)), amount);
+        assertLt(
+            link.balanceOf(address(this)) - amount,
+            link.balanceOf(address(this)) / 5
+        );
     }
 
-    function swapLinkDai(uint256 amountIn, uint256 amountOutMin) private {
+    function swapLinkDai(uint256 amountLink) private {
+        link.approve(uniAddr, amountLink);
         address[] memory path = new address[](3);
         path[0] = linkAddr;
         path[1] = wethAddr;
         path[2] = daiAddr;
-        ali.swapExactTokensForTokens({
-            amountIn: amountIn,
-            amountOutMin: amountOutMin,
+        uniRouter.swapExactTokensForTokens({
+            amountIn: amountLink,
+            amountOutMin: 0,
             path: path,
-            to: aliAddr,
+            to: address(this),
             deadline: block.timestamp
         });
     }
 
     function testSwapLinkDai() public {
-        wrapEth(10 * WAD, aliAddr);
-        swapEthLink(10 * WAD, 100 * WAD);
-        uint256 linkPre = link.balanceOf(aliAddr);
-        uint256 daiPre = dai.balanceOf(aliAddr);
-        uint256 amountIn = 100 * WAD;
+        uint256 amountLink = 100 * WAD;
+        getLink(amountLink);
+        assertEq(dai.balanceOf(address(this)), 0);
+        swapLinkDai(amountLink);
         uint256 linkPrice = getLinkPrice();
-        uint256 amountOutMin = wmul(amountIn, linkPrice) * 9 / 10;
-        swapLinkDai(amountIn, amountOutMin);
-        uint256 linkPost = link.balanceOf(aliAddr);
-        uint256 daiPost = dai.balanceOf(aliAddr);
-        assertEq(linkPost, linkPre - amountIn);
-        assertGe(daiPost, daiPre + amountOutMin);
+        assertLt(
+            dai.balanceOf(address(this)) - amountLink * linkPrice / WAD, 
+            dai.balanceOf(address(this)) / 10
+        );
     }
 
-    function joinLink(uint256 value) private {
-        link.transferFrom(aliAddr, address(this), value);
-        link.approve(linkJoinAddr, type(uint256).max);
-        linkJoin.join(aliAddr, value);
+    function joinLink(uint256 amount) private {
+        link.approve(linkJoinAddr, amount);
+        linkJoin.join(aliAddr, amount);
     }
 
     function testJoinLink() public {
-        uint256 value = 100 * WAD;
-        wrapEth(10 * WAD, aliAddr);
-        swapEthLink(10 * WAD, value);
-        joinLink(value);
-        assertEq(vat.gem(linkName, aliAddr), value);
+        uint256 amountLink = 100 * WAD;
+        getLink(amountLink);
+        joinLink(amountLink);
+        assertEq(vat.gem(linkName, aliAddr), amountLink);
     }
 
     function joinLpDaiEth(uint256 value) private {
@@ -506,13 +505,13 @@ contract SimulationTests is DSTest, Constants {
     }
 
     function testFrobMax() public {
-        wrapEth(200 * WAD, aliAddr);
-        swapEthLink(200 * WAD, 2_000 * WAD);
-        joinLink(2_000 * WAD);
-        frobMax(2_000 * WAD, linkName);
+        uint256 amountLink = 2_000 * WAD;
+        getLink(amountLink);
+        joinLink(amountLink);
+        frobMax(amountLink, linkName);
         assertEq(vat.gem(linkName, aliAddr), 0);
         (uint256 ink, uint256 actualArt) = vat.urns(linkName, aliAddr);
-        assertEq(ink, 2_000 * WAD);
+        assertEq(ink, amountLink);
         (, uint256 rate, uint256 spot, ,) = vat.ilks(linkName);
         uint256 expectedArt = ink * spot / rate;
         assertEq(actualArt, expectedArt);
@@ -535,11 +534,11 @@ contract SimulationTests is DSTest, Constants {
     }
 
     function testBarkLink() public {
+        uint256 amountLink = 2_000 * WAD;
         uint256 kicksPre = linkClip.kicks();
-        wrapEth(200 * WAD, aliAddr);
-        swapEthLink(200 * WAD, 2_000 * WAD);
-        joinLink(2_000 * WAD);
-        frobMax(2_000 * WAD, linkName);
+        getLink(amountLink);
+        joinLink(amountLink);
+        frobMax(amountLink, linkName);
         drip(linkName);
         uint256 auctionId = barkLink();
         uint256 kicksPost = linkClip.kicks();
@@ -598,21 +597,21 @@ contract SimulationTests is DSTest, Constants {
     }
 
     function testTakeLinkBasic() public {
-        wrapEth(200 * WAD, aliAddr);
-        swapEthLink(200 * WAD, 2000 * WAD);
-        joinLink(2_000 * WAD);
-        frobMax(2_000 * WAD, linkName);
+        uint256 amountLink = 2_000 * WAD;
+        getLink(amountLink);
+        joinLink(amountLink);
+        frobMax(amountLink, linkName);
         drip(linkName);
         uint256 auctionId = barkLink();
         hevm.warp(block.timestamp + 1 hours);
-        takeLink(auctionId, 2_000 * WAD, 2_000 * RAY, 0);
+        takeLink(auctionId, amountLink, 2_000 * RAY, 0);
     }
 
     function testTakeLinkNoProfit() public {
-        wrapEth(200 * WAD, aliAddr);
-        swapEthLink(200 * WAD, 2_000 * WAD);
-        joinLink(2_000 * WAD);
-        frobMax(2_000 * WAD, linkName);
+        uint256 amountLink = 2_000 * WAD;
+        getLink(amountLink);
+        joinLink(amountLink);
+        frobMax(amountLink, linkName);
         drip(linkName);
         uint256 auctionId = barkLink();
         hevm.warp(block.timestamp + 1 hours);
@@ -626,10 +625,10 @@ contract SimulationTests is DSTest, Constants {
     }
 
     function testTakeLinkProfit() public {
-        wrapEth(200 * WAD, aliAddr);
-        swapEthLink(200 * WAD, 2_000 * WAD);
-        joinLink(2_000 * WAD);
-        frobMax(2_000 * WAD, linkName);
+        uint256 amountLink = 2_000 * WAD;
+        getLink(amountLink);
+        joinLink(amountLink);
+        frobMax(amountLink, linkName);
         drip(linkName);
         uint256 auctionId = barkLink();
         hevm.warp(block.timestamp + 1 hours);
@@ -643,10 +642,10 @@ contract SimulationTests is DSTest, Constants {
     }
 
     function testFailTakeLinkInsufficientProfit() public {
-        wrapEth(20 * WAD, aliAddr);
-        swapEthLink(20 * WAD, 200 * WAD);
-        joinLink(200 * WAD);
-        frobMax(200 * WAD, linkName);
+        uint256 amountLink = 2_000 * WAD;
+        getLink(amountLink);
+        joinLink(amountLink);
+        frobMax(amountLink, linkName);
         drip(linkName);
         uint256 auctionId = barkLink();
         hevm.warp(block.timestamp + 1 hours);
@@ -654,10 +653,10 @@ contract SimulationTests is DSTest, Constants {
     }
 
     function testFailTakeLinkTooExpensive() public {
-        wrapEth(20 * WAD, aliAddr);
-        swapEthLink(20 * WAD, 200 * WAD);
-        joinLink(200 * WAD);
-        frobMax(200 * WAD, linkName);
+        uint256 amountLink = 2_000 * WAD;
+        getLink(amountLink);
+        joinLink(amountLink);
+        frobMax(amountLink, linkName);
         drip(linkName);
         uint256 auctionId = barkLink();
         hevm.warp(block.timestamp + 30 minutes);
