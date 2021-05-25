@@ -483,9 +483,9 @@ contract SimulationTests is DSTest, Constants {
         assertEq(vat.gem(linkName, aliAddr), amountLink);
     }
 
-    function joinLpDaiEth(uint256 value) private {
-        lpDaiEth.approve(lpDaiEthJoinAddr, value);
-        lpDaiEthJoin.join(aliAddr, value);
+    function joinLpDaiEth(uint256 amount) private {
+        lpDaiEth.approve(lpDaiEthJoinAddr, amount);
+        lpDaiEthJoin.join(aliAddr, amount);
     }
 
     function testJoinLpDaiEth() public {
@@ -497,7 +497,8 @@ contract SimulationTests is DSTest, Constants {
         assertEq(gemPost, gemPre + amount);
     }
 
-    function frobMax(uint256 gem, bytes32 ilkName) private {
+    function frobMax(uint256 gem, bytes32 ilkName)
+    private returns (uint256 art) {
         uint256 ink = gem;
         (, uint256 rate, uint256 spot, ,) = vat.ilks(ilkName);
         uint256 art = ink * spot / rate;
@@ -509,12 +510,12 @@ contract SimulationTests is DSTest, Constants {
         getLink(amountLink);
         joinLink(amountLink);
         frobMax(amountLink, linkName);
-        assertEq(vat.gem(linkName, aliAddr), 0);
-        (uint256 ink, uint256 actualArt) = vat.urns(linkName, aliAddr);
-        assertEq(ink, amountLink);
-        (, uint256 rate, uint256 spot, ,) = vat.ilks(linkName);
-        uint256 expectedArt = ink * spot / rate;
-        assertEq(actualArt, expectedArt);
+        try vat.frob(linkName, aliAddr, aliAddr, aliAddr, 0, 1) {
+            log("not at maximum frob");
+            fail();
+        } catch {
+            log("success");
+        }
     }
 
     function drip(bytes32 ilkName) private {
