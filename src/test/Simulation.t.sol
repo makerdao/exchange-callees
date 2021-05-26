@@ -645,7 +645,7 @@ contract SimulationTests is DSTest {
         }
         assertEq(dai.balanceOf(bobAddr), 0);
         takeLpDaiEth(auctionId, amount, auctionPrice, 0);
-        assertLt(dai.balanceOf(bobAddr), amount * auctionPrice / RAY / 10);
+        assertLt(dai.balanceOf(bobAddr), amount * auctionPrice / RAY / 5);
     }
 
     function testTakeLpDaiEthProfit() public {
