@@ -74,11 +74,19 @@ interface LpTokenAbstract is GemAbstract {
     returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
 }
 
-contract Constants {
+contract VaultHolder {
+    constructor(VatAbstract vat) public {
+        vat.hope(msg.sender);
+    }
+}
+
+contract SimulationTests is DSTest {
 
     // mainnet UniswapV2Router02 address
     address constant uniAddr = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
     address constant hevmAddr = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
+    bytes32 constant linkName = "LINK-A";
+    bytes32 constant lpDaiEthName = "UNIV2DAIETH-A";
 
     uint256 constant WAD = 1E18;
     uint256 constant RAY = 1E27;
@@ -111,9 +119,6 @@ contract Constants {
             return uint128 (r < r1 ? r : r1);
         }
     }
-
-    bytes32 constant linkName = "LINK-A";
-    bytes32 constant lpDaiEthName = "UNIV2DAIETH-A";
 
     address wethAddr;
     address linkAddr;
@@ -189,47 +194,12 @@ contract Constants {
         ethPip = OsmAbstract(ethPipAddr);
     }
 
-    constructor () public {
-        setAddresses();
-        setInterfaces();
-    }
-}
-
-contract VaultHolder is Constants {
-
-    constructor() public {
-        weth.approve(uniAddr, type(uint256).max);
-        link.approve(uniAddr, type(uint256).max);
-        link.approve(msg.sender, type(uint256).max);
-        vat.hope(msg.sender);
-    }
-
-    function swapExactTokensForTokens(
-        uint256 amountIn,
-        uint256 amountOutMin,
-        address[] calldata path,
-        address to,
-        uint256 deadline
-    ) external {
-        uniRouter.swapExactTokensForTokens(
-            amountIn,
-            amountOutMin,
-            path,
-            to,
-            deadline
-        );
-    }
-}
-
-contract SimulationTests is DSTest, Constants {
-
     VaultHolder ali;
     address aliAddr;
     UniswapV2CalleeDai bob;
     address bobAddr;
     Clipper lpDaiEthClip;
     StairstepExponentialDecrease lpDaiEthCalc;
-    UniswapV2CalleeDai callee;
 
     function getPermissions() private {
         hevm.store(
@@ -288,8 +258,9 @@ contract SimulationTests is DSTest, Constants {
     }
 
     function setUp() public {
-        callee = new UniswapV2CalleeDai(uniAddr, daiJoinAddr);
-        ali = new VaultHolder();
+        setAddresses();
+        setInterfaces();
+        ali = new VaultHolder(vat);
         aliAddr = address(ali);
         bob = new UniswapV2CalleeDai(uniAddr, daiJoinAddr);
         bobAddr = address(bob);
@@ -326,23 +297,21 @@ contract SimulationTests is DSTest, Constants {
         log_named_uint("LP DAI ETH price", price / WAD);
     }
 
-    function wrapEth(uint256 value, address to) private {
-        weth.deposit{ value: value }();
-        weth.transfer(to, value);
+    function getWeth(uint256 amount) private {
+        weth.deposit{ value: amount }();
     }
 
-    function testWrapEth() public {
-        uint256 balancePre = weth.balanceOf(aliAddr);
-        uint256 value = 1 * WAD;
-        wrapEth(value, aliAddr);
-        uint256 balancePost = weth.balanceOf(aliAddr);
-        assertEq(balancePost, balancePre + value);
+    function testGetWeth() public {
+        uint256 amount = 15 * WAD;
+        assertEq(weth.balanceOf(address(this)), 0);
+        getWeth(amount);
+        assertEq(weth.balanceOf(address(this)), amount);
     }
 
     function getDai(uint256 amountDai) private {
         (uint112 reserveDai, uint112 reserveWeth, ) = lpDaiEth.getReserves();
         uint256 amountWeth = uniRouter.getAmountIn(amountDai, reserveWeth, reserveDai);
-        wrapEth(amountWeth, address(this));
+        getWeth(amountWeth);
         weth.approve(uniAddr, amountWeth);
         address[] memory path = new address[](2);
         path[0] = wethAddr;
@@ -421,14 +390,14 @@ contract SimulationTests is DSTest, Constants {
     function getLink(uint256 amountLink) private {
         uint256 linkPrice = getLinkPrice();
         uint256 ethPrice = getEthPrice();
-        uint256 amountEth = amountLink * linkPrice / ethPrice * 11 / 10;
-        wrapEth(amountEth, address(this));
-        weth.approve(uniAddr, amountEth);
+        uint256 amountWeth = amountLink * linkPrice / ethPrice * 11 / 10;
+        getWeth(amountWeth);
+        weth.approve(uniAddr, amountWeth);
         address[] memory path = new address[](2);
         path[0] = wethAddr;
         path[1] = linkAddr;
         uniRouter.swapExactTokensForTokens({
-            amountIn: amountEth,
+            amountIn: amountWeth,
             amountOutMin: 0,
             path: path,
             to: address(this),
@@ -642,28 +611,6 @@ contract SimulationTests is DSTest, Constants {
         assertEq(dai.balanceOf(bobAddr), 0);
         takeLink(auctionId, amountLink, auctionPrice, minProfit);
         assertGe(dai.balanceOf(bobAddr), minProfit);
-    }
-
-    function testFailTakeLinkInsufficientProfit() public {
-        uint256 amountLink = 2_000 * WAD;
-        getLink(amountLink);
-        joinLink(amountLink);
-        frobMax(amountLink, linkName);
-        drip(linkName);
-        uint256 auctionId = barkLink();
-        hevm.warp(block.timestamp + 1 hours);
-        takeLink(auctionId, 200 * WAD, 200 * RAY, 5000 * WAD);
-    }
-
-    function testFailTakeLinkTooExpensive() public {
-        uint256 amountLink = 2_000 * WAD;
-        getLink(amountLink);
-        joinLink(amountLink);
-        frobMax(amountLink, linkName);
-        drip(linkName);
-        uint256 auctionId = barkLink();
-        hevm.warp(block.timestamp + 30 minutes);
-        takeLink(auctionId, 200 * WAD, 5 * RAY, 0);
     }
 
     function takeLpDaiEth(
