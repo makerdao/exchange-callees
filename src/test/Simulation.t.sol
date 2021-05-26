@@ -590,7 +590,6 @@ contract SimulationTests is DSTest, Constants {
     }
 
     function testTakeLinkNoProfit() public {
-        uint256 minProfit = 0;
         (,,,, uint256 dustRad) = vat.ilks(linkName);
         uint256 amountLink = dustRad / RAY;
         getLink(amountLink);
@@ -600,19 +599,17 @@ contract SimulationTests is DSTest, Constants {
         uint256 auctionId = barkLink();
         (, uint256 auctionPrice,,) = linkClip.getStatus(auctionId);
         uint256 linkPrice = getLinkPrice();
-        while (
-            amountLink * auctionPrice / uint256(1e9) 
-            > amountLink * linkPrice + minProfit
-        ) {
-            hevm.warp(block.timestamp + 10 minutes);
+        while (auctionPrice / uint256(1e9) * 11 / 10 > linkPrice) {
+            hevm.warp(block.timestamp + 10 seconds);
             (, auctionPrice,,) = linkClip.getStatus(auctionId);
         }
-        takeLink(auctionId, amountLink, auctionPrice, minProfit);
-        assertGe(dai.balanceOf(bobAddr), minProfit);
+        assertEq(dai.balanceOf(bobAddr), 0);
+        takeLink(auctionId, amountLink, auctionPrice, 0);
+        assertLt(dai.balanceOf(bobAddr), amountLink * auctionPrice / RAY / 10);
     }
 
     function testTakeLinkProfit() public {
-        uint256 minProfit = 100 * WAD;
+        uint256 minProfitPct = 30;
         (,,,, uint256 dustRad) = vat.ilks(linkName);
         uint256 amountLink = dustRad / RAY;
         getLink(amountLink);
@@ -623,12 +620,15 @@ contract SimulationTests is DSTest, Constants {
         (, uint256 auctionPrice,,) = linkClip.getStatus(auctionId);
         uint256 linkPrice = getLinkPrice();
         while (
-            amountLink * auctionPrice / uint256(1e9) 
-            > amountLink * linkPrice + minProfit
+            auctionPrice / uint256(1e9) * 11 / 10 * (100 + minProfitPct) / 100
+            > linkPrice
         ) {
-            hevm.warp(block.timestamp + 10 minutes);
+            hevm.warp(block.timestamp + 10 seconds);
             (, auctionPrice,,) = linkClip.getStatus(auctionId);
         }
+        uint256 minProfit = amountLink * auctionPrice / RAY 
+            * minProfitPct / 100;
+        assertEq(dai.balanceOf(bobAddr), 0);
         takeLink(auctionId, amountLink, auctionPrice, minProfit);
         assertGe(dai.balanceOf(bobAddr), minProfit);
     }
