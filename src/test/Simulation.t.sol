@@ -247,6 +247,7 @@ contract SimulationTests is DSTest, Constants {
             keccak256(abi.encode(address(this), uint256(0))),
             bytes32(uint256(1))
         );
+        lpDaiEthPip.kiss(address(this));
         hevm.store(
             linkPipAddr,
             keccak256(abi.encode(address(this), uint256(0))),
@@ -313,6 +314,16 @@ contract SimulationTests is DSTest, Constants {
         uint256 price = getEthPrice();
         assertGt(price, 0);
         log_named_uint("ETH price", price / WAD);
+    }
+
+    function getLpDaiEthPrice() private returns (uint256 val) {
+        val = uint256(lpDaiEthPip.read());
+    }
+
+    function testGetLpDaiEthPrice() public {
+        uint256 price = getLpDaiEthPrice();
+        assertGt(price, 0);
+        log_named_uint("LP DAI ETH price", price / WAD);
     }
 
     function wrapEth(uint256 value, address to) private {
@@ -671,40 +682,47 @@ contract SimulationTests is DSTest, Constants {
         lpDaiEthClip.take(auctionId, amt, max, bobAddr, data);
     }
 
-    function testTakeLpDaiEthBasic() public {
-        uint256 amount = 100 * WAD;
-        getLpDaiEth(amount);
-        joinLpDaiEth(amount);
-        frobMax(amount, lpDaiEthName);
-        drip(lpDaiEthName);
-        uint256 auctionId = barkLpDaiEth();
-        hevm.warp(block.timestamp + 50 minutes);
-        takeLpDaiEth(auctionId, amount, 300 * RAY, 0);
-    }
-
     function testTakeLpDaiEthNoProfit() public {
-        uint256 amount = 100 * WAD;
+        (,,,, uint256 dustRad) = vat.ilks(lpDaiEthName);
+        uint256 amount = dustRad / RAY;
         getLpDaiEth(amount);
         joinLpDaiEth(amount);
         frobMax(amount, lpDaiEthName);
         drip(lpDaiEthName);
         uint256 auctionId = barkLpDaiEth();
-        hevm.warp(block.timestamp + 50 minutes);
+        (, uint256 auctionPrice,,) = lpDaiEthClip.getStatus(auctionId);
+        uint256 lpDaiEthPrice = getLpDaiEthPrice();
+        while (auctionPrice / uint256(1e9) * 11 / 10 > lpDaiEthPrice) {
+            hevm.warp(block.timestamp + 10 seconds);
+            (, auctionPrice,,) = lpDaiEthClip.getStatus(auctionId);
+        }
         assertEq(dai.balanceOf(bobAddr), 0);
-        takeLpDaiEth(auctionId, amount, 300 * RAY, 0);
-        assertGe(dai.balanceOf(bobAddr), 0);
+        takeLpDaiEth(auctionId, amount, auctionPrice, 0);
+        assertLt(dai.balanceOf(bobAddr), amount * auctionPrice / RAY / 10);
     }
 
     function testTakeLpDaiEthProfit() public {
-        uint256 amount = 100 * WAD;
+        uint256 minProfitPct = 30;
+        (,,,, uint256 dustRad) = vat.ilks(lpDaiEthName);
+        uint256 amount = dustRad / RAY;
         getLpDaiEth(amount);
         joinLpDaiEth(amount);
         frobMax(amount, lpDaiEthName);
         drip(lpDaiEthName);
         uint256 auctionId = barkLpDaiEth();
-        hevm.warp(block.timestamp + 50 minutes);
+        (, uint256 auctionPrice,,) = lpDaiEthClip.getStatus(auctionId);
+        uint256 lpDaiEthPrice = getLpDaiEthPrice();
+        while (
+            auctionPrice / uint256(1e9) * 11 / 10 * (100 + minProfitPct) / 100
+            > lpDaiEthPrice
+        ) {
+            hevm.warp(block.timestamp + 10 seconds);
+            (, auctionPrice,,) = lpDaiEthClip.getStatus(auctionId);
+        }
+        uint256 minProfit = amount * auctionPrice / RAY 
+            * minProfitPct / 100;
         assertEq(dai.balanceOf(bobAddr), 0);
-        takeLpDaiEth(auctionId, amount, 300 * RAY, 50 * WAD);
-        assertGe(dai.balanceOf(bobAddr), 0);
+        takeLpDaiEth(auctionId, amount, auctionPrice, minProfit);
+        assertGe(dai.balanceOf(bobAddr), minProfit);
     }
 }
