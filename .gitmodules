@@ -4,7 +4,6 @@
 [submodule "lib/dss"]
 	path = lib/dss
 	url = https://github.com/makerdao/dss.git
-	branch = liq-2.0
 [submodule "lib/ds-math"]
 	path = lib/ds-math
 	url = https://github.com/dapphub/ds-math

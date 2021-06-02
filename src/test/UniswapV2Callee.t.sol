@@ -261,10 +261,12 @@ contract UniswapV2CalleeDaiTest is DSTest {
         uint256 minProfit,
         address[] memory path
     ) internal {
+        address[] memory pathB;
         bytes memory flashData = abi.encode(address(ali),    // Address of User (where profits are sent)
                                             address(gemA),   // GemJoin adapter of collateral type
                                             minProfit,       // Minimum Dai profit [wad]
-                                            path             // uni path
+                                            path,            // uni path
+                                            pathB            // uni path of token B (LP tokens only)
         );
 
         Guy(ali).take({
