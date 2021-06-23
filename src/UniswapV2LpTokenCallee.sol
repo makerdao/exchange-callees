@@ -57,7 +57,6 @@ interface UniswapV2Router02Like {
     ) external returns (uint amountA, uint amountB);
 }
 
-// Simple Callee Example to interact with MatchingMarket
 // This Callee contract exists as a standalone contract
 contract UniswapV2Callee {
     UniswapV2Router02Like   public uniRouter02;
