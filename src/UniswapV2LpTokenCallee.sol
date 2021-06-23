@@ -23,7 +23,7 @@ interface VatLike {
 
 interface GemJoinLike {
     function dec() external view returns (uint256);
-    function gem() external view returns (TokenLike);
+    function gem() external view returns (LpTokenLike);
     function exit(address, uint256) external;
 }
 
@@ -37,6 +37,9 @@ interface TokenLike {
     function approve(address, uint256) external;
     function transfer(address, uint256) external;
     function balanceOf(address) external view returns (uint256);
+}
+
+interface LpTokenLike is TokenLike {
     function token0() external view returns (TokenLike);
     function token1() external view returns (TokenLike);
 }
@@ -132,7 +135,7 @@ contract UniswapV2LpTokenCalleeDai is UniswapV2Callee {
         GemJoinLike(gemJoin).exit(address(this), gemAmt);
 
         // Approve uniRouter02 to take gem
-        TokenLike gem = GemJoinLike(gemJoin).gem();
+        LpTokenLike gem = GemJoinLike(gemJoin).gem();
         gem.approve(address(uniRouter02), gemAmt);
 
         // Calculate amount of DAI to Join (as erc20 WAD value)
