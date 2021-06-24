@@ -23,7 +23,7 @@ interface VatLike {
 
 interface GemJoinLike {
     function dec() external view returns (uint256);
-    function gem() external view returns (TokenLike);
+    function gem() external view returns (LpTokenLike);
     function exit(address, uint256) external;
 }
 
@@ -39,11 +39,24 @@ interface TokenLike {
     function balanceOf(address) external view returns (uint256);
 }
 
-interface UniswapV2Router02Like {
-    function swapExactTokensForTokens(uint256, uint256, address[] calldata, address, uint256) external returns (uint[] memory);
+interface LpTokenLike is TokenLike {
+    function token0() external view returns (TokenLike);
+    function token1() external view returns (TokenLike);
 }
 
-// Simple Callee Example to interact with MatchingMarket
+interface UniswapV2Router02Like {
+    function swapExactTokensForTokens(uint256, uint256, address[] calldata, address, uint256) external returns (uint[] memory);
+    function removeLiquidity(
+        address tokenA,
+        address tokenB,
+        uint liquidity,
+        uint amountAMin,
+        uint amountBMin,
+        address to,
+        uint deadline
+    ) external returns (uint amountA, uint amountB);
+}
+
 // This Callee contract exists as a standalone contract
 contract UniswapV2Callee {
     UniswapV2Router02Like   public uniRouter02;
@@ -76,9 +89,28 @@ contract UniswapV2Callee {
 }
 
 // Uniswapv2Router02 route directs swaps from one pool to another
-contract UniswapV2CalleeDai is UniswapV2Callee {
+contract UniswapV2LpTokenCalleeDai is UniswapV2Callee {
     constructor(address uniRouter02_, address daiJoin_) public {
         setUp(uniRouter02_, daiJoin_);
+    }
+
+    function swapGemForDai(
+        TokenLike token,
+        address[] memory path,
+        address to
+    ) internal {
+        uint256 amountIn = token.balanceOf(address(this));
+        token.approve(address(uniRouter02), amountIn);
+        uniRouter02.swapExactTokensForTokens(
+            amountIn,
+            0, // amountOutMin is zero because minProfit is checked at the end
+            path,
+            address(this),
+            block.timestamp
+        );
+        if (token.balanceOf(address(this)) > 0) {
+            token.transfer(to, token.balanceOf(address(this)));
+        }
     }
 
     function clipperCall(
@@ -91,8 +123,9 @@ contract UniswapV2CalleeDai is UniswapV2Callee {
             address to,           // address to send remaining DAI to
             address gemJoin,      // gemJoin adapter address
             uint256 minProfit,    // minimum profit in DAI to make [wad]
-            address[] memory path // Uniswap pool path
-        ) = abi.decode(data, (address, address, uint256, address[]));
+            address[] memory pathA, // path of token A
+            address[] memory pathB  // path of token B
+        ) = abi.decode(data, (address, address, uint256, address[], address[]));
 
         // Convert gem amount to token precision
         gemAmt = _fromWad(gemJoin, gemAmt);
@@ -101,19 +134,33 @@ contract UniswapV2CalleeDai is UniswapV2Callee {
         GemJoinLike(gemJoin).exit(address(this), gemAmt);
 
         // Approve uniRouter02 to take gem
-        TokenLike gem = GemJoinLike(gemJoin).gem();
+        LpTokenLike gem = GemJoinLike(gemJoin).gem();
         gem.approve(address(uniRouter02), gemAmt);
 
         // Calculate amount of DAI to Join (as erc20 WAD value)
         uint256 daiToJoin = divup(daiAmt, RAY);
 
         // Do operation and get dai amount bought (checking the profit is achieved)
-        uniRouter02.swapExactTokensForTokens(
-            gemAmt,
-            add(daiToJoin, minProfit),
-            path,
-            address(this),
-            block.timestamp
+        TokenLike tokenA = gem.token0();
+        TokenLike tokenB = gem.token1();
+        uniRouter02.removeLiquidity({ // burn token to obtain its components
+            tokenA: address(tokenA),
+            tokenB: address(tokenB),
+            liquidity: gemAmt,
+            amountAMin: 0, // minProfit is checked below
+            amountBMin: 0,
+            to: address(this),
+            deadline: block.timestamp
+        });
+        if (address(tokenA) != address(dai)) {
+            swapGemForDai(tokenA, pathA, to);
+        }
+        if (address(tokenB) != address(dai)) {
+            swapGemForDai(tokenB, pathB, to);
+        }
+        require(
+            dai.balanceOf(address(this)) >= add(daiToJoin, minProfit),
+            "UniswapV2Callee/insufficient-profit"
         );
 
         // Although Uniswap will accept all gems, this check is a sanity check, just in case

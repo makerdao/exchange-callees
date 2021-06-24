@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2021 Maker Ecosystem Growth Holdings, INC.
+// Copyright (C) 2021 Dai Foundation
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -19,6 +20,7 @@ pragma solidity >=0.6.12;
 import "ds-test/test.sol";
 import "dss-interfaces/Interfaces.sol";
 import { UniswapV2CalleeDai } from "../UniswapV2Callee.sol";
+import { UniswapV2LpTokenCalleeDai } from "../UniswapV2LpTokenCallee.sol";
 
 import "dss/clip.sol";
 import "dss/abaci.sol";
@@ -134,7 +136,6 @@ contract SimulationTests is DSTest {
     address lpDaiEthJoinAddr;
     address lpDaiEthClipAddr;
     address vowAddr;
-    address lpDaiEthCalcAddr;
     address lpDaiEthPipAddr;
     address linkPipAddr;
     address ethPipAddr;
@@ -150,6 +151,7 @@ contract SimulationTests is DSTest {
     JugAbstract jug;
     ClipAbstract linkClip;
     LpTokenAbstract lpDaiEth;
+    ClipAbstract lpDaiEthClip;
     GemJoinAbstract lpDaiEthJoin;
     LPOsmAbstract lpDaiEthPip;
     OsmAbstract linkPip;
@@ -168,6 +170,7 @@ contract SimulationTests is DSTest {
         dogAddr = chainLog.getAddress("MCD_DOG");
         jugAddr = chainLog.getAddress("MCD_JUG");
         linkClipAddr = chainLog.getAddress("MCD_CLIP_LINK_A");
+        lpDaiEthClipAddr = chainLog.getAddress("MCD_CLIP_UNIV2DAIETH_A");
         lpDaiEthAddr = chainLog.getAddress("UNIV2DAIETH");
         lpDaiEthJoinAddr = chainLog.getAddress("MCD_JOIN_UNIV2DAIETH_A");
         vowAddr = chainLog.getAddress("MCD_VOW");
@@ -187,6 +190,7 @@ contract SimulationTests is DSTest {
         dog = DogAbstract(dogAddr);
         jug = JugAbstract(jugAddr);
         linkClip = ClipAbstract(linkClipAddr);
+        lpDaiEthClip = ClipAbstract(lpDaiEthClipAddr);
         lpDaiEth = LpTokenAbstract(lpDaiEthAddr);
         lpDaiEthJoin = GemJoinAbstract(lpDaiEthJoinAddr);
         lpDaiEthPip = LPOsmAbstract(lpDaiEthPipAddr);
@@ -198,8 +202,8 @@ contract SimulationTests is DSTest {
     address aliAddr;
     UniswapV2CalleeDai bob;
     address bobAddr;
-    Clipper lpDaiEthClip;
-    StairstepExponentialDecrease lpDaiEthCalc;
+    UniswapV2LpTokenCalleeDai che;
+    address cheAddr;
 
     function getPermissions() private {
         hevm.store(
@@ -232,31 +236,6 @@ contract SimulationTests is DSTest {
         ethPip.kiss(address(this));
     }
 
-    function deployLpDaiEthClip() private {
-        getPermissions();
-        lpDaiEthClip = new Clipper(vatAddr, spotterAddr, dogAddr, lpDaiEthName);
-        lpDaiEthClipAddr = address(lpDaiEthClip);
-        dog.file(lpDaiEthName, "clip", lpDaiEthClipAddr);
-        lpDaiEthClip.file("vow", vowAddr);
-        lpDaiEthCalc = new StairstepExponentialDecrease();
-        lpDaiEthCalcAddr = address(lpDaiEthCalc);
-        lpDaiEthClip.file("calc", lpDaiEthCalcAddr);
-        vat.rely(lpDaiEthClipAddr);
-        dog.rely(lpDaiEthClipAddr);
-        lpDaiEthClip.rely(dogAddr);
-        lpDaiEthPip.kiss(lpDaiEthClipAddr);
-        dog.file(lpDaiEthName, "hole", 22_000_000 * RAD);
-        dog.file(lpDaiEthName, "chop", 113 * WAD / 100);
-        lpDaiEthClip.file("buf", 130 * RAY / 100);
-        lpDaiEthClip.file("tail", 140 minutes);
-        lpDaiEthClip.file("cusp", 40 * RAY / 100);
-        lpDaiEthClip.file("chip", 1 * WAD / 1000);
-        lpDaiEthClip.file("tip", 0);
-        lpDaiEthCalc.file("cut", 99 * RAY / 100);
-        lpDaiEthCalc.file("step", 90 seconds);
-        lpDaiEthClip.upchost();
-    }
-
     function setUp() public {
         setAddresses();
         setInterfaces();
@@ -264,7 +243,9 @@ contract SimulationTests is DSTest {
         aliAddr = address(ali);
         bob = new UniswapV2CalleeDai(uniAddr, daiJoinAddr);
         bobAddr = address(bob);
-        deployLpDaiEthClip();
+        che = new UniswapV2LpTokenCalleeDai(uniAddr, daiJoinAddr);
+        cheAddr = address(che);
+        getPermissions();
     }
 
     function getLinkPrice() private returns (uint256 val) {
@@ -558,13 +539,11 @@ contract SimulationTests is DSTest {
         path[0] = linkAddr;
         path[1] = wethAddr;
         path[2] = daiAddr;
-        address[] memory pathB;
         bytes memory data = abi.encode(
             bobAddr,
             linkJoinAddr,
             minProfit,
-            path,
-            pathB
+            path
         );
         linkClip.take(auctionId, amt, max, bobAddr, data);
     }
@@ -626,7 +605,7 @@ contract SimulationTests is DSTest {
         pathB[1] = daiAddr;
         bytes memory data
             = abi.encode(bobAddr, lpDaiEthJoinAddr, minProfit, pathA, pathB);
-        lpDaiEthClip.take(auctionId, amt, max, bobAddr, data);
+        lpDaiEthClip.take(auctionId, amt, max, cheAddr, data);
     }
 
     function testTakeLpDaiEthNoProfit() public {
