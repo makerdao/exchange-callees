@@ -22,9 +22,6 @@ import "dss-interfaces/Interfaces.sol";
 import { UniswapV2CalleeDai } from "../UniswapV2Callee.sol";
 import { UniswapV2LpTokenCalleeDai } from "../UniswapV2LpTokenCallee.sol";
 
-import "dss/clip.sol";
-import "dss/abaci.sol";
-
 interface Hevm {
     function warp(uint256) external;
     function store(address c, bytes32 loc, bytes32 val) external;
@@ -88,7 +85,7 @@ contract SimulationTests is DSTest {
     address constant uniAddr = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
     address constant hevmAddr = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
     bytes32 constant linkName = "LINK-A";
-    bytes32 constant lpDaiEthName = "UNIV2DAIETH-A";
+    bytes32 constant ulpDaiEthName = "UNIV2DAIETH-A";
 
     uint256 constant WAD = 1E18;
     uint256 constant RAY = 1E27;
@@ -132,11 +129,11 @@ contract SimulationTests is DSTest {
     address dogAddr;
     address jugAddr;
     address linkClipAddr;
-    address lpDaiEthAddr;
-    address lpDaiEthJoinAddr;
-    address lpDaiEthClipAddr;
+    address ulpDaiEthAddr;
+    address ulpDaiEthJoinAddr;
+    address ulpDaiEthClipAddr;
     address vowAddr;
-    address lpDaiEthPipAddr;
+    address ulpDaiEthPipAddr;
     address linkPipAddr;
     address ethPipAddr;
 
@@ -150,10 +147,10 @@ contract SimulationTests is DSTest {
     DogAbstract dog;
     JugAbstract jug;
     ClipAbstract linkClip;
-    LpTokenAbstract lpDaiEth;
-    ClipAbstract lpDaiEthClip;
-    GemJoinAbstract lpDaiEthJoin;
-    LPOsmAbstract lpDaiEthPip;
+    LpTokenAbstract ulpDaiEth;
+    ClipAbstract ulpDaiEthClip;
+    GemJoinAbstract ulpDaiEthJoin;
+    LPOsmAbstract ulpDaiEthPip;
     OsmAbstract linkPip;
     OsmAbstract ethPip;
 
@@ -170,11 +167,11 @@ contract SimulationTests is DSTest {
         dogAddr = chainLog.getAddress("MCD_DOG");
         jugAddr = chainLog.getAddress("MCD_JUG");
         linkClipAddr = chainLog.getAddress("MCD_CLIP_LINK_A");
-        lpDaiEthClipAddr = chainLog.getAddress("MCD_CLIP_UNIV2DAIETH_A");
-        lpDaiEthAddr = chainLog.getAddress("UNIV2DAIETH");
-        lpDaiEthJoinAddr = chainLog.getAddress("MCD_JOIN_UNIV2DAIETH_A");
+        ulpDaiEthClipAddr = chainLog.getAddress("MCD_CLIP_UNIV2DAIETH_A");
+        ulpDaiEthAddr = chainLog.getAddress("UNIV2DAIETH");
+        ulpDaiEthJoinAddr = chainLog.getAddress("MCD_JOIN_UNIV2DAIETH_A");
         vowAddr = chainLog.getAddress("MCD_VOW");
-        lpDaiEthPipAddr = chainLog.getAddress("PIP_UNIV2DAIETH");
+        ulpDaiEthPipAddr = chainLog.getAddress("PIP_UNIV2DAIETH");
         linkPipAddr = chainLog.getAddress("PIP_LINK");
         ethPipAddr = chainLog.getAddress("PIP_ETH");
     }
@@ -190,10 +187,10 @@ contract SimulationTests is DSTest {
         dog = DogAbstract(dogAddr);
         jug = JugAbstract(jugAddr);
         linkClip = ClipAbstract(linkClipAddr);
-        lpDaiEthClip = ClipAbstract(lpDaiEthClipAddr);
-        lpDaiEth = LpTokenAbstract(lpDaiEthAddr);
-        lpDaiEthJoin = GemJoinAbstract(lpDaiEthJoinAddr);
-        lpDaiEthPip = LPOsmAbstract(lpDaiEthPipAddr);
+        ulpDaiEthClip = ClipAbstract(ulpDaiEthClipAddr);
+        ulpDaiEth = LpTokenAbstract(ulpDaiEthAddr);
+        ulpDaiEthJoin = GemJoinAbstract(ulpDaiEthJoinAddr);
+        ulpDaiEthPip = LPOsmAbstract(ulpDaiEthPipAddr);
         linkPip = OsmAbstract(linkPipAddr);
         ethPip = OsmAbstract(ethPipAddr);
     }
@@ -217,11 +214,11 @@ contract SimulationTests is DSTest {
             bytes32(uint256(1))
         );
         hevm.store(
-            lpDaiEthPipAddr,
+            ulpDaiEthPipAddr,
             keccak256(abi.encode(address(this), uint256(0))),
             bytes32(uint256(1))
         );
-        lpDaiEthPip.kiss(address(this));
+        ulpDaiEthPip.kiss(address(this));
         hevm.store(
             linkPipAddr,
             keccak256(abi.encode(address(this), uint256(0))),
@@ -269,7 +266,7 @@ contract SimulationTests is DSTest {
     }
 
     function getLpDaiEthPrice() private returns (uint256 val) {
-        val = uint256(lpDaiEthPip.read());
+        val = uint256(ulpDaiEthPip.read());
     }
 
     function testGetLpDaiEthPrice() public {
@@ -290,7 +287,7 @@ contract SimulationTests is DSTest {
     }
 
     function getDai(uint256 amountDai) private {
-        (uint112 reserveDai, uint112 reserveWeth, ) = lpDaiEth.getReserves();
+        (uint112 reserveDai, uint112 reserveWeth, ) = ulpDaiEth.getReserves();
         uint256 amountWeth = uniRouter.getAmountIn(amountDai, reserveWeth, reserveDai);
         getWeth(amountWeth);
         weth.approve(uniAddr, amountWeth);
@@ -316,8 +313,8 @@ contract SimulationTests is DSTest {
     }
 
     function getLpDaiEth(uint256 amountLp) private {
-        uint256 totalSupply = lpDaiEth.totalSupply();
-        (uint112 reserveDai, uint112 reserveWeth,) = lpDaiEth.getReserves();
+        uint256 totalSupply = ulpDaiEth.totalSupply();
+        (uint112 reserveDai, uint112 reserveWeth,) = ulpDaiEth.getReserves();
         uint256 amountDai = amountLp * reserveDai / totalSupply * 11 / 10;
         uint256 amountEth = amountLp * reserveWeth / totalSupply * 11 / 10;
         getDai(amountDai);
@@ -335,10 +332,10 @@ contract SimulationTests is DSTest {
     receive() external payable {}
 
     function testGetLpDaiEth() public {
-        assertEq(lpDaiEth.balanceOf(address(this)), 0);
+        assertEq(ulpDaiEth.balanceOf(address(this)), 0);
         uint256 expected = 1000 * WAD;
         getLpDaiEth(expected);
-        uint256 actual = lpDaiEth.balanceOf(address(this));
+        uint256 actual = ulpDaiEth.balanceOf(address(this));
         assertGt(actual, expected);
         assertLt(actual - expected, actual / 10);
     }
@@ -358,12 +355,12 @@ contract SimulationTests is DSTest {
     function testBurnLpDaiEth() public {
         uint256 amount = 30 * WAD;
         getLpDaiEth(amount);
-        assertGt(lpDaiEth.balanceOf(address(this)), amount);
+        assertGt(ulpDaiEth.balanceOf(address(this)), amount);
         assertLt(dai.balanceOf(address(this)), 1 * WAD);
         assertEq(weth.balanceOf(address(this)), 0);
-        lpDaiEth.approve(uniAddr, amount);
+        ulpDaiEth.approve(uniAddr, amount);
         burnLpDaiEth(amount);
-        assertLt(lpDaiEth.balanceOf(address(this)), amount / 10);
+        assertLt(ulpDaiEth.balanceOf(address(this)), amount / 10);
         assertGt(dai.balanceOf(address(this)), 1 * WAD);
         assertGt(dai.balanceOf(address(this)), 1 * WAD);
     }
@@ -438,16 +435,16 @@ contract SimulationTests is DSTest {
     }
 
     function joinLpDaiEth(uint256 amount) private {
-        lpDaiEth.approve(lpDaiEthJoinAddr, amount);
-        lpDaiEthJoin.join(aliAddr, amount);
+        ulpDaiEth.approve(ulpDaiEthJoinAddr, amount);
+        ulpDaiEthJoin.join(aliAddr, amount);
     }
 
     function testJoinLpDaiEth() public {
         uint256 amount = 10 * WAD;
         getLpDaiEth(amount);
-        uint256 gemPre = vat.gem(lpDaiEthName, aliAddr);
+        uint256 gemPre = vat.gem(ulpDaiEthName, aliAddr);
         joinLpDaiEth(amount);
-        uint256 gemPost = vat.gem(lpDaiEthName, aliAddr);
+        uint256 gemPost = vat.gem(ulpDaiEthName, aliAddr);
         assertEq(gemPost, gemPre + amount);
     }
 
@@ -505,24 +502,24 @@ contract SimulationTests is DSTest {
     }
 
     function barkLpDaiEth() private returns (uint256 auctionId) {
-        dog.bark(lpDaiEthName, aliAddr, aliAddr);
-        auctionId = lpDaiEthClip.kicks();
+        dog.bark(ulpDaiEthName, aliAddr, aliAddr);
+        auctionId = ulpDaiEthClip.kicks();
     }
 
     function testBarkLpDaiEth() public {
         uint256 amount = 100 * WAD;
-        uint256 kicksPre = lpDaiEthClip.kicks();
+        uint256 kicksPre = ulpDaiEthClip.kicks();
         getLpDaiEth(amount);
         joinLpDaiEth(amount);
-        frobMax(amount, lpDaiEthName);
-        drip(lpDaiEthName);
+        frobMax(amount, ulpDaiEthName);
+        drip(ulpDaiEthName);
         uint256 auctionId = barkLpDaiEth();
-        uint256 kicksPost = lpDaiEthClip.kicks();
+        uint256 kicksPost = ulpDaiEthClip.kicks();
         assertEq(auctionId, kicksPost);
         assertEq(kicksPost, kicksPre + 1);
         (
          ,, uint256 lot, address usr, uint96 tic,
-         ) = lpDaiEthClip.sales(auctionId);
+         ) = ulpDaiEthClip.sales(auctionId);
         assertEq(usr, aliAddr);
         assertEq(lot, amount);
         assertEq(tic, block.timestamp);
@@ -598,29 +595,29 @@ contract SimulationTests is DSTest {
         uint256 max,
         uint256 minProfit
     ) public {
-        vat.hope(lpDaiEthClipAddr);
+        vat.hope(ulpDaiEthClipAddr);
         address[] memory pathA;
         address[] memory pathB = new address[](2);
         pathB[0] = wethAddr;
         pathB[1] = daiAddr;
         bytes memory data
-            = abi.encode(bobAddr, lpDaiEthJoinAddr, minProfit, pathA, pathB);
-        lpDaiEthClip.take(auctionId, amt, max, cheAddr, data);
+            = abi.encode(bobAddr, ulpDaiEthJoinAddr, minProfit, pathA, pathB);
+        ulpDaiEthClip.take(auctionId, amt, max, cheAddr, data);
     }
 
     function testTakeLpDaiEthNoProfit() public {
-        (,,,, uint256 dustRad) = vat.ilks(lpDaiEthName);
+        (,,,, uint256 dustRad) = vat.ilks(ulpDaiEthName);
         uint256 amount = dustRad / RAY;
         getLpDaiEth(amount);
         joinLpDaiEth(amount);
-        frobMax(amount, lpDaiEthName);
-        drip(lpDaiEthName);
+        frobMax(amount, ulpDaiEthName);
+        drip(ulpDaiEthName);
         uint256 auctionId = barkLpDaiEth();
-        (, uint256 auctionPrice,,) = lpDaiEthClip.getStatus(auctionId);
-        uint256 lpDaiEthPrice = getLpDaiEthPrice();
-        while (auctionPrice / uint256(1e9) * 11 / 10 > lpDaiEthPrice) {
+        (, uint256 auctionPrice,,) = ulpDaiEthClip.getStatus(auctionId);
+        uint256 ulpDaiEthPrice = getLpDaiEthPrice();
+        while (auctionPrice / uint256(1e9) * 11 / 10 > ulpDaiEthPrice) {
             hevm.warp(block.timestamp + 10 seconds);
-            (, auctionPrice,,) = lpDaiEthClip.getStatus(auctionId);
+            (, auctionPrice,,) = ulpDaiEthClip.getStatus(auctionId);
         }
         assertEq(dai.balanceOf(bobAddr), 0);
         takeLpDaiEth(auctionId, amount, auctionPrice, 0);
@@ -629,21 +626,21 @@ contract SimulationTests is DSTest {
 
     function testTakeLpDaiEthProfit() public {
         uint256 minProfitPct = 30;
-        (,,,, uint256 dustRad) = vat.ilks(lpDaiEthName);
+        (,,,, uint256 dustRad) = vat.ilks(ulpDaiEthName);
         uint256 amount = dustRad / RAY;
         getLpDaiEth(amount);
         joinLpDaiEth(amount);
-        frobMax(amount, lpDaiEthName);
-        drip(lpDaiEthName);
+        frobMax(amount, ulpDaiEthName);
+        drip(ulpDaiEthName);
         uint256 auctionId = barkLpDaiEth();
-        (, uint256 auctionPrice,,) = lpDaiEthClip.getStatus(auctionId);
-        uint256 lpDaiEthPrice = getLpDaiEthPrice();
+        (, uint256 auctionPrice,,) = ulpDaiEthClip.getStatus(auctionId);
+        uint256 ulpDaiEthPrice = getLpDaiEthPrice();
         while (
             auctionPrice / uint256(1e9) * 11 / 10 * (100 + minProfitPct) / 100
-            > lpDaiEthPrice
+            > ulpDaiEthPrice
         ) {
             hevm.warp(block.timestamp + 10 seconds);
-            (, auctionPrice,,) = lpDaiEthClip.getStatus(auctionId);
+            (, auctionPrice,,) = ulpDaiEthClip.getStatus(auctionId);
         }
         uint256 minProfit = amount * auctionPrice / RAY 
             * minProfitPct / 100;
