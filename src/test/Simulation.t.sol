@@ -83,9 +83,11 @@ contract SimulationTests is DSTest {
 
     // mainnet UniswapV2Router02 address
     address constant uniAddr = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
+    address constant sushiAddr = 0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F;
     address constant hevmAddr = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
     bytes32 constant linkName = "LINK-A";
     bytes32 constant ulpDaiEthName = "UNIV2DAIETH-A";
+    bytes32 constant ulpWbtcEthName = "UNIV2WBTCETH-A";
 
     uint256 constant WAD = 1E18;
     uint256 constant RAY = 1E27;
@@ -136,6 +138,8 @@ contract SimulationTests is DSTest {
     address ulpDaiEthPipAddr;
     address linkPipAddr;
     address ethPipAddr;
+    address slpWbtcEthAddr;
+    address ulpWbtcEthPipAddr;
 
     Hevm hevm;
     UniV2Router02Abstract uniRouter;
@@ -153,6 +157,8 @@ contract SimulationTests is DSTest {
     LPOsmAbstract ulpDaiEthPip;
     OsmAbstract linkPip;
     OsmAbstract ethPip;
+    LpTokenAbstract slpWbtcEth;
+    LPOsmAbstract ulpWbtcEthPip;
 
     function setAddresses() private {
         ChainlogHelper helper = new ChainlogHelper();
@@ -174,6 +180,8 @@ contract SimulationTests is DSTest {
         ulpDaiEthPipAddr = chainLog.getAddress("PIP_UNIV2DAIETH");
         linkPipAddr = chainLog.getAddress("PIP_LINK");
         ethPipAddr = chainLog.getAddress("PIP_ETH");
+        slpWbtcEthAddr = 0xCEfF51756c56CeFFCA006cD410B03FFC46dd3a58;
+        ulpWbtcEthPipAddr = chainLog.getAddress("PIP_UNIV2WBTCETH");
     }
 
     function setInterfaces() private {
@@ -193,6 +201,8 @@ contract SimulationTests is DSTest {
         ulpDaiEthPip = LPOsmAbstract(ulpDaiEthPipAddr);
         linkPip = OsmAbstract(linkPipAddr);
         ethPip = OsmAbstract(ethPipAddr);
+        slpWbtcEth = LpTokenAbstract(slpWbtcEthAddr);
+        ulpWbtcEthPip = LPOsmAbstract(ulpWbtcEthPipAddr);
     }
 
     VaultHolder ali;
@@ -201,6 +211,8 @@ contract SimulationTests is DSTest {
     address bobAddr;
     UniswapV2LpTokenCalleeDai che;
     address cheAddr;
+    UniswapV2LpTokenCalleeDai dan;
+    address danAddr;
 
     function getPermissions() private {
         hevm.store(
@@ -231,6 +243,12 @@ contract SimulationTests is DSTest {
             bytes32(uint256(1))
         );
         ethPip.kiss(address(this));
+        hevm.store(
+            ulpWbtcEthPipAddr,
+            keccak256(abi.encode(address(this), uint256(0))),
+            bytes32(uint256(1))
+        );
+        ulpWbtcEthPip.kiss(address(this));
     }
 
     function setUp() public {
@@ -242,6 +260,8 @@ contract SimulationTests is DSTest {
         bobAddr = address(bob);
         che = new UniswapV2LpTokenCalleeDai(uniAddr, daiJoinAddr);
         cheAddr = address(che);
+        dan = new UniswapV2LpTokenCalleeDai(sushiAddr, daiJoinAddr);
+        danAddr = address(dan);
         getPermissions();
     }
 
@@ -273,6 +293,16 @@ contract SimulationTests is DSTest {
         uint256 price = getLpDaiEthPrice();
         assertGt(price, 0);
         log_named_uint("LP DAI ETH price", price / WAD);
+    }
+
+    function getSlpWbtcEthPrice() private returns (uint256 val) {
+        val = uint256(ulpWbtcEthPip.read());
+    }
+
+    function testGetSlpWbtcEthPrice() public {
+        uint256 price = getSlpWbtcEthPrice();
+        assertGt(price, 0);
+        log_named_uint("SLP WBTC ETH price", price / WAD);
     }
 
     function getWeth(uint256 amount) private {
