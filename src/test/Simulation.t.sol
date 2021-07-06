@@ -140,9 +140,11 @@ contract SimulationTests is DSTest {
     address ethPipAddr;
     address slpWbtcEthAddr;
     address ulpWbtcEthPipAddr;
+    address wbtcAddr;
 
     Hevm hevm;
     UniV2Router02Abstract uniRouter;
+    UniV2Router02Abstract sushiRouter;
     WethAbstract weth;
     GemAbstract link;
     VatAbstract vat;
@@ -159,6 +161,7 @@ contract SimulationTests is DSTest {
     OsmAbstract ethPip;
     LpTokenAbstract slpWbtcEth;
     LPOsmAbstract ulpWbtcEthPip;
+    GemAbstract wbtc;
 
     function setAddresses() private {
         ChainlogHelper helper = new ChainlogHelper();
@@ -182,11 +185,13 @@ contract SimulationTests is DSTest {
         ethPipAddr = chainLog.getAddress("PIP_ETH");
         slpWbtcEthAddr = 0xCEfF51756c56CeFFCA006cD410B03FFC46dd3a58;
         ulpWbtcEthPipAddr = chainLog.getAddress("PIP_UNIV2WBTCETH");
+        wbtcAddr = chainLog.getAddress("WBTC");
     }
 
     function setInterfaces() private {
         hevm = Hevm(hevmAddr);
         uniRouter = UniV2Router02Abstract(uniAddr);
+        sushiRouter = UniV2Router02Abstract(sushiAddr);
         weth = WethAbstract(wethAddr);
         link = GemAbstract(linkAddr);
         vat = VatAbstract(vatAddr);
@@ -203,6 +208,7 @@ contract SimulationTests is DSTest {
         ethPip = OsmAbstract(ethPipAddr);
         slpWbtcEth = LpTokenAbstract(slpWbtcEthAddr);
         ulpWbtcEthPip = LPOsmAbstract(ulpWbtcEthPipAddr);
+        wbtc = GemAbstract(wbtcAddr);
     }
 
     VaultHolder ali;
@@ -342,6 +348,31 @@ contract SimulationTests is DSTest {
         assertEq(daiPost / 10_000, (daiPre + amountDai) / 10_000);
     }
 
+    function getWbtc(uint256 amountWbtc) private {
+        (uint112 reserveWbtc, uint112 reserveWeth, ) = slpWbtcEth.getReserves();
+        uint256 amountWeth = sushiRouter.getAmountIn(amountWbtc, reserveWeth, reserveWbtc);
+        getWeth(amountWeth);
+        weth.approve(sushiAddr, amountWeth);
+        address[] memory path = new address[](2);
+        path[0] = wethAddr;
+        path[1] = wbtcAddr;
+        sushiRouter.swapExactTokensForTokens({
+            amountIn: amountWeth,
+            amountOutMin: 0,
+            path: path,
+            to: address(this),
+            deadline: block.timestamp
+        });
+    }
+
+    function testGetWbtc() public {
+        uint256 amountWbtc = 1 * 1E8;
+        uint256 wbtcPre = wbtc.balanceOf(address(this));
+        getWbtc(amountWbtc);
+        uint256 wbtcPost = wbtc.balanceOf(address(this));
+        assertEq(wbtcPost, wbtcPre + amountWbtc);
+    }
+
     function getLpDaiEth(uint256 amountLp) private {
         uint256 totalSupply = ulpDaiEth.totalSupply();
         (uint112 reserveDai, uint112 reserveWeth,) = ulpDaiEth.getReserves();
@@ -366,6 +397,32 @@ contract SimulationTests is DSTest {
         uint256 expected = 1000 * WAD;
         getLpDaiEth(expected);
         uint256 actual = ulpDaiEth.balanceOf(address(this));
+        assertGt(actual, expected);
+        assertLt(actual - expected, actual / 10);
+    }
+
+    function getSlpWbtcEth(uint256 amountLp) private {
+        uint256 totalSupply = slpWbtcEth.totalSupply();
+        (uint112 reserveWbtc, uint112 reserveWeth,) = slpWbtcEth.getReserves();
+        uint256 amountWbtc = amountLp * reserveWbtc / totalSupply * 11 / 10;
+        uint256 amountEth = amountLp * reserveWeth / totalSupply * 11 / 10;
+        getWbtc(amountWbtc);
+        wbtc.approve(sushiAddr, amountWbtc);
+        sushiRouter.addLiquidityETH{value: amountEth}({
+            token: wbtcAddr,
+            amountTokenDesired: amountWbtc,
+            amountTokenMin: 0,
+            amountETHMin: 0,
+            to: address(this),
+            deadline: block.timestamp
+        });
+    }
+
+    function testGetSlpWbtcEth() public {
+        assertEq(slpWbtcEth.balanceOf(address(this)), 0);
+        uint256 expected = 1 * 1E8;
+        getSlpWbtcEth(expected);
+        uint256 actual = slpWbtcEth.balanceOf(address(this));
         assertGt(actual, expected);
         assertLt(actual - expected, actual / 10);
     }
