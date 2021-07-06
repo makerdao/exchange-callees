@@ -89,6 +89,7 @@ contract SimulationTests is DSTest {
     bytes32 constant ulpDaiEthName = "UNIV2DAIETH-A";
     bytes32 constant ulpWbtcEthName = "UNIV2WBTCETH-A";
 
+    uint256 constant BTC = 1E8;
     uint256 constant WAD = 1E18;
     uint256 constant RAY = 1E27;
     uint256 constant RAD = 1E45;
@@ -366,7 +367,7 @@ contract SimulationTests is DSTest {
     }
 
     function testGetWbtc() public {
-        uint256 amountWbtc = 1 * 1E8;
+        uint256 amountWbtc = 1 * BTC;
         uint256 wbtcPre = wbtc.balanceOf(address(this));
         getWbtc(amountWbtc);
         uint256 wbtcPost = wbtc.balanceOf(address(this));
@@ -420,7 +421,7 @@ contract SimulationTests is DSTest {
 
     function testGetSlpWbtcEth() public {
         assertEq(slpWbtcEth.balanceOf(address(this)), 0);
-        uint256 expected = 1 * 1E8;
+        uint256 expected = 1 * BTC;
         getSlpWbtcEth(expected);
         uint256 actual = slpWbtcEth.balanceOf(address(this));
         assertGt(actual, expected);
@@ -450,6 +451,31 @@ contract SimulationTests is DSTest {
         assertLt(ulpDaiEth.balanceOf(address(this)), amount / 10);
         assertGt(dai.balanceOf(address(this)), 1 * WAD);
         assertGt(dai.balanceOf(address(this)), 1 * WAD);
+    }
+
+    function burnSlpWbtcEth(uint256 amount) private {
+        sushiRouter.removeLiquidity({
+            tokenA: wbtcAddr,
+            tokenB: wethAddr,
+            liquidity: amount,
+            amountAMin: 0,
+            amountBMin: 0,
+            to: address(this),
+            deadline: block.timestamp
+        });
+    }
+
+    function testBurnSlpWbtcEth() public {
+        uint256 amount = 300_000 * BTC;
+        getSlpWbtcEth(amount);
+        assertGe(slpWbtcEth.balanceOf(address(this)), amount);
+        assertLt(wbtc.balanceOf(address(this)), 1 * BTC);
+        assertEq(weth.balanceOf(address(this)), 0);
+        slpWbtcEth.approve(sushiAddr, amount);
+        burnSlpWbtcEth(amount);
+        assertLt(slpWbtcEth.balanceOf(address(this)), amount / 10);
+        assertGt(wbtc.balanceOf(address(this)), 1 * BTC);
+        assertGt(weth.balanceOf(address(this)), 1 * WAD);
     }
 
     function getLink(uint256 amountLink) private {
