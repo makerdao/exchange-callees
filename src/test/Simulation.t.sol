@@ -22,6 +22,9 @@ import "dss-interfaces/Interfaces.sol";
 import { UniswapV2CalleeDai } from "../UniswapV2Callee.sol";
 import { UniswapV2LpTokenCalleeDai } from "../UniswapV2LpTokenCallee.sol";
 
+import { CropManager, CropManagerImp } from "dss-crop-join/CropManager.sol";
+import { SushiJoin } from "dss-crop-join/SushiJoin.sol";
+
 interface Hevm {
     function warp(uint256) external;
     function store(address c, bytes32 loc, bytes32 val) external;
@@ -73,6 +76,10 @@ interface LpTokenAbstract is GemAbstract {
     returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
 }
 
+interface CropManagerLike {
+    function join(address crop, address usr, uint256 val) external;
+}
+
 contract VaultHolder {
     constructor(VatAbstract vat) public {
         vat.hope(msg.sender);
@@ -84,12 +91,14 @@ contract SimulationTests is DSTest {
     // mainnet UniswapV2Router02 address
     address constant uniAddr = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
     address constant sushiAddr = 0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F;
+    address constant sushiTokenAddr = 0x6B3595068778DD592e39A122f4f5a5cF09C90fE2;
+    address constant masterChefAddr = 0xEF0881eC094552b2e128Cf945EF17a6752B4Ec5d;
     address constant hevmAddr = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
     bytes32 constant linkName = "LINK-A";
     bytes32 constant ulpDaiEthName = "UNIV2DAIETH-A";
-    bytes32 constant ulpWbtcEthName = "UNIV2WBTCETH-A";
+    bytes32 constant ulpName = "UNIV2WBTCETH-A";
+    bytes32 constant slpName = "SUSHIETHALCX-A";
 
-    uint256 constant BTC = 1E8;
     uint256 constant WAD = 1E18;
     uint256 constant RAY = 1E27;
     uint256 constant RAD = 1E45;
@@ -139,9 +148,12 @@ contract SimulationTests is DSTest {
     address ulpDaiEthPipAddr;
     address linkPipAddr;
     address ethPipAddr;
-    address slpWbtcEthAddr;
-    address ulpWbtcEthPipAddr;
-    address wbtcAddr;
+    address slpAddr;
+    address ulpPipAddr;
+    address alcxAddr;
+    address slpJoinAddr;
+    address sushiManagerAddr;
+    address sushiManagerImpAddr;
 
     Hevm hevm;
     UniV2Router02Abstract uniRouter;
@@ -160,9 +172,12 @@ contract SimulationTests is DSTest {
     LPOsmAbstract ulpDaiEthPip;
     OsmAbstract linkPip;
     OsmAbstract ethPip;
-    LpTokenAbstract slpWbtcEth;
-    LPOsmAbstract ulpWbtcEthPip;
-    GemAbstract wbtc;
+    LpTokenAbstract slp;
+    LPOsmAbstract ulpPip;
+    GemAbstract alcx;
+    SushiJoin slpJoin;
+    CropManager sushiManager;
+    CropManagerImp sushiManagerImp;
 
     function setAddresses() private {
         ChainlogHelper helper = new ChainlogHelper();
@@ -184,9 +199,9 @@ contract SimulationTests is DSTest {
         ulpDaiEthPipAddr = chainLog.getAddress("PIP_UNIV2DAIETH");
         linkPipAddr = chainLog.getAddress("PIP_LINK");
         ethPipAddr = chainLog.getAddress("PIP_ETH");
-        slpWbtcEthAddr = 0xCEfF51756c56CeFFCA006cD410B03FFC46dd3a58;
-        ulpWbtcEthPipAddr = chainLog.getAddress("PIP_UNIV2WBTCETH");
-        wbtcAddr = chainLog.getAddress("WBTC");
+        slpAddr = 0xC3f279090a47e80990Fe3a9c30d24Cb117EF91a8;
+        ulpPipAddr = chainLog.getAddress("PIP_UNIV2WBTCETH");
+        alcxAddr = 0xdBdb4d16EdA451D0503b854CF79D55697F90c8DF;
     }
 
     function setInterfaces() private {
@@ -207,19 +222,36 @@ contract SimulationTests is DSTest {
         ulpDaiEthPip = LPOsmAbstract(ulpDaiEthPipAddr);
         linkPip = OsmAbstract(linkPipAddr);
         ethPip = OsmAbstract(ethPipAddr);
-        slpWbtcEth = LpTokenAbstract(slpWbtcEthAddr);
-        ulpWbtcEthPip = LPOsmAbstract(ulpWbtcEthPipAddr);
-        wbtc = GemAbstract(wbtcAddr);
+        slp = LpTokenAbstract(slpAddr);
+        ulpPip = LPOsmAbstract(ulpPipAddr);
+        alcx = GemAbstract(alcxAddr);
     }
 
-    VaultHolder ali;
-    address aliAddr;
-    UniswapV2CalleeDai bob;
-    address bobAddr;
-    UniswapV2LpTokenCalleeDai che;
-    address cheAddr;
-    UniswapV2LpTokenCalleeDai dan;
-    address danAddr;
+    function deployContracts() private {
+        sushiManagerImp = new CropManagerImp(vatAddr);
+        sushiManagerImpAddr = address(sushiManagerImp);
+        sushiManager = new CropManager();
+        sushiManagerAddr = address(sushiManager);
+        sushiManager.setImplementation(sushiManagerImpAddr);
+        uint256 pid = 0;
+        address rewarder = 0x7519C93fC5073E15d89131fD38118D73A72370F8;
+        address timelock = 0x19B3Eb3Af5D93b77a5619b047De0EED7115A19e7;
+        slpJoin = new SushiJoin(
+            vatAddr,
+            slpName,
+            slpAddr,
+            sushiTokenAddr,
+            masterChefAddr,
+            pid,
+            address(0),
+            rewarder,
+            timelock
+        );
+        slpJoinAddr = address(slpJoin);
+        slpJoin.rely(sushiManagerAddr);
+        vat.rely(slpJoinAddr);
+        vat.init(slpName);
+    }
 
     function getPermissions() private {
         hevm.store(
@@ -251,12 +283,21 @@ contract SimulationTests is DSTest {
         );
         ethPip.kiss(address(this));
         hevm.store(
-            ulpWbtcEthPipAddr,
+            ulpPipAddr,
             keccak256(abi.encode(address(this), uint256(0))),
             bytes32(uint256(1))
         );
-        ulpWbtcEthPip.kiss(address(this));
+        ulpPip.kiss(address(this));
     }
+
+    VaultHolder ali;
+    address aliAddr;
+    UniswapV2CalleeDai bob;
+    address bobAddr;
+    UniswapV2LpTokenCalleeDai che;
+    address cheAddr;
+    UniswapV2LpTokenCalleeDai dan;
+    address danAddr;
 
     function setUp() public {
         setAddresses();
@@ -270,6 +311,7 @@ contract SimulationTests is DSTest {
         dan = new UniswapV2LpTokenCalleeDai(sushiAddr, daiJoinAddr);
         danAddr = address(dan);
         getPermissions();
+        deployContracts();
     }
 
     function getLinkPrice() private returns (uint256 val) {
@@ -302,14 +344,14 @@ contract SimulationTests is DSTest {
         log_named_uint("LP DAI ETH price", price / WAD);
     }
 
-    function getSlpWbtcEthPrice() private returns (uint256 val) {
-        val = uint256(ulpWbtcEthPip.read());
+    function getSlpPrice() private returns (uint256 val) {
+        val = uint256(ulpPip.read());
     }
 
-    function testGetSlpWbtcEthPrice() public {
-        uint256 price = getSlpWbtcEthPrice();
+    function testGetSlpPrice() public {
+        uint256 price = getSlpPrice();
         assertGt(price, 0);
-        log_named_uint("SLP WBTC ETH price", price / WAD);
+        log_named_uint("SLP price", price / WAD);
     }
 
     function getWeth(uint256 amount) private {
@@ -349,14 +391,14 @@ contract SimulationTests is DSTest {
         assertEq(daiPost / 10_000, (daiPre + amountDai) / 10_000);
     }
 
-    function getWbtc(uint256 amountWbtc) private {
-        (uint112 reserveWbtc, uint112 reserveWeth, ) = slpWbtcEth.getReserves();
-        uint256 amountWeth = sushiRouter.getAmountIn(amountWbtc, reserveWeth, reserveWbtc);
+    function getAlcx(uint256 amountAlcx) private {
+        (uint112 reserveAlcx, uint112 reserveWeth, ) = slp.getReserves();
+        uint256 amountWeth = sushiRouter.getAmountIn(amountAlcx, reserveWeth, reserveAlcx);
         getWeth(amountWeth);
         weth.approve(sushiAddr, amountWeth);
         address[] memory path = new address[](2);
         path[0] = wethAddr;
-        path[1] = wbtcAddr;
+        path[1] = alcxAddr;
         sushiRouter.swapExactTokensForTokens({
             amountIn: amountWeth,
             amountOutMin: 0,
@@ -366,12 +408,12 @@ contract SimulationTests is DSTest {
         });
     }
 
-    function testGetWbtc() public {
-        uint256 amountWbtc = 1 * BTC;
-        uint256 wbtcPre = wbtc.balanceOf(address(this));
-        getWbtc(amountWbtc);
-        uint256 wbtcPost = wbtc.balanceOf(address(this));
-        assertEq(wbtcPost, wbtcPre + amountWbtc);
+    function testGetAlcx() public {
+        uint256 amountAlcx = 30 * WAD;
+        uint256 alcxPre = alcx.balanceOf(address(this));
+        getAlcx(amountAlcx);
+        uint256 alcxPost = alcx.balanceOf(address(this));
+        assertGe(alcxPost, alcxPre + amountAlcx);
     }
 
     function getLpDaiEth(uint256 amountLp) private {
@@ -402,16 +444,16 @@ contract SimulationTests is DSTest {
         assertLt(actual - expected, actual / 10);
     }
 
-    function getSlpWbtcEth(uint256 amountLp) private {
-        uint256 totalSupply = slpWbtcEth.totalSupply();
-        (uint112 reserveWbtc, uint112 reserveWeth,) = slpWbtcEth.getReserves();
-        uint256 amountWbtc = amountLp * reserveWbtc / totalSupply * 11 / 10;
+    function getSlp(uint256 amountLp) private {
+        uint256 totalSupply = slp.totalSupply();
+        (uint112 reserveWeth, uint112 reserveAlcx,) = slp.getReserves();
+        uint256 amountAlcx = amountLp * reserveAlcx / totalSupply * 11 / 10;
         uint256 amountEth = amountLp * reserveWeth / totalSupply * 11 / 10;
-        getWbtc(amountWbtc);
-        wbtc.approve(sushiAddr, amountWbtc);
+        getAlcx(amountAlcx);
+        alcx.approve(sushiAddr, amountAlcx);
         sushiRouter.addLiquidityETH{value: amountEth}({
-            token: wbtcAddr,
-            amountTokenDesired: amountWbtc,
+            token: alcxAddr,
+            amountTokenDesired: amountAlcx,
             amountTokenMin: 0,
             amountETHMin: 0,
             to: address(this),
@@ -419,11 +461,11 @@ contract SimulationTests is DSTest {
         });
     }
 
-    function testGetSlpWbtcEth() public {
-        assertEq(slpWbtcEth.balanceOf(address(this)), 0);
-        uint256 expected = 1 * BTC;
-        getSlpWbtcEth(expected);
-        uint256 actual = slpWbtcEth.balanceOf(address(this));
+    function testGetSlp() public {
+        assertEq(slp.balanceOf(address(this)), 0);
+        uint256 expected = 30 * WAD;
+        getSlp(expected);
+        uint256 actual = slp.balanceOf(address(this));
         assertGt(actual, expected);
         assertLt(actual - expected, actual / 10);
     }
@@ -453,9 +495,9 @@ contract SimulationTests is DSTest {
         assertGt(dai.balanceOf(address(this)), 1 * WAD);
     }
 
-    function burnSlpWbtcEth(uint256 amount) private {
+    function burnSlp(uint256 amount) private {
         sushiRouter.removeLiquidity({
-            tokenA: wbtcAddr,
+            tokenA: alcxAddr,
             tokenB: wethAddr,
             liquidity: amount,
             amountAMin: 0,
@@ -465,16 +507,16 @@ contract SimulationTests is DSTest {
         });
     }
 
-    function testBurnSlpWbtcEth() public {
-        uint256 amount = 300_000 * BTC;
-        getSlpWbtcEth(amount);
-        assertGe(slpWbtcEth.balanceOf(address(this)), amount);
-        assertLt(wbtc.balanceOf(address(this)), 1 * BTC);
+    function testBurnSlp() public {
+        uint256 amount = 100 * WAD;
+        getSlp(amount);
+        uint256 alcxPre = alcx.balanceOf(address(this));
+        assertGe(slp.balanceOf(address(this)), amount);
         assertEq(weth.balanceOf(address(this)), 0);
-        slpWbtcEth.approve(sushiAddr, amount);
-        burnSlpWbtcEth(amount);
-        assertLt(slpWbtcEth.balanceOf(address(this)), amount / 10);
-        assertGt(wbtc.balanceOf(address(this)), 1 * BTC);
+        slp.approve(sushiAddr, amount);
+        burnSlp(amount);
+        assertLt(slp.balanceOf(address(this)), amount / 10);
+        assertGt(alcx.balanceOf(address(this)), alcxPre);
         assertGt(weth.balanceOf(address(this)), 1 * WAD);
     }
 
@@ -558,6 +600,20 @@ contract SimulationTests is DSTest {
         uint256 gemPre = vat.gem(ulpDaiEthName, aliAddr);
         joinLpDaiEth(amount);
         uint256 gemPost = vat.gem(ulpDaiEthName, aliAddr);
+        assertEq(gemPost, gemPre + amount);
+    }
+
+    function joinSlp(uint256 amount) private {
+        slp.approve(sushiManagerAddr, amount);
+        CropManagerLike(sushiManagerAddr).join(slpJoinAddr, aliAddr, amount);
+    }
+
+    function testJoinSlp() public {
+        uint256 amount = 30 * WAD;
+        getSlp(amount);
+        uint256 gemPre = vat.gem(slpName, sushiManager.proxy(aliAddr));
+        joinSlp(amount);
+        uint256 gemPost = vat.gem(slpName, sushiManager.proxy(aliAddr));
         assertEq(gemPost, gemPre + amount);
     }
 
