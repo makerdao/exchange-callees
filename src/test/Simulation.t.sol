@@ -254,6 +254,9 @@ contract SimulationTests is DSTest {
         vat.init(slpName);
         vat.file(slpName, "spot", 100 * RAY);
         vat.file(slpName, "line", 1_000_000 * RAD);
+        jug.init(slpName);
+        jug.file(slpName, "duty", 1000000001847694957439350562);
+        hevm.warp(block.timestamp + 600);
     }
 
     function getPermissions() private {
@@ -291,6 +294,11 @@ contract SimulationTests is DSTest {
             bytes32(uint256(1))
         );
         ulpPip.kiss(address(this));
+        hevm.store(
+            jugAddr,
+            keccak256(abi.encode(address(this), uint256(0))),
+            bytes32(uint256(1))
+        );
     }
 
     VaultHolder ali;
@@ -667,6 +675,13 @@ contract SimulationTests is DSTest {
         (, uint256 ratePre, , , ) = vat.ilks(linkName);
         drip(linkName);
         (, uint256 ratePost, , , ) = vat.ilks(linkName);
+        assertGt(ratePost, ratePre);
+    }
+
+    function testDripSlp() public {
+        (, uint256 ratePre, , , ) = vat.ilks(slpName);
+        drip(slpName);
+        (, uint256 ratePost, , , ) = vat.ilks(slpName);
         assertGt(ratePost, ratePre);
     }
 
