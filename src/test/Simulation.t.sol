@@ -78,6 +78,7 @@ interface LpTokenAbstract is GemAbstract {
 
 interface CropManagerLike {
     function join(address crop, address usr, uint256 val) external;
+    function frob(address crop, address u, address v, address w, int256 dink, int256 dart) external;
 }
 
 contract VaultHolder {
@@ -251,6 +252,8 @@ contract SimulationTests is DSTest {
         slpJoin.rely(sushiManagerAddr);
         vat.rely(slpJoinAddr);
         vat.init(slpName);
+        vat.file(slpName, "spot", 100 * RAY);
+        vat.file(slpName, "line", 1_000_000 * RAD);
     }
 
     function getPermissions() private {
@@ -605,15 +608,15 @@ contract SimulationTests is DSTest {
 
     function joinSlp(uint256 amount) private {
         slp.approve(sushiManagerAddr, amount);
-        CropManagerLike(sushiManagerAddr).join(slpJoinAddr, aliAddr, amount);
+        CropManagerLike(sushiManagerAddr).join(slpJoinAddr, address(this), amount);
     }
 
     function testJoinSlp() public {
         uint256 amount = 30 * WAD;
         getSlp(amount);
-        uint256 gemPre = vat.gem(slpName, sushiManager.proxy(aliAddr));
+        uint256 gemPre = vat.gem(slpName, sushiManager.proxy(address(this)));
         joinSlp(amount);
-        uint256 gemPost = vat.gem(slpName, sushiManager.proxy(aliAddr));
+        uint256 gemPost = vat.gem(slpName, sushiManager.proxy(address(this)));
         assertEq(gemPost, gemPre + amount);
     }
 
@@ -631,6 +634,25 @@ contract SimulationTests is DSTest {
         frobMax(amountLink, linkName);
         try vat.frob(linkName, aliAddr, aliAddr, aliAddr, 0, 1) {
             log("not at maximum frob");
+            fail();
+        } catch {
+            log("success");
+        }
+    }
+
+    function frobMaxSlp(uint256 ink) private {
+        (, uint256 rate, uint256 spot, ,) = vat.ilks(slpName);
+        uint256 art = ink * spot / rate;
+        CropManagerLike(sushiManagerAddr).frob(slpJoinAddr, address(this), address(this), address(this), int256(ink), int256(art));
+    }
+
+    function testFrobMaxSlp() public {
+        uint256 amountSlp = 100 * WAD;
+        getSlp(amountSlp);
+        joinSlp(amountSlp);
+        frobMaxSlp(amountSlp);
+        try CropManagerLike(sushiManagerAddr).frob(slpJoinAddr, address(this), address(this), address(this), 0, 1) {
+            log("not at max frob");
             fail();
         } catch {
             log("success");
