@@ -1,0 +1,81 @@
+[1mdiff --git "a/s\033\033\033\033\033" "b/s\033\033\033\033\033"[m
+[1mdeleted file mode 100644[m
+[1mindex 454c219..0000000[m
+[1m--- "a/s\033\033\033\033\033"[m
+[1m+++ /dev/null[m
+[36m@@ -1,62 +0,0 @@[m
+[31m-[1mdiff --git a/src/test/Simulation.t.sol b/src/test/Simulation.t.sol[m[m
+[31m-[1mindex d937842..4eea3d5 100644[m[m
+[31m-[1m--- a/src/test/Simulation.t.sol[m[m
+[31m-[1m+++ b/src/test/Simulation.t.sol[m[m
+[31m-[36m@@ -89,6 +89,7 @@[m [mcontract SimulationTests is DSTest {[m[m
+[31m-     bytes32 constant ulpDaiEthName = "UNIV2DAIETH-A";[m[m
+[31m-     bytes32 constant ulpWbtcEthName = "UNIV2WBTCETH-A";[m[m
+[31m- [m[m
+[31m-[32m+[m[32m    uint256 constant BTC = 1E8;[m[m
+[31m-     uint256 constant WAD = 1E18;[m[m
+[31m-     uint256 constant RAY = 1E27;[m[m
+[31m-     uint256 constant RAD = 1E45;[m[m
+[31m-[36m@@ -366,7 +367,7 @@[m [mcontract SimulationTests is DSTest {[m[m
+[31m-     }[m[m
+[31m- [m[m
+[31m-     function testGetWbtc() public {[m[m
+[31m-[31m-        uint256 amountWbtc = 1 * 1E8;[m[m
+[31m-[32m+[m[32m        uint256 amountWbtc = 1 * BTC;[m[m
+[31m-         uint256 wbtcPre = wbtc.balanceOf(address(this));[m[m
+[31m-         getWbtc(amountWbtc);[m[m
+[31m-         uint256 wbtcPost = wbtc.balanceOf(address(this));[m[m
+[31m-[36m@@ -420,7 +421,7 @@[m [mcontract SimulationTests is DSTest {[m[m
+[31m- [m[m
+[31m-     function testGetSlpWbtcEth() public {[m[m
+[31m-         assertEq(slpWbtcEth.balanceOf(address(this)), 0);[m[m
+[31m-[31m-        uint256 expected = 1 * 1E8;[m[m
+[31m-[32m+[m[32m        uint256 expected = 1 * BTC;[m[m
+[31m-         getSlpWbtcEth(expected);[m[m
+[31m-         uint256 actual = slpWbtcEth.balanceOf(address(this));[m[m
+[31m-         assertGt(actual, expected);[m[m
+[31m-[36m@@ -452,6 +453,31 @@[m [mcontract SimulationTests is DSTest {[m[m
+[31m-         assertGt(dai.balanceOf(address(this)), 1 * WAD);[m[m
+[31m-     }[m[m
+[31m- [m[m
+[31m-[32m+[m[32m    function burnSlpWbtcEth(uint256 amount) private {[m[m
+[31m-[32m+[m[32m        sushiRouter.removeLiquidity({[m[m
+[31m-[32m+[m[32m            tokenA: wbtcAddr,[m[m
+[31m-[32m+[m[32m            tokenB: wethAddr,[m[m
+[31m-[32m+[m[32m            liquidity: amount,[m[m
+[31m-[32m+[m[32m            amountAMin: 0,[m[m
+[31m-[32m+[m[32m            amountBMin: 0,[m[m
+[31m-[32m+[m[32m            to: address(this),[m[m
+[31m-[32m+[m[32m            deadline: block.timestamp[m[m
+[31m-[32m+[m[32m        });[m[m
+[31m-[32m+[m[32m    }[m[m
+[31m-[32m+[m[m
+[31m-[32m+[m[32m    function testBurnSlpWbtcEth() public {[m[m
+[31m-[32m+[m[32m        uint256 amount = 300_000 * BTC;[m[m
+[31m-[32m+[m[32m        getSlpWbtcEth(amount);[m[m
+[31m-[32m+[m[32m        assertGe(slpWbtcEth.balanceOf(address(this)), amount);[m[m
+[31m-[32m+[m[32m        assertLt(wbtc.balanceOf(address(this)), 1 * BTC);[m[m
+[31m-[32m+[m[32m        assertEq(weth.balanceOf(address(this)), 0);[m[m
+[31m-[32m+[m[32m        slpWbtcEth.approve(sushiAddr, amount);[m[m
+[31m-[32m+[m[32m        burnSlpWbtcEth(amount);[m[m
+[31m-[32m+[m[32m        assertLt(slpWbtcEth.balanceOf(address(this)), amount / 10);[m[m
+[31m-[32m+[m[32m        assertGt(wbtc.balanceOf(address(this)), 1 * BTC);[m[m
+[31m-[32m+[m[32m        assertGt(weth.balanceOf(address(this)), 1 * WAD);[m[m
+[31m-[32m+[m[32m    }[m[m
+[31m-[32m+[m[m
+[31m-     function getLink(uint256 amountLink) private {[m[m
+[31m-         uint256 linkPrice = getLinkPrice();[m[m
+[31m-         uint256 ethPrice = getEthPrice();[m[m
+[1mdiff --git a/src/test/Simulation.t.sol b/src/test/Simulation.t.sol[m
+[1mindex 6ddb74d..ea46c37 100644[m
+[1m--- a/src/test/Simulation.t.sol[m
+[1m+++ b/src/test/Simulation.t.sol[m
+[36m@@ -730,7 +730,7 @@[m [mcontract SimulationTests is DSTest {[m
+         }[m
+         assertEq(dai.balanceOf(bobAddr), 0);[m
+         takeLink(auctionId, amountLink, auctionPrice, 0);[m
+[31m-        assertLt(dai.balanceOf(bobAddr), amountLink * auctionPrice / RAY / 10);[m
+[32m+[m[32m        assertLt(dai.balanceOf(bobAddr), amountLink * auctionPrice / RAY / 5);[m
+     }[m
+ [m
+     function testTakeLinkProfit() public {[m
