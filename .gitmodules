@@ -13,3 +13,6 @@
 [submodule "lib/dss-crop-join"]
 	path = lib/dss-crop-join
 	url = https://github.com/makerdao/dss-crop-join
+[submodule "lib/ds-value"]
+	path = lib/ds-value
+	url = https://github.com/dapphub/ds-value
