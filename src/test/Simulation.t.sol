@@ -24,6 +24,8 @@ import { UniswapV2LpTokenCalleeDai } from "../UniswapV2LpTokenCallee.sol";
 
 import { CropManager, CropManagerImp } from "dss-crop-join/CropManager.sol";
 import { SushiJoin } from "dss-crop-join/SushiJoin.sol";
+import { CropClipper } from "dss-crop-join/CropClipper.sol";
+import { DSValue } from "ds-value/value.sol";
 
 interface Hevm {
     function warp(uint256) external;
@@ -137,7 +139,7 @@ contract SimulationTests is DSTest {
     address daiAddr;
     address vatAddr;
     address linkJoinAddr;
-    address spotterAddr;
+    address spotAddr;
     address daiJoinAddr;
     address dogAddr;
     address jugAddr;
@@ -155,6 +157,8 @@ contract SimulationTests is DSTest {
     address slpJoinAddr;
     address sushiManagerAddr;
     address sushiManagerImpAddr;
+    address slpClipAddr;
+    address slpPipAddr;
 
     Hevm hevm;
     UniV2Router02Abstract uniRouter;
@@ -179,6 +183,9 @@ contract SimulationTests is DSTest {
     SushiJoin slpJoin;
     CropManager sushiManager;
     CropManagerImp sushiManagerImp;
+    CropClipper slpClip;
+    SpotAbstract spot;
+    DSValue slpPip;
 
     function setAddresses() private {
         ChainlogHelper helper = new ChainlogHelper();
@@ -188,7 +195,7 @@ contract SimulationTests is DSTest {
         vatAddr = chainLog.getAddress("MCD_VAT");
         daiAddr = chainLog.getAddress("MCD_DAI");
         linkJoinAddr = chainLog.getAddress("MCD_JOIN_LINK_A");
-        spotterAddr = chainLog.getAddress("MCD_SPOT");
+        spotAddr = chainLog.getAddress("MCD_SPOT");
         daiJoinAddr = chainLog.getAddress("MCD_JOIN_DAI");
         dogAddr = chainLog.getAddress("MCD_DOG");
         jugAddr = chainLog.getAddress("MCD_JUG");
@@ -226,6 +233,7 @@ contract SimulationTests is DSTest {
         slp = LpTokenAbstract(slpAddr);
         ulpPip = LPOsmAbstract(ulpPipAddr);
         alcx = GemAbstract(alcxAddr);
+        spot = SpotAbstract(spotAddr);
     }
 
     function deployContracts() private {
@@ -257,6 +265,16 @@ contract SimulationTests is DSTest {
         jug.init(slpName);
         jug.file(slpName, "duty", 1000000001847694957439350562);
         hevm.warp(block.timestamp + 600);
+        dog.file(slpName, "hole", 10_000 * RAD);
+        dog.file(slpName, "chop", 113 * WAD / 100);
+        slpClip = new CropClipper(vatAddr, spotAddr, dogAddr, slpJoinAddr, sushiManagerAddr);
+        slpClipAddr = address(slpClip);
+        dog.file(slpName, "clip", slpClipAddr);
+        slpClip.rely(dogAddr);
+        slpPip = new DSValue();
+        slpPip.poke(bytes32(100 * WAD));
+        slpPipAddr = address(slpPip);
+        spot.file(slpName, "pip", slpPipAddr);
     }
 
     function getPermissions() private {
@@ -299,6 +317,12 @@ contract SimulationTests is DSTest {
             keccak256(abi.encode(address(this), uint256(0))),
             bytes32(uint256(1))
         );
+        hevm.store(
+            spotAddr,
+            keccak256(abi.encode(address(this), uint256(0))),
+            bytes32(uint256(1))
+        );
+
     }
 
     VaultHolder ali;
@@ -724,9 +748,33 @@ contract SimulationTests is DSTest {
         assertEq(auctionId, kicksPost);
         assertEq(kicksPost, kicksPre + 1);
         (
-         ,, uint256 lot, address usr, uint96 tic,
-         ) = ulpDaiEthClip.sales(auctionId);
+            ,, uint256 lot, address usr, uint96 tic,
+        ) = ulpDaiEthClip.sales(auctionId);
         assertEq(usr, aliAddr);
+        assertEq(lot, amount);
+        assertEq(tic, block.timestamp);
+    }
+
+    function barkSlp() private returns (uint256 auctionId) {
+        dog.bark(
+            slpName,
+            sushiManager.proxy(address(this)),
+            address(this)
+        );
+        auctionId = slpClip.kicks();
+    }
+
+    function testBarkSlp() public {
+        uint256 amount = 30 * WAD;
+        getSlp(amount);
+        joinSlp(amount);
+        frobMaxSlp(amount);
+        drip(slpName);
+        uint256 auctionId = barkSlp();
+        (
+            ,, uint256 lot, address usr, uint96 tic,
+        ) = slpClip.sales(auctionId);
+        assertEq(usr, sushiManager.proxy(address(this)));
         assertEq(lot, amount);
         assertEq(tic, block.timestamp);
     }
