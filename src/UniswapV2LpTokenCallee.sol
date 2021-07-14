@@ -44,6 +44,10 @@ interface LpTokenLike is TokenLike {
     function token1() external view returns (TokenLike);
 }
 
+interface CropManagerLike {
+    function exit(address crop, address usr, uint256 val) external;
+}
+
 interface UniswapV2Router02Like {
     function swapExactTokensForTokens(uint256, uint256, address[] calldata, address, uint256) external returns (uint[] memory);
     function removeLiquidity(
@@ -124,14 +128,22 @@ contract UniswapV2LpTokenCalleeDai is UniswapV2Callee {
             address gemJoin,      // gemJoin adapter address
             uint256 minProfit,    // minimum profit in DAI to make [wad]
             address[] memory pathA, // path of token A
-            address[] memory pathB  // path of token B
-        ) = abi.decode(data, (address, address, uint256, address[], address[]));
+            address[] memory pathB, // path of token B
+            address cropManager     // pass address(0) if no manager
+        ) = abi.decode(
+            data,
+            (address, address, uint256, address[], address[], address)
+        );
 
         // Convert gem amount to token precision
         gemAmt = _fromWad(gemJoin, gemAmt);
 
         // Exit collateral to token version
-        GemJoinLike(gemJoin).exit(address(this), gemAmt);
+        if(cropManager != address(0)) {
+            CropManagerLike(cropManager).exit(gemJoin, address(this), gemAmt);
+        } else {
+            GemJoinLike(gemJoin).exit(address(this), gemAmt);
+        }
 
         // Approve uniRouter02 to take gem
         LpTokenLike gem = GemJoinLike(gemJoin).gem();
@@ -141,22 +153,20 @@ contract UniswapV2LpTokenCalleeDai is UniswapV2Callee {
         uint256 daiToJoin = divup(daiAmt, RAY);
 
         // Do operation and get dai amount bought (checking the profit is achieved)
-        TokenLike tokenA = gem.token0();
-        TokenLike tokenB = gem.token1();
         uniRouter02.removeLiquidity({ // burn token to obtain its components
-            tokenA: address(tokenA),
-            tokenB: address(tokenB),
+            tokenA: address(gem.token0()),
+            tokenB: address(gem.token1()),
             liquidity: gemAmt,
             amountAMin: 0, // minProfit is checked below
             amountBMin: 0,
             to: address(this),
             deadline: block.timestamp
         });
-        if (address(tokenA) != address(dai)) {
-            swapGemForDai(tokenA, pathA, to);
+        if (address(gem.token0()) != address(dai)) {
+            swapGemForDai(gem.token0(), pathA, to);
         }
-        if (address(tokenB) != address(dai)) {
-            swapGemForDai(tokenB, pathB, to);
+        if (address(gem.token1()) != address(dai)) {
+            swapGemForDai(gem.token1(), pathB, to);
         }
         require(
             dai.balanceOf(address(this)) >= add(daiToJoin, minProfit),

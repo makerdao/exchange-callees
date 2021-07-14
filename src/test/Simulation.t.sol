@@ -26,6 +26,7 @@ import { CropManager, CropManagerImp } from "dss-crop-join/CropManager.sol";
 import { SushiJoin } from "dss-crop-join/SushiJoin.sol";
 import { CropClipper } from "dss-crop-join/CropClipper.sol";
 import { DSValue } from "ds-value/value.sol";
+import { StairstepExponentialDecrease } from "dss/abaci.sol";
 
 interface Hevm {
     function warp(uint256) external;
@@ -81,6 +82,8 @@ interface LpTokenAbstract is GemAbstract {
 interface CropManagerLike {
     function join(address crop, address usr, uint256 val) external;
     function frob(address crop, address u, address v, address w, int256 dink, int256 dart) external;
+    function getOrCreateProxy(address usr) external returns (address urp);
+    function exit(address crop, address usr, uint256 val) external;
 }
 
 contract VaultHolder {
@@ -159,6 +162,7 @@ contract SimulationTests is DSTest {
     address sushiManagerImpAddr;
     address slpClipAddr;
     address slpPipAddr;
+    address slpCalcAddr;
 
     Hevm hevm;
     UniV2Router02Abstract uniRouter;
@@ -186,6 +190,7 @@ contract SimulationTests is DSTest {
     CropClipper slpClip;
     SpotAbstract spot;
     DSValue slpPip;
+    StairstepExponentialDecrease slpCalc;
 
     function setAddresses() private {
         ChainlogHelper helper = new ChainlogHelper();
@@ -242,6 +247,7 @@ contract SimulationTests is DSTest {
         sushiManager = new CropManager();
         sushiManagerAddr = address(sushiManager);
         sushiManager.setImplementation(sushiManagerImpAddr);
+        CropManagerLike(sushiManagerAddr).getOrCreateProxy(danAddr);
         uint256 pid = 0;
         address rewarder = 0x7519C93fC5073E15d89131fD38118D73A72370F8;
         address timelock = 0x19B3Eb3Af5D93b77a5619b047De0EED7115A19e7;
@@ -268,9 +274,16 @@ contract SimulationTests is DSTest {
         dog.file(slpName, "hole", 10_000 * RAD);
         dog.file(slpName, "chop", 113 * WAD / 100);
         slpClip = new CropClipper(vatAddr, spotAddr, dogAddr, slpJoinAddr, sushiManagerAddr);
+        slpClip.file("tail", 2 hours);
         slpClipAddr = address(slpClip);
+        slpCalc = new StairstepExponentialDecrease();
+        slpCalc.file("step", 90);
+        slpCalc.file("cut", 99 * RAY / 100);
+        slpCalcAddr = address(slpCalc);
+        slpClip.file("calc", slpCalcAddr);
         dog.file(slpName, "clip", slpClipAddr);
         slpClip.rely(dogAddr);
+        dog.rely(slpClipAddr);
         slpPip = new DSValue();
         slpPip.poke(bytes32(100 * WAD));
         slpPipAddr = address(slpPip);
@@ -652,6 +665,13 @@ contract SimulationTests is DSTest {
         assertEq(gemPost, gemPre + amount);
     }
 
+    function testExitSlp() public {
+        uint256 amount = 30 * WAD;
+        getSlp(amount);
+        joinSlp(amount);
+        CropManagerLike(sushiManagerAddr).exit(slpJoinAddr, address(this), amount);
+    }
+
     function frobMax(uint256 gem, bytes32 ilkName) private {
         uint256 ink = gem;
         (, uint256 rate, uint256 spot, ,) = vat.ilks(ilkName);
@@ -784,7 +804,7 @@ contract SimulationTests is DSTest {
         uint256 amt,
         uint256 max,
         uint256 minProfit
-    ) public {
+    ) private {
         vat.hope(linkClipAddr);
         address[] memory path = new address[](3);
         path[0] = linkAddr;
@@ -848,14 +868,20 @@ contract SimulationTests is DSTest {
         uint256 amt,
         uint256 max,
         uint256 minProfit
-    ) public {
+    ) private {
         vat.hope(ulpDaiEthClipAddr);
         address[] memory pathA;
         address[] memory pathB = new address[](2);
         pathB[0] = wethAddr;
         pathB[1] = daiAddr;
-        bytes memory data
-            = abi.encode(bobAddr, ulpDaiEthJoinAddr, minProfit, pathA, pathB);
+        bytes memory data = abi.encode(
+            cheAddr,
+            ulpDaiEthJoinAddr,
+            minProfit,
+            pathA,
+            pathB,
+            address(0)
+        );
         ulpDaiEthClip.take(auctionId, amt, max, cheAddr, data);
     }
 
@@ -873,9 +899,9 @@ contract SimulationTests is DSTest {
             hevm.warp(block.timestamp + 10 seconds);
             (, auctionPrice,,) = ulpDaiEthClip.getStatus(auctionId);
         }
-        assertEq(dai.balanceOf(bobAddr), 0);
+        assertEq(dai.balanceOf(cheAddr), 0);
         takeLpDaiEth(auctionId, amount, auctionPrice, 0);
-        assertLt(dai.balanceOf(bobAddr), amount * auctionPrice / RAY / 5);
+        assertLt(dai.balanceOf(cheAddr), amount * auctionPrice / RAY / 5);
     }
 
     function testTakeLpDaiEthProfit() public {
@@ -898,8 +924,47 @@ contract SimulationTests is DSTest {
         }
         uint256 minProfit = amount * auctionPrice / RAY 
             * minProfitPct / 100;
-        assertEq(dai.balanceOf(bobAddr), 0);
+        assertEq(dai.balanceOf(cheAddr), 0);
         takeLpDaiEth(auctionId, amount, auctionPrice, minProfit);
-        assertGe(dai.balanceOf(bobAddr), minProfit);
+        assertGe(dai.balanceOf(cheAddr), minProfit);
+    }
+
+    function takeSlp(
+        uint256 auctionId,
+        uint256 amt,
+        uint256 max,
+        uint256 minProfit
+    ) private {
+        vat.hope(slpClipAddr);
+        address[] memory pathA = new address[](2);
+        address[] memory pathB = new address[](3);
+        pathA[0] = wethAddr;
+        pathA[1] = daiAddr;
+        pathB[0] = alcxAddr;
+        pathB[1] = wethAddr;
+        pathB[2] = daiAddr;
+        bytes memory data = abi.encode(
+            danAddr,
+            slpJoinAddr,
+            minProfit,
+            pathA,
+            pathB,
+            sushiManagerAddr
+        );
+        slpClip.take(auctionId, amt, max, danAddr, data);
+    }
+
+    function testTakeSlpNoProfit() public {
+        uint256 amount = 30 * WAD;
+        getSlp(amount);
+        joinSlp(amount);
+        frobMaxSlp(amount);
+        drip(slpName);
+        uint256 auctionId = barkSlp();
+        hevm.warp(block.timestamp + 1 hours);
+        uint256 balancePre = dai.balanceOf(danAddr);
+        takeSlp(auctionId, amount, 100 * RAY, 0);
+        uint256 balancePost = dai.balanceOf(danAddr);
+        assertGt(balancePost, balancePre);
     }
 }
