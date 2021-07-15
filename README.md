@@ -23,10 +23,11 @@ Each exchange has its own public callee contract, which exposes a function calle
 NOTE:
 * NEVER DIRECTLY SEND internal/ERC20 `gem`/`dai` to an exchange callee contract.
 * Remember to call `vat.hope(clipper)` from the msg.sender once before calling `Clipper.take`
+* For Sushi LP tokens and other forms of collateral that use CropManager, you need to create a Proxy for the address where you are receiving your funds by calling `CropManager.getOrCreateProxy()` once.
 
 ## Exchanges supported
 * [OasisDex](https://oasisdex.com/)
-* [UniswapV2](https://uniswap.org/) (Only ETH collateral types are supported at the moment)
+* [UniswapV2](https://uniswap.org/)
 
 ## Public addresses
 
