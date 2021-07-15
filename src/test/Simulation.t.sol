@@ -23,8 +23,8 @@ import { UniswapV2CalleeDai } from "../UniswapV2Callee.sol";
 import { UniswapV2LpTokenCalleeDai } from "../UniswapV2LpTokenCallee.sol";
 
 import { CropManager, CropManagerImp } from "dss-crop-join/CropManager.sol";
-import { SushiJoin } from "dss-crop-join/SushiJoin.sol";
-import { CropClipper } from "dss-crop-join/CropClipper.sol";
+import { SushiJoin } from "dss-crop-join/SushiJoinV2.sol";
+import { ProxyManagerClipper } from "dss-crop-join/ProxyManagerClipper.sol";
 import { DSValue } from "ds-value/value.sol";
 import { StairstepExponentialDecrease } from "dss/abaci.sol";
 
@@ -84,6 +84,7 @@ interface CropManagerLike {
     function frob(address crop, address u, address v, address w, int256 dink, int256 dart) external;
     function getOrCreateProxy(address usr) external returns (address urp);
     function exit(address crop, address usr, uint256 val) external;
+    function proxy(address) external view returns (address);
 }
 
 contract VaultHolder {
@@ -187,7 +188,7 @@ contract SimulationTests is DSTest {
     SushiJoin slpJoin;
     CropManager sushiManager;
     CropManagerImp sushiManagerImp;
-    CropClipper slpClip;
+    ProxyManagerClipper slpClip;
     SpotAbstract spotter;
     DSValue slpPip;
     StairstepExponentialDecrease slpCalc;
@@ -273,7 +274,7 @@ contract SimulationTests is DSTest {
         hevm.warp(block.timestamp + 600);
         dog.file(slpName, "hole", 10_000 * RAD);
         dog.file(slpName, "chop", 113 * WAD / 100);
-        slpClip = new CropClipper(
+        slpClip = new ProxyManagerClipper(
             vatAddr,
             spotterAddr,
             dogAddr,
@@ -665,9 +666,15 @@ contract SimulationTests is DSTest {
     function testJoinSlp() public {
         uint256 amount = 30 * WAD;
         getSlp(amount);
-        uint256 gemPre = vat.gem(slpName, sushiManager.proxy(address(this)));
+        uint256 gemPre = vat.gem(
+            slpName,
+            CropManagerLike(sushiManagerAddr).proxy(address(this))
+        );
         joinSlp(amount);
-        uint256 gemPost = vat.gem(slpName, sushiManager.proxy(address(this)));
+        uint256 gemPost = vat.gem(
+            slpName,
+            CropManagerLike(sushiManagerAddr).proxy(address(this))
+        );
         assertEq(gemPost, gemPre + amount);
     }
 
@@ -784,7 +791,7 @@ contract SimulationTests is DSTest {
     function barkSlp() private returns (uint256 auctionId) {
         dog.bark(
             slpName,
-            sushiManager.proxy(address(this)),
+            CropManagerLike(sushiManagerAddr).proxy(address(this)),
             address(this)
         );
         auctionId = slpClip.kicks();
@@ -800,7 +807,7 @@ contract SimulationTests is DSTest {
         (
             ,, uint256 lot, address usr, uint96 tic,
         ) = slpClip.sales(auctionId);
-        assertEq(usr, sushiManager.proxy(address(this)));
+        assertEq(usr, CropManagerLike(sushiManagerAddr).proxy(address(this)));
         assertEq(lot, amount);
         assertEq(tic, block.timestamp);
     }
