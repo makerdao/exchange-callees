@@ -973,4 +973,19 @@ contract SimulationTests is DSTest {
         uint256 balancePost = dai.balanceOf(danAddr);
         assertGt(balancePost, balancePre);
     }
+
+    function testTakeSlpProfit() public {
+        uint256 amount = 30 * WAD;
+        uint256 minProfit = 30_000 * WAD;
+        getSlp(amount);
+        joinSlp(amount);
+        frobMaxSlp(amount);
+        drip(slpName);
+        uint256 auctionId = barkSlp();
+        hevm.warp(block.timestamp + 1 hours);
+        uint256 balancePre = dai.balanceOf(danAddr);
+        takeSlp(auctionId, amount, 100 * RAY, minProfit);
+        uint256 balancePost = dai.balanceOf(danAddr);
+        assertGt(balancePost, balancePre + minProfit);
+    }
 }
