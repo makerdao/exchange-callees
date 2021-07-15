@@ -142,7 +142,7 @@ contract SimulationTests is DSTest {
     address daiAddr;
     address vatAddr;
     address linkJoinAddr;
-    address spotAddr;
+    address spotterAddr;
     address daiJoinAddr;
     address dogAddr;
     address jugAddr;
@@ -188,7 +188,7 @@ contract SimulationTests is DSTest {
     CropManager sushiManager;
     CropManagerImp sushiManagerImp;
     CropClipper slpClip;
-    SpotAbstract spot;
+    SpotAbstract spotter;
     DSValue slpPip;
     StairstepExponentialDecrease slpCalc;
 
@@ -200,7 +200,7 @@ contract SimulationTests is DSTest {
         vatAddr = chainLog.getAddress("MCD_VAT");
         daiAddr = chainLog.getAddress("MCD_DAI");
         linkJoinAddr = chainLog.getAddress("MCD_JOIN_LINK_A");
-        spotAddr = chainLog.getAddress("MCD_SPOT");
+        spotterAddr = chainLog.getAddress("MCD_SPOT");
         daiJoinAddr = chainLog.getAddress("MCD_JOIN_DAI");
         dogAddr = chainLog.getAddress("MCD_DOG");
         jugAddr = chainLog.getAddress("MCD_JUG");
@@ -238,7 +238,7 @@ contract SimulationTests is DSTest {
         slp = LpTokenAbstract(slpAddr);
         ulpPip = LPOsmAbstract(ulpPipAddr);
         alcx = GemAbstract(alcxAddr);
-        spot = SpotAbstract(spotAddr);
+        spotter = SpotAbstract(spotterAddr);
     }
 
     function deployContracts() private {
@@ -273,7 +273,13 @@ contract SimulationTests is DSTest {
         hevm.warp(block.timestamp + 600);
         dog.file(slpName, "hole", 10_000 * RAD);
         dog.file(slpName, "chop", 113 * WAD / 100);
-        slpClip = new CropClipper(vatAddr, spotAddr, dogAddr, slpJoinAddr, sushiManagerAddr);
+        slpClip = new CropClipper(
+            vatAddr,
+            spotterAddr,
+            dogAddr,
+            slpJoinAddr,
+            sushiManagerAddr
+        );
         slpClip.file("tail", 2 hours);
         slpClipAddr = address(slpClip);
         slpCalc = new StairstepExponentialDecrease();
@@ -287,7 +293,7 @@ contract SimulationTests is DSTest {
         slpPip = new DSValue();
         slpPip.poke(bytes32(100 * WAD));
         slpPipAddr = address(slpPip);
-        spot.file(slpName, "pip", slpPipAddr);
+        spotter.file(slpName, "pip", slpPipAddr);
     }
 
     function getPermissions() private {
@@ -331,7 +337,7 @@ contract SimulationTests is DSTest {
             bytes32(uint256(1))
         );
         hevm.store(
-            spotAddr,
+            spotterAddr,
             keccak256(abi.encode(address(this), uint256(0))),
             bytes32(uint256(1))
         );
@@ -362,7 +368,7 @@ contract SimulationTests is DSTest {
         deployContracts();
     }
 
-    function getLinkPrice() private returns (uint256 val) {
+    function getLinkPrice() private view returns (uint256 val) {
         val = uint256(linkPip.read());
     }
 
@@ -372,7 +378,7 @@ contract SimulationTests is DSTest {
         log_named_uint("LINK price", price / WAD);
     }
 
-    function getEthPrice() private returns (uint256 val) {
+    function getEthPrice() private view returns (uint256 val) {
         val = uint256(ethPip.read());
     }
 
@@ -382,7 +388,7 @@ contract SimulationTests is DSTest {
         log_named_uint("ETH price", price / WAD);
     }
 
-    function getLpDaiEthPrice() private returns (uint256 val) {
+    function getLpDaiEthPrice() private view returns (uint256 val) {
         val = uint256(ulpDaiEthPip.read());
     }
 
@@ -392,7 +398,7 @@ contract SimulationTests is DSTest {
         log_named_uint("LP DAI ETH price", price / WAD);
     }
 
-    function getSlpPrice() private returns (uint256 val) {
+    function getSlpPrice() private view returns (uint256 val) {
         val = uint256(ulpPip.read());
     }
 
