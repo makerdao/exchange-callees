@@ -1,5 +1,5 @@
 # Exchange Callees
-[![Build Status](https://travis-ci.com/makerdao/exchange-callees.svg?branch=master)](https://travis-ci.com/makerdao/exchange-callees)
+![Build Status](https://github.com/makerdao/exchange-callees/actions/workflows/.github/workflows/tests.yaml/badge.svg?branch=master)
 
 This repository contains exchange callee contracts, which wrap around decentralized exchanges and interact with the [Maker Protocol](https://github.com/makerdao/dss). They are used in conjunction with the `auction-demo-keeper` to demonstrate flash loan functionality within LIQ2.0's collateral auctions.
 
