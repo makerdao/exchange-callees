@@ -16,3 +16,6 @@
 [submodule "lib/dss-gem-joins"]
 	path = lib/dss-gem-joins
 	url = https://github.com/makerdao/dss-gem-joins
+[submodule "lib/proxy-manager-clipper"]
+	path = lib/proxy-manager-clipper
+	url = https://github.com/makerdao/proxy-manager-clipper
