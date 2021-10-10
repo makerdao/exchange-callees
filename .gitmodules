@@ -13,3 +13,6 @@
 [submodule "lib/dss-charter"]
 	path = lib/dss-charter
 	url = https://github.com/makerdao/dss-charter
+[submodule "lib/dss-gem-joins"]
+	path = lib/dss-gem-joins
+	url = https://github.com/makerdao/dss-gem-joins
