@@ -543,7 +543,8 @@ contract SimulationTests is DSTest {
             bobAddr,
             linkJoinAddr,
             minProfit,
-            path
+            path,
+            address(0)
         );
         linkClip.take(auctionId, amt, max, bobAddr, data);
     }
