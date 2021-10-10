@@ -10,3 +10,6 @@
 [submodule "lib/dss-interfaces"]
 	path = lib/dss-interfaces
 	url = https://github.com/makerdao/dss-interfaces
+[submodule "lib/dss-charter"]
+	path = lib/dss-charter
+	url = https://github.com/makerdao/dss-charter
