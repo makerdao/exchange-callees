@@ -38,6 +38,10 @@ interface TokenLike {
     function balanceOf(address) external view returns (uint256);
 }
 
+interface CharterManagerLike {
+    function exit(address crop, address usr, uint256 val) external;
+}
+
 interface OtcLike {
     function buyAllAmount(address, uint256, address, uint256) external returns (uint256);
     function sellAllAmount(address, uint256, address, uint256) external returns (uint256);
@@ -86,15 +90,24 @@ contract CalleeMakerOtcDai is CalleeMakerOtc {
         uint256 daiAmt,         // Dai amount to payback[rad]
         uint256 gemAmt,         // Gem amount received [wad]
         bytes calldata data     // Extra data needed (gemJoin)
-    ) external {
+) external {
         // Get address to send remaining DAI, gemJoin adapter and minProfit in DAI to make
-        (address to, address gemJoin, uint256 minProfit) = abi.decode(data, (address, address, uint256));
+        (
+            address to,
+            address gemJoin,
+            uint256 minProfit,
+            address charterManager
+        ) = abi.decode(data, (address, address, uint256, address));
 
         // Convert gem amount to token precision
         gemAmt = _fromWad(gemJoin, gemAmt);
 
         // Exit collateral to token version
-        GemJoinLike(gemJoin).exit(address(this), gemAmt);
+        if(charterManager != address(0)) {
+            CharterManagerLike(charterManager).exit(gemJoin, address(this), gemAmt);
+        } else {
+            GemJoinLike(gemJoin).exit(address(this), gemAmt);
+        }
 
         // Approve otc to take gem
         TokenLike gem = GemJoinLike(gemJoin).gem();

@@ -245,7 +245,8 @@ contract CalleeOtcDaiTest is DSTest {
     function execute(uint256 amt, uint256 maxPrice, uint256 minProfit) internal {
         bytes memory flashData = abi.encode(address(ali),    // Address of User (where profits are sent)
                                             address(gemA),   // GemJoin adapter of collateral type
-                                            minProfit        // Minimum Dai profit [wad]
+                                            minProfit,       // Minimum Dai profit [wad]
+                                            address(0)       // not using CharterManager
         );
 
         Guy(ali).take({
@@ -260,7 +261,8 @@ contract CalleeOtcDaiTest is DSTest {
     function try_execute(uint256 amt, uint256 maxPrice, uint256 minProfit) internal returns (bool ok)  {
         bytes memory flashData = abi.encode(address(ali),    // Address of User (where profits are sent)
                                             address(gemA),   // GemJoin adapter of collateral type
-                                            minProfit        // Minimum Dai profit [wad]
+                                            minProfit,       // Minimum Dai profit [wad]
+                                            address(0)       // not using CharterManager
         );
 
         ok = Guy(ali).try_take({
