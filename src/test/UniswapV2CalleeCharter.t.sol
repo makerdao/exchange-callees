@@ -25,7 +25,7 @@ import "ds-math/math.sol";
 import {Vat}     from "dss/vat.sol";
 import {Spotter} from "dss/spot.sol";
 import {Vow}     from "dss/vow.sol";
-import {GemJoin, DaiJoin} from "dss/join.sol";
+import {DaiJoin} from "dss/join.sol";
 
 import {Clipper} from "dss/clip.sol";
 import "dss/abaci.sol";
@@ -33,109 +33,10 @@ import "dss/dog.sol";
 
 import {UniswapV2CalleeDai} from "../UniswapV2Callee.sol";
 
-interface Hevm {
-    function warp(uint256) external;
-    function store(address,bytes32,bytes32) external;
-}
-interface PipLike {
-    function peek() external returns (bytes32, bool);
-    function poke(bytes32) external;
-}
-
-contract TestVat is Vat {
-    // Overrides Vat.frob(), so we can mint Dai directly to accounts and without
-    // restriction from the debt ceilings
-    function mint(address usr, uint256 rad) public {
-        dai[usr] += rad;
-    }
-}
-
-contract TestVow is Vow {
-    constructor(address vat, address flapper, address flopper)
-        public Vow(vat, flapper, flopper) {}
-    // Total deficit
-    function Awe() public view returns (uint256) {
-        return vat.sin(address(this));
-    }
-    // Total surplus
-    function Joy() public view returns (uint256) {
-        return vat.dai(address(this));
-    }
-    // Unqueued, pre-auction debt
-    function Woe() public view returns (uint256) {
-        return sub(sub(Awe(), Sin), Ash);
-    }
-}
-
-contract MockUniswapRouter02 is DSMath, DSTest {
-    uint256 fixedPrice;
-
-    constructor(uint256 price_) public {
-        fixedPrice = price_;
-    }
-
-    // Hardcoded to simulate fixed price Uniswap
-    /* uniRouter02.swapExactTokensForTokens(gemAmt, daiToJoin + minProfit, path, address(this), block.timestamp); */
-    function swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts) {
-        to; deadline; // silence warning
-        uint buyAmt = wmul(amountIn, fixedPrice);
-        require(amountOutMin <= buyAmt, "Minimum Fill not reached");
-
-        DSToken(path[0]).transferFrom(msg.sender, address(this), amountIn);
-        assertEq(DSToken(path[0]).balanceOf(address(this)), amountIn);
-
-        DSToken(path[path.length - 1]).transfer(msg.sender, buyAmt);
-        assertEq(DSToken(path[path.length - 1]).balanceOf(msg.sender), buyAmt);
-
-        amounts = new uint[](2);
-        amounts[0] = amountIn;
-        amounts[1] = buyAmt;
-    }
-
-}
-
-contract Guy {
-    Clipper clip;
-
-    constructor(Clipper clip_) public {
-        clip = clip_;
-    }
-
-    function hope(address usr) public {
-        Vat(address(clip.vat())).hope(usr);
-    }
-
-    function take(
-        uint256 id,
-        uint256 amt,
-        uint256 max,
-        address who,
-        bytes calldata data
-    )
-        external
-    {
-        clip.take({
-            id: id,
-            amt: amt,
-            max: max,
-            who: who,
-            data: data
-        });
-    }
-
-    function try_take(
-        uint256 id,
-        uint256 amt,
-        uint256 max,
-        address who,
-        bytes calldata data
-    )
-        external returns (bool ok)
-    {
-      string memory sig = "take(uint256,uint256,uint256,address,bytes)";
-      (ok,) = address(clip).call(abi.encodeWithSignature(sig, id, amt, max, who, data));
-    }
-}
+import { Hevm, PipLike, TestVat, TestVow, MockUniswapRouter02, Guy } from "./UniswapV2Callee.t.sol";
+import { CharterManager, CharterManagerImp } from "dss-charter/CharterManager.sol";
+import { ManagedGemJoin } from "dss-gem-joins/join-managed.sol";
+import { ProxyManagerClipper } from "proxy-manager-clipper/ProxyManagerClipper.sol";
 
 contract UniswapV2CalleeDaiTest is DSTest {
     Hevm hevm;
@@ -147,9 +48,10 @@ contract UniswapV2CalleeDaiTest is DSTest {
     DSValue pip;
 
     DaiJoin daiA;
-    GemJoin gemA;
+    ManagedGemJoin gemA;
 
-    Clipper clip;
+    ProxyManagerClipper clip;
+    CharterManagerImp charter;
 
     MockUniswapRouter02 uniRouter02;
     UniswapV2CalleeDai uniCalleeDai;
@@ -199,17 +101,17 @@ contract UniswapV2CalleeDaiTest is DSTest {
 
         // Check my vault before liquidation
         // 40 gold collateral and 100 Dai debt
-        (ink, art) = vat.urns(ilk, me);
+        (ink, art) = vat.urns(ilk, charter.proxy(me));
         assertEq(ink, 40 ether);
         assertEq(art, 100 ether);
 
         // Liquidate my vault and start an auction
         assertEq(clip.kicks(), 0);
-        dog.bark(ilk, me, address(this));
+        dog.bark(ilk, charter.proxy(me), address(this));
         assertEq(clip.kicks(), 1);
 
         // Ensure vault has been liquidated
-        (ink, art) = vat.urns(ilk, me);
+        (ink, art) = vat.urns(ilk, charter.proxy(me));
         assertEq(ink, 0);
         assertEq(art, 0);
 
@@ -218,7 +120,7 @@ contract UniswapV2CalleeDaiTest is DSTest {
         assertEq(pos, 0);
         assertEq(tab, rad(110 ether));
         assertEq(lot, 40 ether);
-        assertEq(usr, me);
+        assertEq(usr, charter.proxy(me));
         assertEq(uint256(tic), now);
         assertEq(top, ray(5 ether) + 4 * offset); // $4 plus 25% price cushion = $5
 
@@ -235,6 +137,7 @@ contract UniswapV2CalleeDaiTest is DSTest {
         // MockUniswapRouter02 uses the price so we can trade immediately after the auction begins
         uniRouter02 = new MockUniswapRouter02(price);
         uniCalleeDai = new UniswapV2CalleeDai(address(uniRouter02), address(daiA));
+        charter.getOrCreateProxy(address(uniCalleeDai));
         //======
 
         vat.mint(address(me), rad(1000 ether));
@@ -264,24 +167,19 @@ contract UniswapV2CalleeDaiTest is DSTest {
         assertEq(top, 0);
     }
 
-    function execute(uint256 amt, uint256 maxPrice, uint256 minProfit) internal {
-        address[] memory path = new address[](2);
-        path[0] = address(gold);
-        path[1] = address(dai);
-        execute(amt, maxPrice, minProfit, path);
-    }
-
     function execute(
         uint256 amt,
         uint256 maxPrice,
-        uint256 minProfit,
-        address[] memory path
+        uint256 minProfit
     ) internal {
+        address[] memory path = new address[](2);
+        path[0] = address(gold);
+        path[1] = address(dai);
         bytes memory flashData = abi.encode(address(ali),    // Address of User (where profits are sent)
                                             address(gemA),   // GemJoin adapter of collateral type
                                             minProfit,       // Minimum Dai profit [wad]
                                             path,            // uni path,
-                                            address(0)       // not using CharterManager
+                                            address(charter) // CharterManager
         );
 
         Guy(ali).take({
@@ -293,24 +191,19 @@ contract UniswapV2CalleeDaiTest is DSTest {
         });
     }
 
-    function try_execute(uint256 amt, uint256 maxPrice, uint256 minProfit) internal returns (bool ok)  {
-        address[] memory path = new address[](2);
-        path[0] = address(gold);
-        path[1] = address(dai);
-        return try_execute(amt, maxPrice, minProfit, path);
-    }
-
     function try_execute(
         uint256 amt,
         uint256 maxPrice,
-        uint256 minProfit,
-        address[] memory path
+        uint256 minProfit
     ) internal returns (bool ok)  {
+        address[] memory path = new address[](2);
+        path[0] = address(gold);
+        path[1] = address(dai);
         bytes memory flashData = abi.encode(address(ali),    // Address of User (where profits are sent)
                                             address(gemA),   // GemJoin adapter of collateral type
                                             minProfit,       // Minimum Dai profit [wad]
                                             path,            // uni path
-                                            address(0)       // not using CharterManager
+                                            address(charter) //CharterManager
         );
 
         ok = Guy(ali).try_take({
@@ -355,10 +248,16 @@ contract UniswapV2CalleeDaiTest is DSTest {
         vat.rely(address(daiA));
         dai.setOwner(address(daiA));
 
-        gemA = new GemJoin(address(vat), ilk, address(gold));
+        CharterManager base = new CharterManager();
+        base.setImplementation(address(new CharterManagerImp(address(vat), address(vow), address(spot))));
+        charter = CharterManagerImp(address(base));
+        gold.approve(address(charter));
+
+        gemA = new ManagedGemJoin(address(vat), ilk, address(gold));
         vat.rely(address(gemA));
-        gold.approve(address(gemA));
-        gemA.join(me, 1000 ether);
+        gemA.rely(address(charter));
+        gemA.deny(me); // Only access should be through manager
+        charter.join(address(gemA), me, 1000 ether);
 
         pip = new DSValue();
 
@@ -375,7 +274,7 @@ contract UniswapV2CalleeDaiTest is DSTest {
         vat.file(ilk, "line", rad(1000 ether));
         vat.file("Line",      rad(1000 ether));
 
-        clip = new Clipper(address(vat), address(spot), address(dog), ilk);
+        clip = new ProxyManagerClipper(address(vat), address(spot), address(dog), address(gemA), address(charter));
         clip.rely(address(dog));
 
         dog.file(ilk, "clip", address(clip));
@@ -388,10 +287,10 @@ contract UniswapV2CalleeDaiTest is DSTest {
 
         gold.approve(address(vat));
 
-        assertEq(vat.gem(ilk, me), 1000 ether);
+        assertEq(vat.gem(ilk, charter.proxy(me)), 1000 ether);
         assertEq(vat.dai(me), 0);
-        vat.frob(ilk, me, me, me, 40 ether, 100 ether);
-        assertEq(vat.gem(ilk, me), 960 ether);
+        charter.frob(ilk, me, me, me, 40 ether, 100 ether);
+        assertEq(vat.gem(ilk, charter.proxy(me)), 960 ether);
         assertEq(vat.dai(me), rad(100 ether));
 
         // $4 per gold. Spot sees $2 b/c of 200% LR
@@ -399,30 +298,12 @@ contract UniswapV2CalleeDaiTest is DSTest {
         pip.poke(bytes32(newPrice));
         spot.poke(ilk);          // Now unsafe
 
-        ali = address(new Guy(clip));
-        bob = address(new Guy(clip));
+        ali = address(new Guy(Clipper(address(clip))));
+        bob = address(new Guy(Clipper(address(clip))));
 
         Guy(ali).hope(address(clip));
         Guy(bob).hope(address(clip));
         vat.hope(address(daiA));
-
-
-    }
-
-    function test_flash_take_no_profit() public takeSetup(0) calleeSetup((uint256(5 ether))) {
-        // Bid so owe (= 25 * 5 = 125 RAD) > tab (= 110 RAD), so auction will only give 22 gold
-
-        // uniRouter02 has 1000 Dai, buying gold for $5
-        // No profit opportunity
-        execute(25 ether, ray(5 ether), 0 ether);
-
-        assertEq(vat.gem(ilk, ali),   0 ether);    // Didn't take any gold
-        assertEq(dai.balanceOf(ali), 0 ether);    // 0 Dai profit
-        assertEq(vat.gem(ilk, me),  978 ether);    // 960 + (40 - 22) returned to usr
-
-        // Assert auction ends
-        confirm_auction_ending();
-
     }
 
     function test_flash_take_profit() public takeSetup(0) calleeSetup((uint256(6 ether))) {
@@ -442,51 +323,9 @@ contract UniswapV2CalleeDaiTest is DSTest {
 
         assertEq(vat.gem(ilk, ali),   0 ether);    // Didn't take any gold
         assertEq(dai.balanceOf(ali), 22 ether);    // ($6 - $5) * 22 = 22 Dai profit
-        assertEq(vat.gem(ilk, me),  978 ether);    // 960 + (40 - 22) returned to usr
+        assertEq(vat.gem(ilk, charter.proxy(me)),  978 ether);    // 960 + (40 - 22) returned to usr
 
         // Assert auction ends
         confirm_auction_ending();
-    }
-
-    function test_flash_take_profit_thin_orderbook() public takeSetup(0) calleeSetup((uint256(6 ether))) {
-        // Bid so owe (= 25 * 5 = 125 RAD) > tab (= 110 RAD), so auction will only give 22 gold
-
-        // uniRouter02 has 1000 Dai, buying gold for $6
-        // Profit opportunity of $22
-
-        // Send some gem to exchange callee, so it can be sent back to Ali
-        gold.mint(60 ether);
-        gold.transferFrom(me, address(uniCalleeDai), 60 ether);
-
-        // exchange callee holds some gold
-        assertEq(gold.balanceOf(address(uniCalleeDai)), 60 ether);
-
-        // Ali sets minimum profit to exact profit opporunity (now $22)
-        execute(25 ether, ray(5 ether), 22 ether);
-
-        assertEq(vat.gem(ilk, ali),   0 ether);    // Didn't take any internal gold
-        assertEq(dai.balanceOf(ali), 22 ether);    // ($6 - $5) * 22 = 22 Dai profit
-        assertEq(vat.gem(ilk, me),  978 ether);    // 900 + (40 - 22) returned to usr
-
-        assertEq(gold.balanceOf(ali), 60 ether);    // exchange callee forward 60 ERC20 gold to Ali
-        assertEq(gold.balanceOf(me),   0 ether);    // exchange callee did not return any gold to me
-        assertEq(gold.balanceOf(address(uniCalleeDai)), 0 ether); // exchange callee doesn't hold any gold
-
-        // Assert auction ends
-        confirm_auction_ending();
-    }
-
-    function test_rounding_error()
-        public takeSetup(1) calleeSetup((uint256(7 ether))) {
-        execute(1 ether, ray(6 ether), 0 ether);
-    }
-
-    function test_complex_path()
-        public takeSetup(0) calleeSetup((uint256(6 ether))) {
-        address[] memory path = new address[](3);
-        path[0] = address(gold);
-        path[1] = address(0);
-        path[2] = address(dai);
-        execute(1 ether, ray(6 ether), 0 ether, path);
     }
 }
