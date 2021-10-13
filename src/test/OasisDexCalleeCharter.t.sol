@@ -208,7 +208,6 @@ contract CalleeOtcDaiTest is DSTest {
         gold = new DSToken("GEM");
         gold.mint(1000 ether);
 
-
         vat.init(ilk);
 
         dai  = new DSToken("Dai");
@@ -272,8 +271,6 @@ contract CalleeOtcDaiTest is DSTest {
         Guy(ali).hope(address(clip));
         Guy(bob).hope(address(clip));
         vat.hope(address(daiA));
-
-
     }
 
     function test_flash_take_profit() public takeSetup(0) calleeSetup((uint256(6 ether))) {
