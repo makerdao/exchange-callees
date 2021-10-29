@@ -19,3 +19,6 @@
 [submodule "lib/proxy-manager-clipper"]
 	path = lib/proxy-manager-clipper
 	url = https://github.com/makerdao/proxy-manager-clipper
+[submodule "lib/proxy-manager-clipper.git"]
+	path = lib/proxy-manager-clipper.git
+	url = https://github.com/makerdao/proxy-manager-clipper.git
