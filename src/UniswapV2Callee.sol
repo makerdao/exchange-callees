@@ -39,6 +39,10 @@ interface TokenLike {
     function balanceOf(address) external view returns (uint256);
 }
 
+interface CharterManagerLike {
+    function exit(address crop, address usr, uint256 val) external;
+}
+
 interface UniswapV2Router02Like {
     function swapExactTokensForTokens(uint256, uint256, address[] calldata, address, uint256) external returns (uint[] memory);
 }
@@ -88,17 +92,22 @@ contract UniswapV2CalleeDai is UniswapV2Callee {
         bytes calldata data     // Extra data needed (gemJoin)
     ) external {
         (
-            address to,           // address to send remaining DAI to
-            address gemJoin,      // gemJoin adapter address
-            uint256 minProfit,    // minimum profit in DAI to make [wad]
-            address[] memory path // Uniswap pool path
-        ) = abi.decode(data, (address, address, uint256, address[]));
+            address to,            // address to send remaining DAI to
+            address gemJoin,       // gemJoin adapter address
+            uint256 minProfit,     // minimum profit in DAI to make [wad]
+            address[] memory path, // Uniswap pool path
+            address charterManager // pass address(0) if no manager
+        ) = abi.decode(data, (address, address, uint256, address[], address));
 
         // Convert gem amount to token precision
         gemAmt = _fromWad(gemJoin, gemAmt);
 
         // Exit collateral to token version
-        GemJoinLike(gemJoin).exit(address(this), gemAmt);
+        if(charterManager != address(0)) {
+            CharterManagerLike(charterManager).exit(gemJoin, address(this), gemAmt);
+        } else {
+            GemJoinLike(gemJoin).exit(address(this), gemAmt);
+        }
 
         // Approve uniRouter02 to take gem
         TokenLike gem = GemJoinLike(gemJoin).gem();

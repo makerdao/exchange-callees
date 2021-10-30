@@ -280,7 +280,8 @@ contract UniswapV2CalleeDaiTest is DSTest {
         bytes memory flashData = abi.encode(address(ali),    // Address of User (where profits are sent)
                                             address(gemA),   // GemJoin adapter of collateral type
                                             minProfit,       // Minimum Dai profit [wad]
-                                            path             // uni path
+                                            path,            // uni path,
+                                            address(0)       // not using CharterManager
         );
 
         Guy(ali).take({
@@ -308,7 +309,8 @@ contract UniswapV2CalleeDaiTest is DSTest {
         bytes memory flashData = abi.encode(address(ali),    // Address of User (where profits are sent)
                                             address(gemA),   // GemJoin adapter of collateral type
                                             minProfit,       // Minimum Dai profit [wad]
-                                            path             // uni path
+                                            path,            // uni path
+                                            address(0)       // not using CharterManager
         );
 
         ok = Guy(ali).try_take({

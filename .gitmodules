@@ -10,3 +10,15 @@
 [submodule "lib/dss-interfaces"]
 	path = lib/dss-interfaces
 	url = https://github.com/makerdao/dss-interfaces
+[submodule "lib/dss-charter"]
+	path = lib/dss-charter
+	url = https://github.com/makerdao/dss-charter
+[submodule "lib/dss-gem-joins"]
+	path = lib/dss-gem-joins
+	url = https://github.com/makerdao/dss-gem-joins
+[submodule "lib/proxy-manager-clipper"]
+	path = lib/proxy-manager-clipper
+	url = https://github.com/makerdao/proxy-manager-clipper
+[submodule "lib/proxy-manager-clipper.git"]
+	path = lib/proxy-manager-clipper.git
+	url = https://github.com/makerdao/proxy-manager-clipper.git
