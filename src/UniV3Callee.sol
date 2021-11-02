@@ -41,19 +41,17 @@ interface CharterManagerLike {
 interface UniV3Like {
     
     struct Params {
-        address tokenIn;
-        address tokenOut;
-        uint24 fee;
+        bytes   path;
         address recipient;
         uint256 deadline;
         uint256 amountIn;
         uint256 amountOutMinimum;
-        uint160 sqrtPriceLimitX96;
     }
 
-    function exactInputSingle(Params calldata params)
+    function exactInput(Params calldata params)
         external returns (uint256 amountOut);
 }
+
 
 contract UniV3Callee {
     UniV3Like               public uniV3;
@@ -94,13 +92,14 @@ contract UniV3Callee {
             address to,            // address to send remaining DAI to
             address gemJoin,       // gemJoin adapter address
             uint256 minProfit,     // minimum profit in DAI to make [wad]
+            bytes memory path,     // packed encoding of (address, fee, address [, fee, address…])
             address charterManager // pass address(0) if no manager
-        ) = abi.decode(data, (address, address, uint256, address));
+        ) = abi.decode(data, (address, address, uint256, bytes, address));
 
         // Convert slice to token precision
         slice = _fromWad(gemJoin, slice);
 
-        // Exit gem to token version
+        // Exit gem to token
         if(charterManager != address(0)) {
             CharterManagerLike(charterManager).exit(gemJoin, address(this), slice);
         } else {
@@ -116,16 +115,13 @@ contract UniV3Callee {
 
         // Do operation and get dai amount bought (checking the profit is achieved)
         UniV3Like.Params memory params = UniV3Like.Params({
-            tokenIn: address(gem),
-            tokenOut: address(dai),
-            fee: 0,
-            recipient: address(this),
-            deadline: block.timestamp,
-            amountIn: slice,
-            amountOutMinimum: add(daiToJoin, minProfit),
-            sqrtPriceLimitX96: 0        
+            path:             path,
+            recipient:        address(this),
+            deadline:         block.timestamp,
+            amountIn:         slice,
+            amountOutMinimum: add(daiToJoin, minProfit)
         });
-        uniV3.exactInputSingle(params);
+        uniV3.exactInput(params);
 
         // Although Uniswap will accept all gems, this check is a sanity check, just in case
         // Transfer any lingering gem to specified address
