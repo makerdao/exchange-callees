@@ -252,7 +252,7 @@ contract SimulationTests is DSTest {
         bobAddr = address(bob);
         che = new UniswapV2LpTokenCalleeDai(uniAddr, daiJoinAddr);
         cheAddr = address(che);
-        dan = new UniV3Callee(uniAddr, daiJoinAddr);
+        dan = new UniV3Callee(swapRouter, daiJoinAddr);
         danAddr = address(dan);
         getPermissions();
     }
@@ -544,6 +544,7 @@ contract SimulationTests is DSTest {
         uint256 minProfit
     ) public {
         vat.hope(linkClipAddr);
+        link.approve(swapRouter, amt);
         uint24 fee = 3000;
         bytes memory data = abi.encode(
             danAddr,

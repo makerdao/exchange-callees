@@ -48,7 +48,7 @@ interface UniV3Like {
         uint256 amountOutMinimum;
     }
 
-    function exactInput(Params calldata params)
+    function exactInput(UniV3Like.Params calldata params)
         external payable returns (uint256 amountOut);
 }
 
