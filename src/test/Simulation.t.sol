@@ -69,24 +69,6 @@ interface UniV2Router02Abstract {
         external pure returns (uint amountIn);
 }
 
-interface UniV3Like {
-
-    struct Params {
-        address tokenIn;
-        address tokenOut;
-        uint24 fee;
-        address recipient;
-        uint256 deadline;
-        uint256 amountIn;
-        uint256 amountOutMinimum;
-        uint160 sqrtPriceLimitX96;
-    }
-
-    function exactInputSingle(Params calldata params)
-        external returns (uint256 amountOut);
-
-}
-
 interface WethAbstract is GemAbstract {
     function deposit() external payable;
 }

@@ -49,7 +49,7 @@ interface UniV3Like {
     }
 
     function exactInput(Params calldata params)
-        external returns (uint256 amountOut);
+        external payable returns (uint256 amountOut);
 }
 
 
