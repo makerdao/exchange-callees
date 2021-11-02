@@ -16,13 +16,11 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 pragma solidity >=0.6.12;
-pragma experimental ABIEncoderV2;
 
 import "ds-test/test.sol";
 import "dss-interfaces/Interfaces.sol";
 import { UniswapV2CalleeDai } from "../UniswapV2Callee.sol";
 import { UniswapV2LpTokenCalleeDai } from "../UniswapV2LpTokenCallee.sol";
-import { UniV3Callee } from "../UniV3Callee.sol";
 
 import "dss/clip.sol";
 import "dss/abaci.sol";
@@ -88,9 +86,6 @@ contract SimulationTests is DSTest {
 
     // mainnet UniswapV2Router02 address
     address constant uniAddr = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
-    // mainnet UniV3 SwapRouter address
-    address constant swapRouter = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
-
     address constant hevmAddr = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
     bytes32 constant linkName = "LINK-A";
     bytes32 constant lpDaiEthName = "UNIV2DAIETH-A";
@@ -209,8 +204,6 @@ contract SimulationTests is DSTest {
     address bobAddr;
     UniswapV2LpTokenCalleeDai che;
     address cheAddr;
-    UniV3Callee dan;
-    address danAddr;
 
     function getPermissions() private {
         hevm.store(
@@ -252,12 +245,10 @@ contract SimulationTests is DSTest {
         bobAddr = address(bob);
         che = new UniswapV2LpTokenCalleeDai(uniAddr, daiJoinAddr);
         cheAddr = address(che);
-        dan = new UniV3Callee(swapRouter, daiJoinAddr);
-        danAddr = address(dan);
         getPermissions();
     }
 
-    function getLinkPrice() private view returns (uint256 val) {
+    function getLinkPrice() private returns (uint256 val) {
         val = uint256(linkPip.read());
     }
 
@@ -267,7 +258,7 @@ contract SimulationTests is DSTest {
         log_named_uint("LINK price", price / WAD);
     }
 
-    function getEthPrice() private view returns (uint256 val) {
+    function getEthPrice() private returns (uint256 val) {
         val = uint256(ethPip.read());
     }
 
@@ -277,7 +268,7 @@ contract SimulationTests is DSTest {
         log_named_uint("ETH price", price / WAD);
     }
 
-    function getLpDaiEthPrice() private view returns (uint256 val) {
+    function getLpDaiEthPrice() private returns (uint256 val) {
         val = uint256(lpDaiEthPip.read());
     }
 
@@ -544,16 +535,18 @@ contract SimulationTests is DSTest {
         uint256 minProfit
     ) public {
         vat.hope(linkClipAddr);
-        link.approve(swapRouter, amt);
-        uint24 fee = 3000;
+        address[] memory path = new address[](3);
+        path[0] = linkAddr;
+        path[1] = wethAddr;
+        path[2] = daiAddr;
         bytes memory data = abi.encode(
-            danAddr,
+            bobAddr,
             linkJoinAddr,
             minProfit,
-            abi.encodePacked(linkAddr, fee, wethAddr, fee, daiAddr),
+            path,
             address(0)
         );
-        linkClip.take(auctionId, amt, max, danAddr, data);
+        linkClip.take(auctionId, amt, max, bobAddr, data);
     }
 
     function testTakeLinkNoProfit() public {
@@ -572,7 +565,7 @@ contract SimulationTests is DSTest {
         }
         assertEq(dai.balanceOf(bobAddr), 0);
         takeLink(auctionId, amountLink, auctionPrice, 0);
-        assertLt(dai.balanceOf(bobAddr), amountLink * auctionPrice / RAY / 5);
+        assertLt(dai.balanceOf(bobAddr), amountLink * auctionPrice / RAY / 10);
     }
 
     function testTakeLinkProfit() public {
