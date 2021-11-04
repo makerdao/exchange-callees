@@ -19,7 +19,7 @@ pragma experimental ABIEncoderV2;
 
 interface GemJoinLike {
     function dec() external view returns (uint256);
-    function gem() external view returns (TokenLike);
+    function gem() external view returns (address);
     function exit(address, uint256) external;
 }
 
@@ -32,19 +32,25 @@ interface TokenLike {
     function approve(address, uint256) external;
     function transfer(address, uint256) external;
     function balanceOf(address) external view returns (uint256);
+    function symbol() external view returns (string memory);
 }
 
 interface CharterManagerLike {
     function exit(address crop, address usr, uint256 val) external;
 }
 
-interface WstEthLike {
-    function unwrap(uint256 _wstEthAmount) returns (uint256);
+interface WstEthLike is TokenLike {
+    function unwrap(uint256 _wstEthAmount) external returns (uint256);
+    function stETH() external view returns (address);
 }
 
 interface CurveLike {
     function exchange(int128 i, int128 j, uint256 dx, uint256 min_dy)
         external returns (uint256 dy);
+}
+
+interface WethLike is TokenLike {
+    function deposit() external payable;
 }
 
 interface UniV3Like {
@@ -57,12 +63,13 @@ interface UniV3Like {
         uint256 amountOutMinimum;
     }
 
+    function WETH9() external view returns (address);
+
     function exactInput(UniV3Like.Params calldata params)
         external payable returns (uint256 amountOut);
 }
 
 contract UniV3Callee {
-    WstEthLike              public wstEth;
     CurveLike               public curve;
     UniV3Like               public uniV3;
     DaiJoinLike             public daiJoin;
@@ -81,17 +88,16 @@ contract UniV3Callee {
     }
 
     constructor(
-        address wstEthAddr_,
         address curveAddr_,
         address uniV3Addr_,
-        address daiJoin_
+        address daiJoinAddr_
     ) public {
-        wstEth = WstEth(wstEthAddr_
+        curve = CurveLike(curveAddr_);
         uniV3 = UniV3Like(uniV3Addr_);
-        daiJoin = DaiJoinLike(daiJoin_);
+        daiJoin = DaiJoinLike(daiJoinAddr_);
         dai = daiJoin.dai();
 
-        dai.approve(daiJoin_, uint256(-1));
+        dai.approve(daiJoinAddr_, uint256(-1));
     }
 
     function _fromWad(address gemJoin, uint256 wad) internal view returns (uint256 amt) {
@@ -108,9 +114,9 @@ contract UniV3Callee {
             address to,            // address to send remaining DAI to
             address gemJoin,       // gemJoin adapter address
             uint256 minProfit,     // minimum profit in DAI to make [wad]
-            bytes memory path,     // packed encoding of (address, fee, address [, fee, address…])
+             uint24 poolFee,       // uniswap V3 WETH-DAI pool fee
             address charterManager // pass address(0) if no manager
-        ) = abi.decode(data, (address, address, uint256, bytes, address));
+        ) = abi.decode(data, (address, address, uint256, uint24, address));
 
         // Convert slice to token precision
         slice = _fromWad(gemJoin, slice);
@@ -122,14 +128,33 @@ contract UniV3Callee {
             GemJoinLike(gemJoin).exit(address(this), slice);
         }
 
+        address gem = GemJoinLike(gemJoin).gem();
+        require(keccak256(abi.encode(TokenLike(gem).symbol())) == keccak256("wstETH"), "CurveCallee: only-wsteth");
+
+        slice = WstEthLike(gem).unwrap(slice);
+        gem = WstEthLike(gem).stETH();
+
+        TokenLike(gem).approve(address(curve), slice);
+        slice = curve.exchange({
+                 i: 1,     // send token id 1 (stETH)
+                 j: 0,     // receive token id 0 (ETH)
+                dx: slice, // send `slice` amount of stETH
+            min_dy: 0      // accept any amount of ETH (`minProfit` is checked below)
+        });
+
+        gem = uniV3.WETH9();
+        WethLike(gem).deposit{
+            value: slice
+        }();
+
         // Approve uniV3 to take gem
-        TokenLike gem = GemJoinLike(gemJoin).gem();
-        gem.approve(address(uniV3), slice);
+        WethLike(gem).approve(address(uniV3), slice);
 
         // Calculate amount of DAI to Join (as erc20 WAD value)
         uint256 daiToJoin = divup(owe, RAY);
 
         // Do operation and get dai amount bought (checking the profit is achieved)
+        bytes memory path = abi.encodePacked(gem, poolFee, address(dai));
         UniV3Like.Params memory params = UniV3Like.Params({
             path:             path,
             recipient:        address(this),
@@ -141,8 +166,8 @@ contract UniV3Callee {
 
         // Although Uniswap will accept all gems, this check is a sanity check, just in case
         // Transfer any lingering gem to specified address
-        if (gem.balanceOf(address(this)) > 0) {
-            gem.transfer(to, gem.balanceOf(address(this)));
+        if (WethLike(gem).balanceOf(address(this)) > 0) {
+            WethLike(gem).transfer(to, WethLike(gem).balanceOf(address(this)));
         }
 
         // Convert DAI bought to internal vat value of the msg.sender of Clipper.take
