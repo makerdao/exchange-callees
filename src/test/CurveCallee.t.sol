@@ -121,7 +121,7 @@ contract CurveCalleeTest is DSTest {
         Vat(vat).hope(clipper);
     }
 
-    function test() public {
+    function test_baseline() public {
         bytes memory data = abi.encode(
             address(this),
             address(gemJoin),
@@ -139,4 +139,25 @@ contract CurveCalleeTest is DSTest {
         });
     }
 
+    function test_badGemJoin() public {
+        bytes memory data = abi.encode(
+            address(this),
+            address(Chainlog(chainlog).getAddress("MCD_JOIN_ETH_A")),
+            uint256(0),
+            uint24(3000),
+            address(0)
+        );
+        Hevm(hevm).warp(block.timestamp + 60 minutes);
+        try Clipper(clipper).take({
+            id:   id,
+            amt:  amt,
+            max:  type(uint256).max,
+            who:  address(callee),
+            data: data
+        }) {
+            assertTrue(false);
+        } catch Error(string memory reason) {
+            assertEq(reason, "CurveCallee: only-wsteth");
+        }
+    }
 }

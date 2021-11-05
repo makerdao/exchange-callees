@@ -120,6 +120,9 @@ contract CurveCallee {
             address charterManager // pass address(0) if no manager
         ) = abi.decode(data, (address, address, uint256, uint24, address));
 
+        address gem = GemJoinLike(gemJoin).gem();
+        require(keccak256(bytes(TokenLike(gem).symbol())) == keccak256("wstETH"), "CurveCallee: only-wsteth");
+
         // Convert slice to token precision
         slice = _fromWad(gemJoin, slice);
 
@@ -129,9 +132,6 @@ contract CurveCallee {
         } else {
             GemJoinLike(gemJoin).exit(address(this), slice);
         }
-
-        address gem = GemJoinLike(gemJoin).gem();
-        require(keccak256(bytes(TokenLike(gem).symbol())) == keccak256("wstETH"), "CurveCallee: only-wsteth");
 
         slice = WstEthLike(gem).unwrap(slice);
         gem = WstEthLike(gem).stETH();
