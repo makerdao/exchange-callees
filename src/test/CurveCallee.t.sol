@@ -210,4 +210,25 @@ contract CurveCalleeTest is DSTest {
         address dai = Chainlog(chainlog).getAddress("MCD_DAI");
         assertGe(Token(dai).balanceOf(address(123)), minProfit);
     }
+
+    function test_poolFee() public {
+        uint24 poolFee = 500;
+        uint256 amt = 50 * WAD;
+        newAuction(amt);
+        bytes memory data = abi.encode(
+            address(this),
+            address(gemJoin),
+            uint256(0),
+            poolFee,
+            address(0)
+        );
+        Hevm(hevm).warp(block.timestamp + 60 minutes);
+        Clipper(clipper).take({
+            id:   id,
+            amt:  amt,
+            max:  type(uint256).max,
+            who:  address(callee),
+            data: data
+        });
+    }
 }
