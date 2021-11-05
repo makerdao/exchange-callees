@@ -100,7 +100,7 @@ contract CurveCallee {
         dai.approve(daiJoinAddr_, uint256(-1));
     }
 
-    fallback() external payable {}
+    receive() external payable {}
 
     function _fromWad(address gemJoin, uint256 wad) internal view returns (uint256 amt) {
         amt = wad / 10 ** (sub(18, GemJoinLike(gemJoin).dec()));
