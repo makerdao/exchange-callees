@@ -74,16 +74,18 @@ contract CurveCalleeTest is DSTest {
     address constant hevm     = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
     address constant wstEth   = 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0;
     address constant chainlog = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
-    uint256 constant amt      = 50e18;
     address constant curve    = 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022;
     address constant uniV3    = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
+    uint256 constant WAD      = 1e18;
 
     address gemJoin;
     uint256 id;
     address clipper;
     CurveCallee callee;
     
-    function setUp() public {
+    function setUp() public {}
+
+    function newAuction(uint256 amt) internal {
         // wstEth._balances[address(this)] = amt;
         Hevm(hevm).store({
             c:   wstEth,
@@ -122,6 +124,8 @@ contract CurveCalleeTest is DSTest {
     }
 
     function test_baseline() public {
+        uint256 amt = 50 * WAD;
+        newAuction(amt);
         bytes memory data = abi.encode(
             address(this),
             address(gemJoin),
@@ -140,6 +144,8 @@ contract CurveCalleeTest is DSTest {
     }
 
     function test_badGemJoin() public {
+        uint256 amt = 50 * WAD;
+        newAuction(amt);
         bytes memory data = abi.encode(
             address(this),
             address(Chainlog(chainlog).getAddress("MCD_JOIN_ETH_A")),
@@ -159,5 +165,25 @@ contract CurveCalleeTest is DSTest {
         } catch Error(string memory reason) {
             assertEq(reason, "CurveCallee: only-wsteth");
         }
+    }
+
+    function test_bigAmt() public {
+        uint256 amt = 5000 * WAD;
+        newAuction(amt);
+        bytes memory data = abi.encode(
+            address(this),
+            address(gemJoin),
+            uint256(0),
+            uint24(3000),
+            address(0)
+        );
+        Hevm(hevm).warp(block.timestamp + 60 minutes);
+        Clipper(clipper).take({
+            id:   id,
+            amt:  amt,
+            max:  type(uint256).max,
+            who:  address(callee),
+            data: data
+        });
     }
 }
