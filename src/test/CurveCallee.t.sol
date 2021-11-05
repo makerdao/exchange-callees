@@ -38,6 +38,7 @@ interface Join {
 interface Vat {
     function ilks(bytes32)
         external returns (uint256, uint256, uint256, uint256, uint256);
+    function file(bytes32, bytes32, uint256) external;
     function frob(
         bytes32 i,
         address u,
@@ -53,9 +54,10 @@ contract CurveCalleeTest is DSTest {
     address constant hevm     = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
     address constant wstEth   = 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0;
     address constant chainlog = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
-    uint256 constant amt      = 5e18;
+    uint256 constant amt      = 50e18;
     
     function setUp() public {
+        // wstEth._balances[address(this)] = amt;
         Hevm(hevm).store({
             c:   wstEth,
             loc: keccak256(abi.encode(address(this), uint256(0))),
@@ -67,6 +69,13 @@ contract CurveCalleeTest is DSTest {
         address vat = Chainlog(chainlog).getAddress("MCD_VAT");
         (, uint256 rate, uint256 spot,,) = Vat(vat).ilks("WSTETH-A");
         uint256 maxArt = amt * spot / rate;
+        // vat.wards[address(this)] = 1;
+        Hevm(hevm).store({
+            c:   vat,
+            loc: keccak256(abi.encode(address(this), uint256(0))),
+            val: bytes32(uint256(1))
+        });
+        Vat(vat).file("WSTETH-A", "line", type(uint256).max);
         Vat(vat).frob({
             i:    "WSTETH-A",
             u:    address(this),
