@@ -21,6 +21,7 @@ import { CurveCallee } from "../CurveCallee.sol";
 
 interface Hevm {
     function store(address c, bytes32 loc, bytes32 val) external;
+    function warp(uint256) external;
 }
 
 interface Chainlog {
@@ -47,6 +48,7 @@ interface Vat {
         int dink,
         int dart
     ) external;
+    function hope(address) external;
 }
 
 interface Jug {
@@ -116,6 +118,7 @@ contract CurveCalleeTest is DSTest {
         clipper = Chainlog(chainlog).getAddress("MCD_CLIP_WSTETH_A");
         address daiJoin = Chainlog(chainlog).getAddress("MCD_JOIN_DAI");
         callee = new CurveCallee(curve, uniV3, daiJoin);
+        Vat(vat).hope(clipper);
     }
 
     function test() public {
@@ -126,6 +129,7 @@ contract CurveCalleeTest is DSTest {
             uint24(3000),
             address(0)
         );
+        Hevm(hevm).warp(block.timestamp + 60 minutes);
         Clipper(clipper).take({
             id:   id,
             amt:  amt,
