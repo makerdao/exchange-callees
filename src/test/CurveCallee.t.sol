@@ -231,4 +231,46 @@ contract CurveCalleeTest is DSTest {
             data: data
         });
     }
+
+    function testFail_badPoolFee() public {
+        uint24 poolFee = 5000;
+        uint256 amt = 50 * WAD;
+        newAuction(amt);
+        bytes memory data = abi.encode(
+            address(this),
+            address(gemJoin),
+            uint256(0),
+            poolFee,
+            address(0)
+        );
+        Hevm(hevm).warp(block.timestamp + 60 minutes);
+        Clipper(clipper).take({
+            id:   id,
+            amt:  amt,
+            max:  type(uint256).max,
+            who:  address(callee),
+            data: data
+        });
+    }
+
+    function test_maxPrice() public {
+        uint256 amt = 50 * WAD;
+        newAuction(amt);
+        bytes memory data = abi.encode(
+            address(this),
+            address(gemJoin),
+            uint256(0),
+            uint24(3000),
+            address(0)
+        );
+        Hevm(hevm).warp(block.timestamp + 60 minutes);
+        uint256 max = type(uint256).max; 
+        Clipper(clipper).take({
+            id:   id,
+            amt:  amt,
+            max:  max,
+            who:  address(callee),
+            data: data
+        });
+    }
 }
