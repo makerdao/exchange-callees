@@ -76,6 +76,7 @@ contract CurveCalleeTest is DSTest {
     address constant curve    = 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022;
     address constant uniV3    = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
 
+    address gemJoin;
     uint256 id;
     address clipper;
     CurveCallee callee;
@@ -87,9 +88,9 @@ contract CurveCalleeTest is DSTest {
             loc: keccak256(abi.encode(address(this), uint256(0))),
             val: bytes32(amt)
         });
-        address join = Chainlog(chainlog).getAddress("MCD_JOIN_WSTETH_A");
-        Token(wstEth).approve(join, amt);
-        Join(join).join(address(this), amt);
+        gemJoin = Chainlog(chainlog).getAddress("MCD_JOIN_WSTETH_A");
+        Token(wstEth).approve(gemJoin, amt);
+        Join(gemJoin).join(address(this), amt);
         address vat = Chainlog(chainlog).getAddress("MCD_VAT");
         (, uint256 rate, uint256 spot,,) = Vat(vat).ilks("WSTETH-A");
         uint256 maxArt = amt * spot / rate;
@@ -118,7 +119,13 @@ contract CurveCalleeTest is DSTest {
     }
 
     function test() public {
-        bytes memory data = abi.encode("");
+        bytes memory data = abi.encode(
+            address(this),
+            address(gemJoin),
+            uint256(0),
+            uint24(3000),
+            address(0)
+        );
         Clipper(clipper).take({
             id:   id,
             amt:  amt,
