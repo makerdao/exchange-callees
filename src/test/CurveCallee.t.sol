@@ -49,6 +49,14 @@ interface Vat {
     ) external;
 }
 
+interface Jug {
+    function drip(bytes32) external;
+}
+
+interface Dog {
+    function bark(bytes32, address, address) external returns (uint256);
+}
+
 contract CurveCalleeTest is DSTest {
 
     address constant hevm     = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
@@ -84,6 +92,10 @@ contract CurveCalleeTest is DSTest {
             dink: int(amt),
             dart: int(maxArt)
         });
+        address jug = Chainlog(chainlog).getAddress("MCD_JUG");
+        Jug(jug).drip("WSTETH-A");
+        address dog = Chainlog(chainlog).getAddress("MCD_DOG");
+        uint256 id = Dog(dog).bark("WSTETH-A", address(this), address(this));
     }
 
     function test() public {
