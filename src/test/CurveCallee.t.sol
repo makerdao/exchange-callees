@@ -290,4 +290,32 @@ contract CurveCalleeTest is DSTest {
             data: data
         });
     }
+
+    function testFail_maxPrice() public {
+        uint256 amt = 50 * WAD;
+        newAuction(amt);
+        bytes memory data = abi.encode(
+            address(this),
+            address(gemJoin),
+            uint256(0),
+            uint24(3000),
+            address(0)
+        );
+        Hevm(hevm).warp(block.timestamp + tail / 5);
+        address osm = Chainlog(chainlog).getAddress("PIP_WSTETH");
+        Hevm(hevm).store({
+            c:   osm,
+            loc: keccak256(abi.encode(address(this), uint256(0))),
+            val: bytes32(uint256(1))
+        });
+        Osm(osm).kiss(address(this));
+        uint256 max = uint256(Osm(osm).read()) * 1e9; // WAD * 1e9 = RAY
+        Clipper(clipper).take({
+            id:   id,
+            amt:  amt,
+            max:  max,
+            who:  address(callee),
+            data: data
+        });
+    }
 }
