@@ -61,6 +61,7 @@ interface Dog {
 }
 
 interface Clipper {
+    function tail() external view returns (uint256);
     function take(
         uint256 id,
         uint256 amt,
@@ -88,8 +89,17 @@ contract CurveCalleeTest is DSTest {
     uint256 id;
     address clipper;
     CurveCallee callee;
+    uint256 tail;
+    address vat;
     
-    function setUp() public {}
+    function setUp() public {
+        clipper = Chainlog(chainlog).getAddress("MCD_CLIP_WSTETH_A");
+        address daiJoin = Chainlog(chainlog).getAddress("MCD_JOIN_DAI");
+        callee = new CurveCallee(curve, uniV3, daiJoin);
+        vat = Chainlog(chainlog).getAddress("MCD_VAT");
+        Vat(vat).hope(clipper);
+        tail = Clipper(clipper).tail();
+    }
 
     function newAuction(uint256 amt) internal {
         // wstEth._balances[address(this)] = amt;
@@ -101,7 +111,6 @@ contract CurveCalleeTest is DSTest {
         gemJoin = Chainlog(chainlog).getAddress("MCD_JOIN_WSTETH_A");
         Token(wstEth).approve(gemJoin, amt);
         Join(gemJoin).join(address(this), amt);
-        address vat = Chainlog(chainlog).getAddress("MCD_VAT");
         (, uint256 rate, uint256 spot,,) = Vat(vat).ilks("WSTETH-A");
         uint256 maxArt = amt * spot / rate;
         // vat.wards[address(this)] = 1;
@@ -123,10 +132,6 @@ contract CurveCalleeTest is DSTest {
         Jug(jug).drip("WSTETH-A");
         address dog = Chainlog(chainlog).getAddress("MCD_DOG");
         id = Dog(dog).bark("WSTETH-A", address(this), address(this));
-        clipper = Chainlog(chainlog).getAddress("MCD_CLIP_WSTETH_A");
-        address daiJoin = Chainlog(chainlog).getAddress("MCD_JOIN_DAI");
-        callee = new CurveCallee(curve, uniV3, daiJoin);
-        Vat(vat).hope(clipper);
     }
 
     function test_baseline() public {
@@ -139,7 +144,7 @@ contract CurveCalleeTest is DSTest {
             uint24(3000),
             address(0)
         );
-        Hevm(hevm).warp(block.timestamp + 60 minutes);
+        Hevm(hevm).warp(block.timestamp + tail / 2);
         Clipper(clipper).take({
             id:   id,
             amt:  amt,
@@ -159,7 +164,7 @@ contract CurveCalleeTest is DSTest {
             uint24(3000),
             address(0)
         );
-        Hevm(hevm).warp(block.timestamp + 60 minutes);
+        Hevm(hevm).warp(block.timestamp + tail / 2);
         try Clipper(clipper).take({
             id:   id,
             amt:  amt,
@@ -183,7 +188,7 @@ contract CurveCalleeTest is DSTest {
             uint24(3000),
             address(0)
         );
-        Hevm(hevm).warp(block.timestamp + 60 minutes);
+        Hevm(hevm).warp(block.timestamp + tail / 2);
         Clipper(clipper).take({
             id:   id,
             amt:  amt,
@@ -204,7 +209,7 @@ contract CurveCalleeTest is DSTest {
             uint24(3000),
             address(0)
         );
-        Hevm(hevm).warp(block.timestamp + 60 minutes);
+        Hevm(hevm).warp(block.timestamp + tail / 2);
         Clipper(clipper).take({
             id:   id,
             amt:  amt,
@@ -227,7 +232,7 @@ contract CurveCalleeTest is DSTest {
             poolFee,
             address(0)
         );
-        Hevm(hevm).warp(block.timestamp + 60 minutes);
+        Hevm(hevm).warp(block.timestamp + tail / 2);
         Clipper(clipper).take({
             id:   id,
             amt:  amt,
@@ -248,7 +253,7 @@ contract CurveCalleeTest is DSTest {
             poolFee,
             address(0)
         );
-        Hevm(hevm).warp(block.timestamp + 60 minutes);
+        Hevm(hevm).warp(block.timestamp + tail / 2);
         Clipper(clipper).take({
             id:   id,
             amt:  amt,
@@ -268,7 +273,7 @@ contract CurveCalleeTest is DSTest {
             uint24(3000),
             address(0)
         );
-        Hevm(hevm).warp(block.timestamp + 60 minutes);
+        Hevm(hevm).warp(block.timestamp + tail / 2);
         address osm = Chainlog(chainlog).getAddress("PIP_WSTETH");
         Hevm(hevm).store({
             c:   osm,
