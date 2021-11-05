@@ -129,7 +129,7 @@ contract CurveCallee {
         }
 
         address gem = GemJoinLike(gemJoin).gem();
-        require(keccak256(abi.encode(TokenLike(gem).symbol())) == keccak256("wstETH"), "CurveCallee: only-wsteth");
+        require(keccak256(bytes(TokenLike(gem).symbol())) == keccak256("wstETH"), "CurveCallee: only-wsteth");
 
         slice = WstEthLike(gem).unwrap(slice);
         gem = WstEthLike(gem).stETH();
