@@ -25,12 +25,12 @@ interface Hevm {
 }
 
 interface Chainlog {
-    function getAddress(bytes32) external returns (address);
+    function getAddress(bytes32) external view returns (address);
 }
 
 interface Token {
     function approve(address, uint256) external;
-    function balanceOf(address) external returns (uint256);
+    function balanceOf(address) external view returns (uint256);
 }
 
 interface Join {
@@ -39,7 +39,7 @@ interface Join {
 
 interface Vat {
     function ilks(bytes32)
-        external returns (uint256, uint256, uint256, uint256, uint256);
+        external view returns (uint256, uint256, uint256, uint256, uint256);
     function file(bytes32, bytes32, uint256) external;
     function frob(
         bytes32 i,
@@ -68,6 +68,11 @@ interface Clipper {
         address who,
         bytes calldata data
     ) external;
+}
+
+interface Osm {
+    function read() external view returns (bytes32);
+    function kiss(address) external;
 }
 
 contract CurveCalleeTest is DSTest {
@@ -264,7 +269,14 @@ contract CurveCalleeTest is DSTest {
             address(0)
         );
         Hevm(hevm).warp(block.timestamp + 60 minutes);
-        uint256 max = type(uint256).max; 
+        address osm = Chainlog(chainlog).getAddress("PIP_WSTETH");
+        Hevm(hevm).store({
+            c:   osm,
+            loc: keccak256(abi.encode(address(this), uint256(0))),
+            val: bytes32(uint256(1))
+        });
+        Osm(osm).kiss(address(this));
+        uint256 max = uint256(Osm(osm).read()) * 1e9; // WAD * 1e9 = RAY
         Clipper(clipper).take({
             id:   id,
             amt:  amt,
