@@ -69,7 +69,7 @@ interface UniV3Like {
         external payable returns (uint256 amountOut);
 }
 
-contract UniV3Callee {
+contract CurveCallee {
     CurveLike               public curve;
     UniV3Like               public uniV3;
     DaiJoinLike             public daiJoin;
