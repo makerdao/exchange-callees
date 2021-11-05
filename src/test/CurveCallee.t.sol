@@ -30,6 +30,7 @@ interface Chainlog {
 
 interface Token {
     function approve(address, uint256) external;
+    function balanceOf(address) external returns (uint256);
 }
 
 interface Join {
@@ -185,5 +186,28 @@ contract CurveCalleeTest is DSTest {
             who:  address(callee),
             data: data
         });
+    }
+
+    function test_profit() public {
+        uint256 minProfit = 10_000 * WAD;
+        uint256 amt = 50 * WAD;
+        newAuction(amt);
+        bytes memory data = abi.encode(
+            address(123),
+            address(gemJoin),
+            uint256(minProfit),
+            uint24(3000),
+            address(0)
+        );
+        Hevm(hevm).warp(block.timestamp + 60 minutes);
+        Clipper(clipper).take({
+            id:   id,
+            amt:  amt,
+            max:  type(uint256).max,
+            who:  address(callee),
+            data: data
+        });
+        address dai = Chainlog(chainlog).getAddress("MCD_DAI");
+        assertGe(Token(dai).balanceOf(address(123)), minProfit);
     }
 }
