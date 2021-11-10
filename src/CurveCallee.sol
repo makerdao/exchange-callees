@@ -63,8 +63,6 @@ interface UniV3Like {
         uint256 amountOutMinimum;
     }
 
-    function WETH9() external view returns (address);
-
     function exactInput(UniV3Like.Params calldata params)
         external payable returns (uint256 amountOut);
 }
@@ -74,6 +72,7 @@ contract CurveCallee {
     UniV3Like               public uniV3;
     DaiJoinLike             public daiJoin;
     TokenLike               public dai;
+    address                 public immutable weth;
 
     uint256                 public constant RAY = 10 ** 27;
 
@@ -90,12 +89,14 @@ contract CurveCallee {
     constructor(
         address curveAddr_,
         address uniV3Addr_,
-        address daiJoinAddr_
+        address daiJoinAddr_,
+        address weth_
     ) public {
         curve = CurveLike(curveAddr_);
         uniV3 = UniV3Like(uniV3Addr_);
         daiJoin = DaiJoinLike(daiJoinAddr_);
         dai = daiJoin.dai();
+        weth = weth_;
 
         dai.approve(daiJoinAddr_, uint256(-1));
     }
@@ -144,7 +145,7 @@ contract CurveCallee {
             min_dy: 0      // accept any amount of ETH (`minProfit` is checked below)
         });
 
-        gem = uniV3.WETH9();
+        gem = weth;
         WethLike(gem).deposit{
             value: slice
         }();

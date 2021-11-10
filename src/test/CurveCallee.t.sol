@@ -83,6 +83,7 @@ contract CurveCalleeTest is DSTest {
     address constant chainlog = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
     address constant curve    = 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022;
     address constant uniV3    = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
+    address constant weth     = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     uint256 constant WAD      = 1e18;
 
     address gemJoin;
@@ -95,7 +96,7 @@ contract CurveCalleeTest is DSTest {
     function setUp() public {
         clipper = Chainlog(chainlog).getAddress("MCD_CLIP_WSTETH_A");
         address daiJoin = Chainlog(chainlog).getAddress("MCD_JOIN_DAI");
-        callee = new CurveCallee(curve, uniV3, daiJoin);
+        callee = new CurveCallee(curve, uniV3, daiJoin, weth);
         vat = Chainlog(chainlog).getAddress("MCD_VAT");
         Vat(vat).hope(clipper);
         tail = Clipper(clipper).tail();
