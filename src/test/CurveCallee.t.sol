@@ -139,7 +139,7 @@ contract CurveCalleeTest is DSTest {
         uint256 amt = 50 * WAD;
         newAuction(amt);
         bytes memory data = abi.encode(
-            address(this),
+            address(123),
             address(gemJoin),
             uint256(0),
             uint24(3000),
@@ -153,6 +153,9 @@ contract CurveCalleeTest is DSTest {
             who:  address(callee),
             data: data
         });
+        address dai = Chainlog(chainlog).getAddress("MCD_DAI");
+        assertEq(Token(dai).balanceOf(address(this)), 0);
+        assertEq(Token(wstEth).balanceOf(address(this)), 0);
     }
 
     function test_bigAmt() public {
