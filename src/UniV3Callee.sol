@@ -38,9 +38,9 @@ interface CharterManagerLike {
     function exit(address crop, address usr, uint256 val) external;
 }
 
-interface UniV3Like {
+interface UniV3RouterLike {
     
-    struct Params {
+    struct ExactInputParams {
         bytes   path;
         address recipient;
         uint256 deadline;
@@ -48,30 +48,30 @@ interface UniV3Like {
         uint256 amountOutMinimum;
     }
 
-    function exactInput(UniV3Like.Params calldata params)
+    function exactInput(UniV3RouterLike.ExactInputParams calldata params)
         external payable returns (uint256 amountOut);
 }
 
 
 contract UniV3Callee {
-    UniV3Like               public uniV3;
+    UniV3RouterLike         public uniV3Router;
     DaiJoinLike             public daiJoin;
     TokenLike               public dai;
 
     uint256                 public constant RAY = 10 ** 27;
 
-    function add(uint x, uint y) internal pure returns (uint z) {
+    function _add(uint x, uint y) internal pure returns (uint z) {
         require((z = x + y) >= x, "ds-math-add-overflow");
     }
-    function sub(uint x, uint y) internal pure returns (uint z) {
+    function _sub(uint x, uint y) internal pure returns (uint z) {
         require((z = x - y) <= x, "ds-math-sub-underflow");
     }
-    function divup(uint256 x, uint256 y) internal pure returns (uint256 z) {
-        z = add(x, sub(y, 1)) / y;
+    function _divup(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        z = _add(x, _sub(y, 1)) / y;
     }
 
-    constructor(address uniV3_, address daiJoin_) public {
-        uniV3 = UniV3Like(uniV3_);
+    constructor(address uniV3Router_, address daiJoin_) public {
+        uniV3Router = UniV3RouterLike(uniV3Router_);
         daiJoin = DaiJoinLike(daiJoin_);
         dai = daiJoin.dai();
 
@@ -79,7 +79,7 @@ contract UniV3Callee {
     }
 
     function _fromWad(address gemJoin, uint256 wad) internal view returns (uint256 amt) {
-        amt = wad / 10 ** (sub(18, GemJoinLike(gemJoin).dec()));
+        amt = wad / 10 ** (_sub(18, GemJoinLike(gemJoin).dec()));
     }
 
     function clipperCall(
@@ -108,20 +108,20 @@ contract UniV3Callee {
 
         // Approve uniV3 to take gem
         TokenLike gem = GemJoinLike(gemJoin).gem();
-        gem.approve(address(uniV3), slice);
+        gem.approve(address(uniV3Router), slice);
 
         // Calculate amount of DAI to Join (as erc20 WAD value)
-        uint256 daiToJoin = divup(owe, RAY);
+        uint256 daiToJoin = _divup(owe, RAY);
 
         // Do operation and get dai amount bought (checking the profit is achieved)
-        UniV3Like.Params memory params = UniV3Like.Params({
+        UniV3RouterLike.ExactInputParams memory params = UniV3RouterLike.ExactInputParams({
             path:             path,
             recipient:        address(this),
             deadline:         block.timestamp,
             amountIn:         slice,
-            amountOutMinimum: add(daiToJoin, minProfit)
+            amountOutMinimum: _add(daiToJoin, minProfit)
         });
-        uniV3.exactInput(params);
+        uniV3Router.exactInput(params);
 
         // Although Uniswap will accept all gems, this check is a sanity check, just in case
         // Transfer any lingering gem to specified address
