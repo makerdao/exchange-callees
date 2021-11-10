@@ -571,7 +571,7 @@ contract SimulationTests is DSTest {
         }
         assertEq(dai.balanceOf(bobAddr), 0);
         takeLinkV2(auctionId, amountLink, auctionPrice, 0);
-        assertLt(dai.balanceOf(bobAddr), amountLink * auctionPrice / RAY / 10);
+        assertLt(dai.balanceOf(bobAddr), amountLink * auctionPrice / RAY / 5);
     }
 
     function testTakeLinkV2Profit() public {
