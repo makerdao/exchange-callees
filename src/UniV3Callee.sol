@@ -70,8 +70,8 @@ contract UniV3Callee {
         z = add(x, sub(y, 1)) / y;
     }
 
-    constructor(address uniV3Addr_, address daiJoin_) public {
-        uniV3 = UniV3Like(uniV3Addr_);
+    constructor(address uniV3_, address daiJoin_) public {
+        uniV3 = UniV3Like(uniV3_);
         daiJoin = DaiJoinLike(daiJoin_);
         dai = daiJoin.dai();
 

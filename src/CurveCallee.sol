@@ -87,18 +87,18 @@ contract CurveCallee {
     }
 
     constructor(
-        address curveAddr_,
-        address uniV3Addr_,
-        address daiJoinAddr_,
+        address curve_,
+        address uniV3_,
+        address daiJoin_,
         address weth_
     ) public {
-        curve   = CurveLike(curveAddr_);
-        uniV3   = UniV3Like(uniV3Addr_);
-        daiJoin = DaiJoinLike(daiJoinAddr_);
+        curve   = CurveLike(curve_);
+        uniV3   = UniV3Like(uniV3_);
+        daiJoin = DaiJoinLike(daiJoin_);
         dai     = daiJoin.dai();
         weth    = weth_;
 
-        dai.approve(daiJoinAddr_, type(uint256).max);
+        dai.approve(daiJoin_, type(uint256).max);
     }
 
     receive() external payable {}
