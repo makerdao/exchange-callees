@@ -68,13 +68,13 @@ interface UniV3Like {
 }
 
 contract CurveCallee {
-    CurveLike               public curve;
-    UniV3Like               public uniV3;
-    DaiJoinLike             public daiJoin;
-    TokenLike               public dai;
-    address                 public immutable weth;
+    CurveLike   public immutable curve;
+    UniV3Like   public immutable uniV3;
+    DaiJoinLike public daiJoin;
+    TokenLike   public dai;
+    address     public immutable weth;
 
-    uint256                 public constant RAY = 10 ** 27;
+    uint256     public constant RAY = 10 ** 27;
 
     function add(uint x, uint y) internal pure returns (uint z) {
         require((z = x + y) >= x, "ds-math-add-overflow");
@@ -92,13 +92,13 @@ contract CurveCallee {
         address daiJoinAddr_,
         address weth_
     ) public {
-        curve = CurveLike(curveAddr_);
-        uniV3 = UniV3Like(uniV3Addr_);
+        curve   = CurveLike(curveAddr_);
+        uniV3   = UniV3Like(uniV3Addr_);
         daiJoin = DaiJoinLike(daiJoinAddr_);
-        dai = daiJoin.dai();
-        weth = weth_;
+        dai     = daiJoin.dai();
+        weth    = weth_;
 
-        dai.approve(daiJoinAddr_, uint256(-1));
+        dai.approve(daiJoinAddr_, type(uint256).max);
     }
 
     receive() external payable {}
