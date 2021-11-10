@@ -155,30 +155,6 @@ contract CurveCalleeTest is DSTest {
         });
     }
 
-    function test_badGemJoin() public {
-        uint256 amt = 50 * WAD;
-        newAuction(amt);
-        bytes memory data = abi.encode(
-            address(this),
-            address(Chainlog(chainlog).getAddress("MCD_JOIN_ETH_A")),
-            uint256(0),
-            uint24(3000),
-            address(0)
-        );
-        Hevm(hevm).warp(block.timestamp + tail / 2);
-        try Clipper(clipper).take({
-            id:   id,
-            amt:  amt,
-            max:  type(uint256).max,
-            who:  address(callee),
-            data: data
-        }) {
-            assertTrue(false);
-        } catch Error(string memory reason) {
-            assertEq(reason, "CurveCallee: only-wsteth");
-        }
-    }
-
     function test_bigAmt() public {
         uint256 amt = 5000 * WAD;
         newAuction(amt);
