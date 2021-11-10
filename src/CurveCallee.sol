@@ -76,14 +76,14 @@ contract CurveCallee {
 
     uint256     public constant RAY = 10 ** 27;
 
-    function add(uint x, uint y) internal pure returns (uint z) {
+    function _add(uint x, uint y) internal pure returns (uint z) {
         require((z = x + y) >= x, "ds-math-add-overflow");
     }
-    function sub(uint x, uint y) internal pure returns (uint z) {
+    function _sub(uint x, uint y) internal pure returns (uint z) {
         require((z = x - y) <= x, "ds-math-sub-underflow");
     }
-    function divup(uint256 x, uint256 y) internal pure returns (uint256 z) {
-        z = add(x, sub(y, 1)) / y;
+    function _divup(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        z = _add(x, _sub(y, 1)) / y;
     }
 
     constructor(
@@ -104,7 +104,7 @@ contract CurveCallee {
     receive() external payable {}
 
     function _fromWad(address gemJoin, uint256 wad) internal view returns (uint256 amt) {
-        amt = wad / 10 ** (sub(18, GemJoinLike(gemJoin).dec()));
+        amt = wad / 10 ** (_sub(18, GemJoinLike(gemJoin).dec()));
     }
 
     function clipperCall(
@@ -154,7 +154,7 @@ contract CurveCallee {
         WethLike(gem).approve(address(uniV3), slice);
 
         // Calculate amount of DAI to Join (as erc20 WAD value)
-        uint256 daiToJoin = divup(owe, RAY);
+        uint256 daiToJoin = _divup(owe, RAY);
 
         // Do operation and get dai amount bought (checking the profit is achieved)
         bytes memory path = abi.encodePacked(gem, poolFee, address(dai));
@@ -163,7 +163,7 @@ contract CurveCallee {
             recipient:        address(this),
             deadline:         block.timestamp,
             amountIn:         slice,
-            amountOutMinimum: add(daiToJoin, minProfit)
+            amountOutMinimum: _add(daiToJoin, minProfit)
         });
         uniV3.exactInput(params);
 
