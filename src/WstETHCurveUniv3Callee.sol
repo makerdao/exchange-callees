@@ -44,7 +44,7 @@ interface WstEthLike is TokenLike {
     function stETH() external view returns (address);
 }
 
-interface CurveLike {
+interface CurvePoolLike {
     function exchange(int128 i, int128 j, uint256 dx, uint256 min_dy)
         external returns (uint256 dy);
 }
@@ -68,7 +68,7 @@ interface UniV3RouterLike {
 }
 
 contract WstETHCurveUniv3Callee {
-    CurveLike       public immutable curve;
+    CurvePoolLike   public immutable curvePool;
     UniV3RouterLike public immutable uniV3Router;
     DaiJoinLike     public immutable daiJoin;
     TokenLike       public immutable dai;
@@ -87,12 +87,12 @@ contract WstETHCurveUniv3Callee {
     }
 
     constructor(
-        address curve_,
+        address curvePool_,
         address uniV3Router_,
         address daiJoin_,
         address weth_
     ) public {
-        curve          = CurveLike(curve_);
+        curvePool      = CurvePoolLike(curvePool_);
         uniV3Router    = UniV3RouterLike(uniV3Router_);
         daiJoin        = DaiJoinLike(daiJoin_);
         TokenLike dai_ = DaiJoinLike(daiJoin_).dai();
@@ -137,8 +137,8 @@ contract WstETHCurveUniv3Callee {
         slice = WstEthLike(gem).unwrap(slice);
         gem = WstEthLike(gem).stETH();
 
-        TokenLike(gem).approve(address(curve), slice);
-        slice = curve.exchange({
+        TokenLike(gem).approve(address(curvePool), slice);
+        slice = curvePool.exchange({
             i:      1,     // send token id 1 (stETH)
             j:      0,     // receive token id 0 (ETH)
             dx:     slice, // send `slice` amount of stETH
