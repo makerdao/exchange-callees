@@ -17,7 +17,7 @@
 pragma solidity ^0.6.12;
 
 import "ds-test/test.sol";
-import { CurveCallee } from "../CurveCallee.sol";
+import { WstETHCurveUniv3Callee } from "../WstETHCurveUniv3Callee.sol";
 
 interface Hevm {
     function store(address c, bytes32 loc, bytes32 val) external;
@@ -88,7 +88,7 @@ contract CurveCalleeTest is DSTest {
     address gemJoin;
     uint256 id;
     address clipper;
-    CurveCallee callee;
+    WstETHCurveUniv3Callee callee;
     uint256 tail;
     address vat;
     
@@ -96,7 +96,7 @@ contract CurveCalleeTest is DSTest {
         clipper = Chainlog(chainlog).getAddress("MCD_CLIP_WSTETH_A");
         address daiJoin = Chainlog(chainlog).getAddress("MCD_JOIN_DAI");
         address weth = Chainlog(chainlog).getAddress("ETH");
-        callee = new CurveCallee(curve, uniV3, daiJoin, weth);
+        callee = new WstETHCurveUniv3Callee(curve, uniV3, daiJoin, weth);
         vat = Chainlog(chainlog).getAddress("MCD_VAT");
         Vat(vat).hope(clipper);
         tail = Clipper(clipper).tail();
