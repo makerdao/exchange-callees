@@ -53,9 +53,9 @@ interface WethLike is TokenLike {
     function deposit() external payable;
 }
 
-interface UniV3Like {
+interface UniV3RouterLike {
     
-    struct Params {
+    struct ExactInputParams {
         bytes   path;
         address recipient;
         uint256 deadline;
@@ -63,18 +63,18 @@ interface UniV3Like {
         uint256 amountOutMinimum;
     }
 
-    function exactInput(UniV3Like.Params calldata params)
+    function exactInput(UniV3RouterLike.ExactInputParams calldata params)
         external payable returns (uint256 amountOut);
 }
 
 contract WstETHCurveUniv3Callee {
-    CurveLike   public immutable curve;
-    UniV3Like   public immutable uniV3;
-    DaiJoinLike public immutable daiJoin;
-    TokenLike   public immutable dai;
-    address     public immutable weth;
+    CurveLike       public immutable curve;
+    UniV3RouterLike public immutable uniV3Router;
+    DaiJoinLike     public immutable daiJoin;
+    TokenLike       public immutable dai;
+    address         public immutable weth;
 
-    uint256     public constant RAY = 10 ** 27;
+    uint256         public constant RAY = 10 ** 27;
 
     function _add(uint x, uint y) internal pure returns (uint z) {
         require((z = x + y) >= x, "ds-math-add-overflow");
@@ -88,12 +88,12 @@ contract WstETHCurveUniv3Callee {
 
     constructor(
         address curve_,
-        address uniV3_,
+        address uniV3Router_,
         address daiJoin_,
         address weth_
     ) public {
         curve          = CurveLike(curve_);
-        uniV3          = UniV3Like(uniV3_);
+        uniV3Router    = UniV3RouterLike(uniV3Router_);
         daiJoin        = DaiJoinLike(daiJoin_);
         TokenLike dai_ = DaiJoinLike(daiJoin_).dai();
         dai            = dai_;
@@ -151,21 +151,21 @@ contract WstETHCurveUniv3Callee {
         }();
 
         // Approve uniV3 to take gem
-        WethLike(gem).approve(address(uniV3), slice);
+        WethLike(gem).approve(address(uniV3Router), slice);
 
         // Calculate amount of DAI to Join (as erc20 WAD value)
         uint256 daiToJoin = _divup(owe, RAY);
 
         // Do operation and get dai amount bought (checking the profit is achieved)
         bytes memory path = abi.encodePacked(gem, poolFee, address(dai));
-        UniV3Like.Params memory params = UniV3Like.Params({
+        UniV3RouterLike.ExactInputParams memory params = UniV3RouterLike.ExactInputParams({
             path:             path,
             recipient:        address(this),
             deadline:         block.timestamp,
             amountIn:         slice,
             amountOutMinimum: _add(daiToJoin, minProfit)
         });
-        uniV3.exactInput(params);
+        uniV3Router.exactInput(params);
 
         // Although Uniswap will accept all gems, this check is a sanity check, just in case
         // Transfer any lingering gem to specified address
