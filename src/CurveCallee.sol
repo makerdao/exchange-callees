@@ -118,7 +118,7 @@ contract CurveCallee {
             address to,            // address to send remaining DAI to
             address gemJoin,       // gemJoin adapter address
             uint256 minProfit,     // minimum profit in DAI to make [wad]
-             uint24 poolFee,       // uniswap V3 WETH-DAI pool fee
+            uint24  poolFee,       // uniswap V3 WETH-DAI pool fee
             address charterManager // pass address(0) if no manager
         ) = abi.decode(data, (address, address, uint256, uint24, address));
 
@@ -139,9 +139,9 @@ contract CurveCallee {
 
         TokenLike(gem).approve(address(curve), slice);
         slice = curve.exchange({
-                 i: 1,     // send token id 1 (stETH)
-                 j: 0,     // receive token id 0 (ETH)
-                dx: slice, // send `slice` amount of stETH
+            i:      1,     // send token id 1 (stETH)
+            j:      0,     // receive token id 0 (ETH)
+            dx:     slice, // send `slice` amount of stETH
             min_dy: 0      // accept any amount of ETH (`minProfit` is checked below)
         });
 
