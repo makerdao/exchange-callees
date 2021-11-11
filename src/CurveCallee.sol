@@ -70,8 +70,8 @@ interface UniV3Like {
 contract CurveCallee {
     CurveLike   public immutable curve;
     UniV3Like   public immutable uniV3;
-    DaiJoinLike public daiJoin;
-    TokenLike   public dai;
+    DaiJoinLike public immutable daiJoin;
+    TokenLike   public immutable dai;
     address     public immutable weth;
 
     uint256     public constant RAY = 10 ** 27;
@@ -92,13 +92,14 @@ contract CurveCallee {
         address daiJoin_,
         address weth_
     ) public {
-        curve   = CurveLike(curve_);
-        uniV3   = UniV3Like(uniV3_);
-        daiJoin = DaiJoinLike(daiJoin_);
-        dai     = daiJoin.dai();
-        weth    = weth_;
+        curve          = CurveLike(curve_);
+        uniV3          = UniV3Like(uniV3_);
+        daiJoin        = DaiJoinLike(daiJoin_);
+        TokenLike dai_ = DaiJoinLike(daiJoin_).dai();
+        dai            = dai_;
+        weth           = weth_;
 
-        dai.approve(daiJoin_, type(uint256).max);
+        dai_.approve(daiJoin_, type(uint256).max);
     }
 
     receive() external payable {}
