@@ -21,7 +21,7 @@ import "ds-test/test.sol";
 import "dss-interfaces/Interfaces.sol";
 import { UniswapV2CalleeDai } from "../UniswapV2Callee.sol";
 import { UniswapV2LpTokenCalleeDai } from "../UniswapV2LpTokenCallee.sol";
-import { UniV3Callee } from "../UniV3Callee.sol";
+import { UniswapV3Callee } from "../UniswapV3Callee.sol";
 
 import "dss/clip.sol";
 import "dss/abaci.sol";
@@ -206,7 +206,7 @@ contract SimulationTests is DSTest {
     address bobAddr;
     UniswapV2LpTokenCalleeDai che;
     address cheAddr;
-    UniV3Callee dan;
+    UniswapV3Callee dan;
     address danAddr;
 
     function getPermissions() private {
@@ -249,7 +249,7 @@ contract SimulationTests is DSTest {
         bobAddr = address(bob);
         che = new UniswapV2LpTokenCalleeDai(uniAddr, daiJoinAddr);
         cheAddr = address(che);
-        dan = new UniV3Callee(uniV3Addr, daiJoinAddr);
+        dan = new UniswapV3Callee(uniV3Addr, daiJoinAddr);
         danAddr = address(dan);
         getPermissions();
     }

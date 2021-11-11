@@ -53,7 +53,7 @@ interface UniV3RouterLike {
 }
 
 
-contract UniV3Callee {
+contract UniswapV3Callee {
     UniV3RouterLike         public uniV3Router;
     DaiJoinLike             public daiJoin;
     TokenLike               public dai;
