@@ -21,6 +21,7 @@ import "ds-test/test.sol";
 import "dss-interfaces/Interfaces.sol";
 import { UniswapV2CalleeDai } from "../UniswapV2Callee.sol";
 import { UniswapV2LpTokenCalleeDai } from "../UniswapV2LpTokenCallee.sol";
+import { UniswapV3Callee } from "../UniswapV3Callee.sol";
 
 import "dss/clip.sol";
 import "dss/abaci.sol";
@@ -86,6 +87,7 @@ contract SimulationTests is DSTest {
 
     // mainnet UniswapV2Router02 address
     address constant uniAddr = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
+    address constant uniV3Addr = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
     address constant hevmAddr = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
     bytes32 constant linkName = "LINK-A";
     bytes32 constant lpDaiEthName = "UNIV2DAIETH-A";
@@ -204,6 +206,8 @@ contract SimulationTests is DSTest {
     address bobAddr;
     UniswapV2LpTokenCalleeDai che;
     address cheAddr;
+    UniswapV3Callee dan;
+    address danAddr;
 
     function getPermissions() private {
         hevm.store(
@@ -245,6 +249,8 @@ contract SimulationTests is DSTest {
         bobAddr = address(bob);
         che = new UniswapV2LpTokenCalleeDai(uniAddr, daiJoinAddr);
         cheAddr = address(che);
+        dan = new UniswapV3Callee(uniV3Addr, daiJoinAddr);
+        danAddr = address(dan);
         getPermissions();
     }
 
@@ -528,7 +534,7 @@ contract SimulationTests is DSTest {
         assertEq(tic, block.timestamp);
     }
 
-    function takeLink(
+    function takeLinkV2(
         uint256 auctionId,
         uint256 amt,
         uint256 max,
@@ -549,7 +555,7 @@ contract SimulationTests is DSTest {
         linkClip.take(auctionId, amt, max, bobAddr, data);
     }
 
-    function testTakeLinkNoProfit() public {
+    function testTakeLinkV2NoProfit() public {
         (,,,, uint256 dustRad) = vat.ilks(linkName);
         uint256 amountLink = dustRad / RAY;
         getLink(amountLink);
@@ -564,11 +570,11 @@ contract SimulationTests is DSTest {
             (, auctionPrice,,) = linkClip.getStatus(auctionId);
         }
         assertEq(dai.balanceOf(bobAddr), 0);
-        takeLink(auctionId, amountLink, auctionPrice, 0);
+        takeLinkV2(auctionId, amountLink, auctionPrice, 0);
         assertLt(dai.balanceOf(bobAddr), amountLink * auctionPrice / RAY / 10);
     }
 
-    function testTakeLinkProfit() public {
+    function testTakeLinkV2Profit() public {
         uint256 minProfitPct = 30;
         (,,,, uint256 dustRad) = vat.ilks(linkName);
         uint256 amountLink = dustRad / RAY;
@@ -589,8 +595,73 @@ contract SimulationTests is DSTest {
         uint256 minProfit = amountLink * auctionPrice / RAY 
             * minProfitPct / 100;
         assertEq(dai.balanceOf(bobAddr), 0);
-        takeLink(auctionId, amountLink, auctionPrice, minProfit);
+        takeLinkV2(auctionId, amountLink, auctionPrice, minProfit);
         assertGe(dai.balanceOf(bobAddr), minProfit);
+    }
+
+    function takeLinkV3(
+        uint256 auctionId,
+        uint256 amt,
+        uint256 max,
+        uint256 minProfit
+    ) public {
+        vat.hope(linkClipAddr);
+        link.approve(uniV3Addr, amt);
+        uint24 poolFee = 3000;
+        bytes memory path = abi.encodePacked(linkAddr, poolFee, wethAddr, poolFee, daiAddr);
+        bytes memory data = abi.encode(
+            danAddr,
+            linkJoinAddr,
+            minProfit,
+            path,
+            address(0)
+        );
+        linkClip.take(auctionId, amt, max, danAddr, data);
+    }
+
+    function testTakeLinkV3NoProfit() public {
+        (,,,, uint256 dustRad) = vat.ilks(linkName);
+        uint256 amountLink = dustRad / RAY;
+        getLink(amountLink);
+        joinLink(amountLink);
+        frobMax(amountLink, linkName);
+        drip(linkName);
+        uint256 auctionId = barkLink();
+        (, uint256 auctionPrice,,) = linkClip.getStatus(auctionId);
+        uint256 linkPrice = getLinkPrice();
+        while (auctionPrice / uint256(1e9) * 11 / 10 > linkPrice) {
+            hevm.warp(block.timestamp + 10 seconds);
+            (, auctionPrice,,) = linkClip.getStatus(auctionId);
+        }
+        uint balancePre = dai.balanceOf(danAddr);
+        takeLinkV3(auctionId, amountLink, auctionPrice, 0);
+        uint256 balancePost = dai.balanceOf(danAddr);
+        log_named_uint("dai profit", (balancePost - balancePre) / WAD);
+    }
+
+    function testTakeLinkV3Profit() public {
+        uint256 minProfitPct = 30;
+        (,,,, uint256 dustRad) = vat.ilks(linkName);
+        uint256 amountLink = dustRad / RAY;
+        getLink(amountLink);
+        joinLink(amountLink);
+        frobMax(amountLink, linkName);
+        drip(linkName);
+        uint256 auctionId = barkLink();
+        (, uint256 auctionPrice,,) = linkClip.getStatus(auctionId);
+        uint256 linkPrice = getLinkPrice();
+        while (
+            auctionPrice / uint256(1e9) * 11 / 10 * (100 + minProfitPct) / 100
+            > linkPrice
+        ) {
+            hevm.warp(block.timestamp + 10 seconds);
+            (, auctionPrice,,) = linkClip.getStatus(auctionId);
+        }
+        uint256 minProfit = amountLink * auctionPrice / RAY
+            * minProfitPct / 100;
+        assertEq(dai.balanceOf(danAddr), 0);
+        takeLinkV3(auctionId, amountLink, auctionPrice, minProfit);
+        assertGe(dai.balanceOf(danAddr), minProfit);
     }
 
     function takeLpDaiEth(
