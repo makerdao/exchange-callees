@@ -254,7 +254,7 @@ contract SimulationTests is DSTest {
         getPermissions();
     }
 
-    function getLinkPrice() private returns (uint256 val) {
+    function getLinkPrice() private view returns (uint256 val) {
         val = uint256(linkPip.read());
     }
 
@@ -264,7 +264,7 @@ contract SimulationTests is DSTest {
         log_named_uint("LINK price", price / WAD);
     }
 
-    function getEthPrice() private returns (uint256 val) {
+    function getEthPrice() private view returns (uint256 val) {
         val = uint256(ethPip.read());
     }
 
@@ -274,7 +274,7 @@ contract SimulationTests is DSTest {
         log_named_uint("ETH price", price / WAD);
     }
 
-    function getLpDaiEthPrice() private returns (uint256 val) {
+    function getLpDaiEthPrice() private view returns (uint256 val) {
         val = uint256(lpDaiEthPip.read());
     }
 
@@ -571,7 +571,7 @@ contract SimulationTests is DSTest {
         }
         assertEq(dai.balanceOf(bobAddr), 0);
         takeLinkV2(auctionId, amountLink, auctionPrice, 0);
-        assertLt(dai.balanceOf(bobAddr), amountLink * auctionPrice / RAY / 10);
+        assertLt(dai.balanceOf(bobAddr), amountLink * auctionPrice / RAY / 5);
     }
 
     function testTakeLinkV2Profit() public {
