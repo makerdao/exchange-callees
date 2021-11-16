@@ -15,10 +15,6 @@ UniswapV3Callee=$(dapp create UniswapV3Callee \
 #
 # No curve pool for stETH on goerli yet
 #
-# UniV3Callee=$(dapp create UniV3Callee \
-#   0xE592427A0AEce92De3Edee1F18E0157C05861564 \
-#   0x6a60b7070befb2bfc964F646efDF70388320f4E0)
-#
 # WstETHCurveUniv3Callee=$(dapp create WstETHCurveUniv3Callee \
 #   0x0 \
 #   ${UniswapV3Callee} \
