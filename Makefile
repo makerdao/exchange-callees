@@ -1,10 +1,12 @@
-all             :; DAPP_BUILD_OPTIMIZE=1 DAPP_BUILD_OPTIMIZE_RUNS=200 dapp --use solc:0.6.12 build
-clean           :; dapp clean
+all             	 :; DAPP_BUILD_OPTIMIZE=1 DAPP_BUILD_OPTIMIZE_RUNS=200 dapp --use solc:0.6.12 build
+clean           	 :; dapp clean
 # usage:        make test match=Burn
-test            :; ./test.sh ${match}
-deploy          :; echo "use deploy-goerli or deploy-mainnet"
-deploy-goerli   :; make && ./scripts/deploy-goerli.sh
-deploy-mainnet  :; make && ./scripts/deploy-mainnet.sh
+test            	 :; ./test.sh ${match}
+test-deploy-mainnet  :; ./test-deploy-mainnet.sh ${match}
+test-deploy-goerli   :; ./test-deploy-goerli.sh ${match}
+deploy          	 :; echo "use deploy-goerli or deploy-mainnet"
+deploy-goerli   	 :; make && ./scripts/deploy-goerli.sh
+deploy-mainnet  	 :; make && ./scripts/deploy-mainnet.sh
 flatten         :;
 	hevm flatten --source-file "src/UniswapV2Callee.sol" > out/UniswapV2CalleeDai.sol
 	hevm flatten --source-file "src/UniswapV2LpTokenCallee.sol" > out/UniswapV2LpTokenCalleeDai.sol
