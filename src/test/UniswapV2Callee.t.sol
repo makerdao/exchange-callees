@@ -347,7 +347,6 @@ contract UniswapV2CalleeDaiTest is DSTest {
         gold = new DSToken("GEM");
         gold.mint(1000 ether);
 
-
         vat.init(ilk);
 
         dai  = new DSToken("Dai");
