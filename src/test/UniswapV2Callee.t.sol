@@ -480,12 +480,12 @@ contract UniswapV2CalleeDaiTest is DSTest {
         execute(1 ether, ray(6 ether), 0 ether);
     }
 
-    function test_complex_path()
-        public takeSetup(0) calleeSetup((uint256(6 ether))) {
-        address[] memory path = new address[](3);
-        path[0] = address(gold);
-        path[1] = address(0);
-        path[2] = address(dai);
-        execute(1 ether, ray(6 ether), 0 ether, path);
-    }
+    // function test_complex_path()
+    //     public takeSetup(0) calleeSetup((uint256(6 ether))) {
+    //     address[] memory path = new address[](3);
+    //     path[0] = address(gold);
+    //     path[1] = address(0);
+    //     path[2] = address(dai);
+    //     execute(1 ether, ray(6 ether), 0 ether, path);
+    // }
 }
