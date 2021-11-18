@@ -1,7 +1,7 @@
 #! /bin/bash
 
 export ETH_GAS=5000000
-export ETH_GAS_PRICE=$(seth --to-wei 200 gwei)
+export ETH_GAS_PRICE=$(seth --to-wei 500 gwei)
 export ETH_PRIO_FEE=$(seth --to-wei 3 gwei)
 
 if [[ $ETH_FROM -eq 0 ]] ; then
