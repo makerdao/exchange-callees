@@ -36,4 +36,4 @@ else
     dapp --use solc:0.6.12 test --rpc --verbosity 3 -m ${1}
 fi
 
-# rm ./src/test/deploy-Simulation.t.sol
+rm ./src/test/deploy-Simulation.t.sol
