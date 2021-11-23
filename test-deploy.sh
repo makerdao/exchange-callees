@@ -1,7 +1,7 @@
 #! /bin/bash
 
-export ETH_GAS=5000000
-export ETH_GAS_PRICE=$(seth --to-wei 500 gwei)
+export ETH_GAS=6000000
+export ETH_GAS_PRICE=$(seth --to-wei 600 gwei)
 export ETH_PRIO_FEE=$(seth --to-wei 3 gwei)
 
 if [[ $ETH_FROM -eq 0 ]] ; then
@@ -12,8 +12,13 @@ fi
 
 export DAPP_TEST_ADDRESS=$ETH_FROM
 
-echo "Deploying contracts with script"
-deploy_output=$(./scripts/deploy-mainnet.sh)
+chain=$(seth chain)
+if [[ $chain -eq "ethlive" ]] ; then
+    chain="mainnet"
+fi
+
+echo "Deploying contracts to $chain with script"
+deploy_output=$(./scripts/deploy-$chain.sh)
 echo "Deployment completed"
 
 deploy_output=${deploy_output//": "/"="}
