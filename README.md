@@ -30,6 +30,8 @@ NOTE:
 
 ## Public addresses
 
+The addresses of the currently deployed contracts can be found in the [`/addresses.json`](./addresses.json) file.
+
 ## Improvements
 To slow down or defend against [generalized frontrunning bots](https://medium.com/@danrobinson/ethereum-is-a-dark-forest-ecc5f0505dff), consider:
 - Deploying an ownable `exchange-callee` contract and add an `auth` modifier to `clipperCall()`, so only the owner (you) can call the function
