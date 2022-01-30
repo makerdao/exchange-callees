@@ -24,7 +24,7 @@ import { UniswapV2LpTokenCalleeDai } from "../UniswapV2LpTokenCallee.sol";
 import { UniswapV3Callee } from "../UniswapV3Callee.sol";
 import { CurveLpTokenUniv3Callee, CurvePoolLike } from "../CurveLpTokenUniv3Callee.sol";
 
-import { CropManager, CropManagerImp } from "dss-crop-join/CropManager.sol";
+import { Cropper, CropperImp } from "dss-crop-join/Cropper.sol";
 import { CropJoin } from "dss-crop-join/CropJoin.sol";
 import { SynthetixJoinImp } from "dss-crop-join/SynthetixJoin.sol";
 import { ProxyManagerClipper } from "proxy-manager-clipper/ProxyManagerClipper.sol";
@@ -85,9 +85,9 @@ interface LpTokenAbstract is GemAbstract {
     returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
 }
 
-interface CropManagerAbstract {
+interface CropperAbstract {
     function join(address crop, address usr, uint256 val) external;
-    function frob(address crop, address u, address v, address w, int256 dink, int256 dart) external;
+    function frob(bytes32 ilk, address u, address v, address w, int256 dink, int256 dart) external;
     function getOrCreateProxy(address usr) external returns (address urp);
     function exit(address crop, address usr, uint256 val) external;
     function proxy(address) external view returns (address);
@@ -244,8 +244,8 @@ contract SimulationTests is DSTest {
     GemAbstract steCRV;
     CropJoin steCRVJoin;
     SynthetixJoinImp steCRVJoinImp;
-    CropManager cropManager;
-    CropManagerImp cropManagerImp;
+    Cropper cropManager;
+    CropperImp cropManagerImp;
     ProxyManagerClipper steCRVClip;
     SpotAbstract spotter;
     DSValue steCRVPip;
@@ -296,12 +296,12 @@ contract SimulationTests is DSTest {
     }
 
     function deployContracts() private {
-        cropManagerImp = new CropManagerImp(vatAddr);
+        cropManagerImp = new CropperImp(vatAddr);
         cropManagerImpAddr = address(cropManagerImp);
-        cropManager = new CropManager();
+        cropManager = new Cropper();
         cropManagerAddr = address(cropManager);
         cropManager.setImplementation(cropManagerImpAddr);
-        CropManagerAbstract(cropManagerAddr).getOrCreateProxy(edAddr);
+        CropperAbstract(cropManagerAddr).getOrCreateProxy(edAddr);
         steCRVJoinImp = new SynthetixJoinImp(
             vatAddr,
             steCRVName,
@@ -642,7 +642,7 @@ contract SimulationTests is DSTest {
 
     function joinSteCRV(uint256 amount) private {
         steCRV.approve(cropManagerAddr, amount);
-        CropManagerAbstract(cropManagerAddr).join(steCRVJoinAddr, address(this), amount);
+        CropperAbstract(cropManagerAddr).join(steCRVJoinAddr, address(this), amount);
     }
 
     function testJoinSteCRV() public {
@@ -650,12 +650,12 @@ contract SimulationTests is DSTest {
         getSteCRV(amount);
         uint256 gemPre = vat.gem(
             steCRVName,
-            CropManagerAbstract(cropManagerAddr).proxy(address(this))
+            CropperAbstract(cropManagerAddr).proxy(address(this))
         );
         joinSteCRV(amount);
         uint256 gemPost = vat.gem(
             steCRVName,
-            CropManagerAbstract(cropManagerAddr).proxy(address(this))
+            CropperAbstract(cropManagerAddr).proxy(address(this))
         );
         assertEq(gemPost, gemPre + amount);
     }
@@ -664,7 +664,7 @@ contract SimulationTests is DSTest {
         uint256 amount = 30 * WAD;
         getSteCRV(amount);
         joinSteCRV(amount);
-        CropManagerAbstract(cropManagerAddr).exit(steCRVJoinAddr, address(this), amount);
+        CropperAbstract(cropManagerAddr).exit(steCRVJoinAddr, address(this), amount);
     }
 
     function frobMax(uint256 gem, bytes32 ilkName) private {
@@ -690,7 +690,7 @@ contract SimulationTests is DSTest {
     function frobMaxSteCRV(uint256 ink) private {
         (, uint256 rate, uint256 spot, ,) = vat.ilks(steCRVName);
         uint256 art = ink * spot / rate;
-        CropManagerAbstract(cropManagerAddr).frob(steCRVJoinAddr, address(this), address(this), address(this), int256(ink), int256(art));
+        CropperAbstract(cropManagerAddr).frob(steCRVName, address(this), address(this), address(this), int256(ink), int256(art));
     }
 
     function testFrobMaxSteCRV() public {
@@ -698,7 +698,7 @@ contract SimulationTests is DSTest {
         getSteCRV(amountSteCRV);
         joinSteCRV(amountSteCRV);
         frobMaxSteCRV(amountSteCRV);
-        try CropManagerAbstract(cropManagerAddr).frob(steCRVJoinAddr, address(this), address(this), address(this), 0, 1) {
+        try CropperAbstract(cropManagerAddr).frob(steCRVName, address(this), address(this), address(this), 0, 1) {
             log("not at max frob");
             fail();
         } catch {
@@ -773,7 +773,7 @@ contract SimulationTests is DSTest {
     function barkSteCRV() private returns (uint256 auctionId) {
         dog.bark(
             steCRVName,
-            CropManagerAbstract(cropManagerAddr).proxy(address(this)),
+            CropperAbstract(cropManagerAddr).proxy(address(this)),
             address(this)
         );
         auctionId = steCRVClip.kicks();
@@ -789,7 +789,7 @@ contract SimulationTests is DSTest {
         (
         ,, uint256 lot, address usr, uint96 tic,
         ) = steCRVClip.sales(auctionId);
-        assertEq(usr, CropManagerAbstract(cropManagerAddr).proxy(address(this)));
+        assertEq(usr, CropperAbstract(cropManagerAddr).proxy(address(this)));
         assertEq(lot, amount);
         assertEq(tic, block.timestamp);
     }
