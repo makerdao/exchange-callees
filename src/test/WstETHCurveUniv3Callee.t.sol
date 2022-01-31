@@ -159,7 +159,7 @@ contract CurveCalleeTest is DSTest {
     }
 
     function test_bigAmt() public {
-        uint256 amt = 5000 * WAD;
+        uint256 amt = 3000 * WAD;
         newAuction(amt);
         bytes memory data = abi.encode(
             address(this),
