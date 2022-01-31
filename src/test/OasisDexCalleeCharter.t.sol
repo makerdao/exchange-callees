@@ -18,7 +18,7 @@ import "dss/dog.sol";
 import {CalleeMakerOtcDai} from "../OasisDexCallee.sol";
 
 import { Hevm, PipLike, TestVat, TestVow, MockOtc, Guy } from "./OasisDexCallee.t.sol";
-import { CharterManager, CharterManagerImp } from "dss-charter/CharterManager.sol";
+import { Charter, CharterImp } from "dss-charter/Charter.sol";
 import { ManagedGemJoin } from "dss-gem-joins/join-managed.sol";
 import { ProxyManagerClipper } from "proxy-manager-clipper/ProxyManagerClipper.sol";
 
@@ -35,7 +35,7 @@ contract CalleeOtcDaiTest is DSTest {
     ManagedGemJoin gemA;
 
     ProxyManagerClipper clip;
-    CharterManagerImp charter;
+    CharterImp charter;
 
     MockOtc otc;
     CalleeMakerOtcDai calleeOtcDai;
@@ -155,7 +155,7 @@ contract CalleeOtcDaiTest is DSTest {
         bytes memory flashData = abi.encode(address(ali),    // Address of User (where profits are sent)
                                             address(gemA),   // ManagedGemJoin adapter of collateral type
                                             minProfit,       // Minimum Dai profit [wad]
-                                            address(charter) // CharterManager
+                                            address(charter) // Charter
         );
 
         Guy(ali).take({
@@ -171,7 +171,7 @@ contract CalleeOtcDaiTest is DSTest {
         bytes memory flashData = abi.encode(address(ali),    // Address of User (where profits are sent)
                                             address(gemA),   // ManagedGemJoin adapter of collateral type
                                             minProfit,       // Minimum Dai profit [wad]
-                                            address(charter) // CharterManager
+                                            address(charter) // Charter
         );
 
         ok = Guy(ali).try_take({
@@ -215,9 +215,9 @@ contract CalleeOtcDaiTest is DSTest {
         vat.rely(address(daiA));
         dai.setOwner(address(daiA));
 
-        CharterManager base = new CharterManager();
-        base.setImplementation(address(new CharterManagerImp(address(vat), address(vow), address(spot))));
-        charter = CharterManagerImp(address(base));
+        Charter base = new Charter();
+        base.setImplementation(address(new CharterImp(address(vat), address(vow), address(spot))));
+        charter = CharterImp(address(base));
         gold.approve(address(charter));
 
         gemA = new ManagedGemJoin(address(vat), ilk, address(gold));
