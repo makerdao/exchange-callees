@@ -258,6 +258,10 @@ contract SimulationTests is DSTest {
         val = uint256(linkPip.read());
     }
 
+    function getLinkPriceRay() private view returns (uint256) {
+        return getLinkPrice() * 10 ** 9;
+    }
+
     function testGetLinkPrice() public {
         uint256 price = getLinkPrice();
         assertGt(price, 0);
@@ -276,6 +280,10 @@ contract SimulationTests is DSTest {
 
     function getLpDaiEthPrice() private view returns (uint256 val) {
         val = uint256(lpDaiEthPip.read());
+    }
+
+    function getLpDaiEthPriceRay() private view returns (uint256) {
+        return getLpDaiEthPrice() * 10 ** 9;
     }
 
     function testGetLpDaiEthPrice() public {
@@ -517,7 +525,7 @@ contract SimulationTests is DSTest {
 
     function testBarkLpDaiEth() public {
         (,,,, uint256 dustRad) = vat.ilks(lpDaiEthName);
-        uint256 amount = (dustRad / (getLpDaiEthPrice() * 10 ** 9)) * 2;
+        uint256 amount = (dustRad / getLpDaiEthPriceRay()) * 2;
         uint256 kicksPre = lpDaiEthClip.kicks();
         getLpDaiEth(amount);
         joinLpDaiEth(amount);
@@ -558,7 +566,7 @@ contract SimulationTests is DSTest {
 
     function testTakeLinkV2NoProfit() public {
         (,,,, uint256 dustRad) = vat.ilks(linkName);
-        uint256 amountLink = (dustRad / (getLinkPrice() * 10 ** 9)) * 2;
+        uint256 amountLink = (dustRad / getLinkPriceRay()) * 2;
         getLink(amountLink);
         joinLink(amountLink);
         frobMax(amountLink, linkName);
@@ -578,7 +586,7 @@ contract SimulationTests is DSTest {
     function testTakeLinkV2Profit() public {
         uint256 minProfitPct = 30;
         (,,,, uint256 dustRad) = vat.ilks(linkName);
-        uint256 amountLink = (dustRad / (getLinkPrice() * 10 ** 9)) * 2;
+        uint256 amountLink = (dustRad / getLinkPriceRay()) * 2;
         getLink(amountLink);
         joinLink(amountLink);
         frobMax(amountLink, linkName);
@@ -622,7 +630,7 @@ contract SimulationTests is DSTest {
 
     function testTakeLinkV3NoProfit() public {
         (,,,, uint256 dustRad) = vat.ilks(linkName);
-        uint256 amountLink = (dustRad / (getLinkPrice() * 10 ** 9)) * 2;
+        uint256 amountLink = (dustRad / getLinkPriceRay()) * 2;
         getLink(amountLink);
         joinLink(amountLink);
         frobMax(amountLink, linkName);
@@ -643,7 +651,7 @@ contract SimulationTests is DSTest {
     function testTakeLinkV3Profit() public {
         uint256 minProfitPct = 30;
         (,,,, uint256 dustRad) = vat.ilks(linkName);
-        uint256 amountLink = (dustRad / (getLinkPrice() * 10 ** 9)) * 2;
+        uint256 amountLink = (dustRad / getLinkPriceRay()) * 2;
         getLink(amountLink);
         joinLink(amountLink);
         frobMax(amountLink, linkName);
@@ -683,7 +691,7 @@ contract SimulationTests is DSTest {
 
     function testTakeLpDaiEthNoProfit() public {
         (,,,, uint256 dustRad) = vat.ilks(lpDaiEthName);
-        uint256 amount = (dustRad / (getLpDaiEthPrice() * 10 ** 9)) * 2;
+        uint256 amount = (dustRad / getLpDaiEthPriceRay()) * 2;
         getLpDaiEth(amount);
         joinLpDaiEth(amount);
         frobMax(amount, lpDaiEthName);
@@ -703,7 +711,7 @@ contract SimulationTests is DSTest {
     function testTakeLpDaiEthProfit() public {
         uint256 minProfitPct = 30;
         (,,,, uint256 dustRad) = vat.ilks(lpDaiEthName);
-        uint256 amount = (dustRad / (getLpDaiEthPrice() * 10 ** 9)) * 2;
+        uint256 amount = (dustRad / getLpDaiEthPriceRay()) * 2;
         getLpDaiEth(amount);
         joinLpDaiEth(amount);
         frobMax(amount, lpDaiEthName);
