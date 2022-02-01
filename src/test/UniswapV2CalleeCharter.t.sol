@@ -33,7 +33,7 @@ import "dss/dog.sol";
 import {UniswapV2CalleeDai} from "../UniswapV2Callee.sol";
 
 import { Hevm, PipLike, TestVat, TestVow, MockUniswapRouter02, Guy } from "./UniswapV2Callee.t.sol";
-import { CharterManager, CharterManagerImp } from "dss-charter/CharterManager.sol";
+import { Charter, CharterImp } from "dss-charter/Charter.sol";
 import { ManagedGemJoin } from "dss-gem-joins/join-managed.sol";
 import { ProxyManagerClipper } from "proxy-manager-clipper/ProxyManagerClipper.sol";
 
@@ -50,7 +50,7 @@ contract UniswapV2CalleeDaiTest is DSTest {
     ManagedGemJoin gemA;
 
     ProxyManagerClipper clip;
-    CharterManagerImp charter;
+    CharterImp charter;
 
     MockUniswapRouter02 uniRouter02;
     UniswapV2CalleeDai uniCalleeDai;
@@ -178,7 +178,7 @@ contract UniswapV2CalleeDaiTest is DSTest {
                                             address(gemA),   // GemJoin adapter of collateral type
                                             minProfit,       // Minimum Dai profit [wad]
                                             path,            // uni path,
-                                            address(charter) // CharterManager
+                                            address(charter) // Charter
         );
 
         Guy(ali).take({
@@ -202,7 +202,7 @@ contract UniswapV2CalleeDaiTest is DSTest {
                                             address(gemA),   // GemJoin adapter of collateral type
                                             minProfit,       // Minimum Dai profit [wad]
                                             path,            // uni path
-                                            address(charter) //CharterManager
+                                            address(charter) //Charter
         );
 
         ok = Guy(ali).try_take({
@@ -247,9 +247,9 @@ contract UniswapV2CalleeDaiTest is DSTest {
         vat.rely(address(daiA));
         dai.setOwner(address(daiA));
 
-        CharterManager base = new CharterManager();
-        base.setImplementation(address(new CharterManagerImp(address(vat), address(vow), address(spot))));
-        charter = CharterManagerImp(address(base));
+        Charter base = new Charter();
+        base.setImplementation(address(new CharterImp(address(vat), address(vow), address(spot))));
+        charter = CharterImp(address(base));
         gold.approve(address(charter));
 
         gemA = new ManagedGemJoin(address(vat), ilk, address(gold));
