@@ -38,23 +38,13 @@ interface TokenLike {
 interface CharterManagerLike {
     function exit(address crop, address usr, uint256 val) external;
 }
-
-interface WstEthLike is TokenLike {
-    function unwrap(uint256 _wstEthAmount) external returns (uint256);
-    function stETH() external view returns (address);
-}
-
 interface CurvePoolLike {
     function exchange(int128 i, int128 j, uint256 dx, uint256 min_dy)
-    external returns (uint256 dy);
-}
-
-interface WethLike is TokenLike {
-    function deposit() external payable;
+        external returns (uint256 dy);
 }
 
 interface UniV3RouterLike {
-
+    
     struct ExactInputParams {
         bytes   path;
         address recipient;
@@ -64,15 +54,15 @@ interface UniV3RouterLike {
     }
 
     function exactInput(UniV3RouterLike.ExactInputParams calldata params)
-    external payable returns (uint256 amountOut);
+        external payable returns (uint256 amountOut);
 }
 
-contract WstETHCurveUniv3Callee {
+contract TUSDCurveUniv3Callee {
     CurvePoolLike   public immutable curvePool;
     UniV3RouterLike public immutable uniV3Router;
     DaiJoinLike     public immutable daiJoin;
     TokenLike       public immutable dai;
-    address         public immutable weth;
+    address         public immutable weth; // TODO: remove
 
     uint256         public constant RAY = 10 ** 27;
 
@@ -90,7 +80,7 @@ contract WstETHCurveUniv3Callee {
         address curvePool_,
         address uniV3Router_,
         address daiJoin_,
-        address weth_
+        address weth_ // TODO: remove
     ) public {
         curvePool      = CurvePoolLike(curvePool_);
         uniV3Router    = UniV3RouterLike(uniV3Router_);
@@ -115,11 +105,11 @@ contract WstETHCurveUniv3Callee {
         bytes calldata data        // Extra data, see below
     ) external {
         (
-        address to,            // address to send remaining DAI to
-        address gemJoin,       // gemJoin adapter address
-        uint256 minProfit,     // minimum profit in DAI to make [wad]
-        uint24  poolFee,       // uniswap V3 WETH-DAI pool fee
-        address charterManager // pass address(0) if no manager
+            address to,            // address to send remaining DAI to
+            address gemJoin,       // gemJoin adapter address
+            uint256 minProfit,     // minimum profit in DAI to make [wad]
+            uint24  poolFee,       // uniswap V3 WETH-DAI pool fee
+            address charterManager // pass address(0) if no manager
         ) = abi.decode(data, (address, address, uint256, uint24, address));
 
         address gem = GemJoinLike(gemJoin).gem();
@@ -134,24 +124,17 @@ contract WstETHCurveUniv3Callee {
             GemJoinLike(gemJoin).exit(address(this), slice);
         }
 
-        slice = WstEthLike(gem).unwrap(slice);
-        gem = WstEthLike(gem).stETH();
-
         TokenLike(gem).approve(address(curvePool), slice);
         slice = curvePool.exchange({
-        i:      1,     // send token id 1 (stETH)
-        j:      0,     // receive token id 0 (ETH)
-        dx:     slice, // send `slice` amount of stETH
-        min_dy: 0      // accept any amount of ETH (`minProfit` is checked below)
+            i:      0,     // send token id (TUSD)
+            j:      1,     // receive token id (USDC)
+            dx:     slice, // send `slice` amount of TUSD
+            min_dy: 0      // accept any amount of ETH (`minProfit` is checked below)
         });
 
-        gem = weth;
-        WethLike(gem).deposit{
-        value: slice
-        }();
-
+        gem = address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48); // TODO: get from outside? use psm?
         // Approve uniV3 to take gem
-        WethLike(gem).approve(address(uniV3Router), slice);
+        TokenLike(gem).approve(address(uniV3Router), slice);
 
         // Calculate amount of DAI to Join (as erc20 WAD value)
         uint256 daiToJoin = _divup(owe, RAY);
@@ -159,18 +142,20 @@ contract WstETHCurveUniv3Callee {
         // Do operation and get dai amount bought (checking the profit is achieved)
         bytes memory path = abi.encodePacked(gem, poolFee, address(dai));
         UniV3RouterLike.ExactInputParams memory params = UniV3RouterLike.ExactInputParams({
-        path:             path,
-        recipient:        address(this),
-        deadline:         block.timestamp,
-        amountIn:         slice,
-        amountOutMinimum: _add(daiToJoin, minProfit)
+            path:             path,
+            recipient:        address(this),
+            deadline:         block.timestamp,
+            amountIn:         slice,
+            amountOutMinimum: _add(daiToJoin, minProfit)
         });
+
         uniV3Router.exactInput(params);
+        return; // TODO: remove
 
         // Although Uniswap will accept all gems, this check is a sanity check, just in case
         // Transfer any lingering gem to specified address
-        if (WethLike(gem).balanceOf(address(this)) > 0) {
-            WethLike(gem).transfer(to, WethLike(gem).balanceOf(address(this)));
+        if (TokenLike(gem).balanceOf(address(this)) > 0) {
+            TokenLike(gem).transfer(to, TokenLike(gem).balanceOf(address(this)));
         }
 
         // Convert DAI bought to internal vat value of the msg.sender of Clipper.take
