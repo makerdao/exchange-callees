@@ -46,7 +46,7 @@ interface WstEthLike is TokenLike {
 
 interface CurvePoolLike {
     function exchange(int128 i, int128 j, uint256 dx, uint256 min_dy)
-    external returns (uint256 dy);
+        external returns (uint256 dy);
 }
 
 interface WethLike is TokenLike {
@@ -54,7 +54,7 @@ interface WethLike is TokenLike {
 }
 
 interface UniV3RouterLike {
-
+    
     struct ExactInputParams {
         bytes   path;
         address recipient;
@@ -64,7 +64,7 @@ interface UniV3RouterLike {
     }
 
     function exactInput(UniV3RouterLike.ExactInputParams calldata params)
-    external payable returns (uint256 amountOut);
+        external payable returns (uint256 amountOut);
 }
 
 contract WstETHCurveUniv3Callee {
@@ -115,11 +115,11 @@ contract WstETHCurveUniv3Callee {
         bytes calldata data        // Extra data, see below
     ) external {
         (
-        address to,            // address to send remaining DAI to
-        address gemJoin,       // gemJoin adapter address
-        uint256 minProfit,     // minimum profit in DAI to make [wad]
-        uint24  poolFee,       // uniswap V3 WETH-DAI pool fee
-        address charterManager // pass address(0) if no manager
+            address to,            // address to send remaining DAI to
+            address gemJoin,       // gemJoin adapter address
+            uint256 minProfit,     // minimum profit in DAI to make [wad]
+            uint24  poolFee,       // uniswap V3 WETH-DAI pool fee
+            address charterManager // pass address(0) if no manager
         ) = abi.decode(data, (address, address, uint256, uint24, address));
 
         address gem = GemJoinLike(gemJoin).gem();
@@ -139,15 +139,15 @@ contract WstETHCurveUniv3Callee {
 
         TokenLike(gem).approve(address(curvePool), slice);
         slice = curvePool.exchange({
-        i:      1,     // send token id 1 (stETH)
-        j:      0,     // receive token id 0 (ETH)
-        dx:     slice, // send `slice` amount of stETH
-        min_dy: 0      // accept any amount of ETH (`minProfit` is checked below)
+            i:      1,     // send token id 1 (stETH)
+            j:      0,     // receive token id 0 (ETH)
+            dx:     slice, // send `slice` amount of stETH
+            min_dy: 0      // accept any amount of ETH (`minProfit` is checked below)
         });
 
         gem = weth;
         WethLike(gem).deposit{
-        value: slice
+            value: slice
         }();
 
         // Approve uniV3 to take gem
@@ -159,11 +159,11 @@ contract WstETHCurveUniv3Callee {
         // Do operation and get dai amount bought (checking the profit is achieved)
         bytes memory path = abi.encodePacked(gem, poolFee, address(dai));
         UniV3RouterLike.ExactInputParams memory params = UniV3RouterLike.ExactInputParams({
-        path:             path,
-        recipient:        address(this),
-        deadline:         block.timestamp,
-        amountIn:         slice,
-        amountOutMinimum: _add(daiToJoin, minProfit)
+            path:             path,
+            recipient:        address(this),
+            deadline:         block.timestamp,
+            amountIn:         slice,
+            amountOutMinimum: _add(daiToJoin, minProfit)
         });
         uniV3Router.exactInput(params);
 

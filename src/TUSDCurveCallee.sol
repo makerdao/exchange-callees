@@ -35,9 +35,6 @@ interface TokenLike {
     function symbol() external view returns (string memory);
 }
 
-interface CharterManagerLike {
-    function exit(address crop, address usr, uint256 val) external;
-}
 interface CurvePoolLike {
     function exchange_underlying(int128 i, int128 j, uint256 dx, uint256 min_dy)
         external returns (uint256 dy);
@@ -87,9 +84,8 @@ contract TUSDCurveCallee {
         (
             address to,            // address to send remaining DAI to
             address gemJoin,       // gemJoin adapter address
-            uint256 minProfit,     // minimum profit in DAI to make [wad]
-            address charterManager // pass address(0) if no manager
-        ) = abi.decode(data, (address, address, uint256, address));
+            uint256 minProfit      // minimum profit in DAI to make [wad]
+        ) = abi.decode(data, (address, address, uint256));
 
         address gem = GemJoinLike(gemJoin).gem();
 
@@ -97,11 +93,7 @@ contract TUSDCurveCallee {
         slice = _fromWad(gemJoin, slice);
 
         // Exit gem to token
-        if(charterManager != address(0)) {
-            CharterManagerLike(charterManager).exit(gemJoin, address(this), slice);
-        } else {
-            GemJoinLike(gemJoin).exit(address(this), slice);
-        }
+        GemJoinLike(gemJoin).exit(address(this), slice);
 
         // Calculate amount of DAI to Join (as erc20 WAD value)
         uint256 daiToJoin = _divup(owe, RAY);

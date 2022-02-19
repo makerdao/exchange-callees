@@ -152,16 +152,13 @@ contract CurveCalleeTest is DSTest {
         Vat(vat).hope(clipper);
         tail = Clipper(clipper).tail();
 
-        // Turn on liquidations
+        // Turn on liquidations:
 
-        // Take control of dog
         address dog = Chainlog(chainlog).getAddress("MCD_DOG");
         takeOwnership(dog);
         Dog(dog).file("TUSD-A", "hole", type(uint256).max);
-
         renounceOwnership(dog);
 
-        // Take control of clipper
         takeOwnership(clipper);
         Clipper(clipper).file("stopped", 0);
         renounceOwnership(clipper);
@@ -204,8 +201,7 @@ contract CurveCalleeTest is DSTest {
         bytes memory data = abi.encode(
             address(123),
             address(gemJoin),
-            uint256(0),
-            address(0)
+            uint256(0)
         );
         Hevm(hevm).warp(block.timestamp + tail / 2);
         Clipper(clipper).take({
@@ -221,14 +217,14 @@ contract CurveCalleeTest is DSTest {
         assertEq(Token(tusd).balanceOf(address(this)), 0);
     }
 
-    function test_bigAmt() public {
-        uint256 amt = 10_000_000 * WAD;
+    function test_profit() public {
+        uint256 minProfit = 1000 * WAD;
+        uint256 amt = 1_000_000 * WAD;
         newAuction(amt);
         bytes memory data = abi.encode(
-            address(this),
+            address(123),
             address(gemJoin),
-            uint256(0),
-            address(0)
+            uint256(minProfit)
         );
         Hevm(hevm).warp(block.timestamp + tail / 2);
         Clipper(clipper).take({
@@ -238,17 +234,39 @@ contract CurveCalleeTest is DSTest {
             who:  address(callee),
             data: data
         });
+        address dai = Chainlog(chainlog).getAddress("MCD_DAI");
+        assertGe(Token(dai).balanceOf(address(123)), minProfit);
     }
 
-    function test_profit() public {
-        uint256 minProfit = 10_000 * WAD;
-        uint256 amt = 50 * WAD;
+    function test_profitBigAmt() public {
+        uint256 minProfit = 1000 * WAD;
+        uint256 amt = 10_000_000 * WAD;
         newAuction(amt);
         bytes memory data = abi.encode(
             address(123),
             address(gemJoin),
-            uint256(minProfit),
-            address(0)
+            uint256(minProfit)
+        );
+        Hevm(hevm).warp(block.timestamp + tail / 2);
+        Clipper(clipper).take({
+            id:   id,
+            amt:  amt,
+            max:  type(uint256).max,
+            who:  address(callee),
+            data: data
+        });
+        address dai = Chainlog(chainlog).getAddress("MCD_DAI");
+        assertGe(Token(dai).balanceOf(address(123)), minProfit);
+    }
+
+    function test_profitAllCollateral() public {
+        uint256 minProfit = 1000 * WAD;
+        uint256 amt = 26_000_000 * WAD;
+        newAuction(amt);
+        bytes memory data = abi.encode(
+            address(123),
+            address(gemJoin),
+            uint256(minProfit)
         );
         Hevm(hevm).warp(block.timestamp + tail / 2);
         Clipper(clipper).take({
@@ -263,13 +281,12 @@ contract CurveCalleeTest is DSTest {
     }
 
     function test_maxPrice() public {
-        uint256 amt = 50 * WAD;
+        uint256 amt = 20000 * WAD;
         newAuction(amt);
         bytes memory data = abi.encode(
             address(this),
             address(gemJoin),
-            uint256(0),
-            address(0)
+            uint256(0)
         );
         Hevm(hevm).warp(block.timestamp + tail / 2);
         address osm = Chainlog(chainlog).getAddress("PIP_TUSD");
@@ -278,7 +295,6 @@ contract CurveCalleeTest is DSTest {
             loc: keccak256(abi.encode(address(this), uint256(0))),
             val: bytes32(uint256(1))
         });
-        Osm(osm).kiss(address(this));
         uint256 max = uint256(Osm(osm).read()) * 1e9; // WAD * 1e9 = RAY
         Clipper(clipper).take({
             id:   id,
@@ -290,13 +306,12 @@ contract CurveCalleeTest is DSTest {
     }
 
     function testFail_maxPrice() public {
-        uint256 amt = 50 * WAD;
+        uint256 amt = 20000 * WAD;
         newAuction(amt);
         bytes memory data = abi.encode(
             address(this),
             address(gemJoin),
-            uint256(0),
-            address(0)
+            uint256(0)
         );
         Hevm(hevm).warp(block.timestamp + tail / 5);
         address osm = Chainlog(chainlog).getAddress("PIP_TUSD");
@@ -305,7 +320,6 @@ contract CurveCalleeTest is DSTest {
             loc: keccak256(abi.encode(address(this), uint256(0))),
             val: bytes32(uint256(1))
         });
-        Osm(osm).kiss(address(this));
         uint256 max = uint256(Osm(osm).read()) * 1e9; // WAD * 1e9 = RAY
         Clipper(clipper).take({
             id:   id,

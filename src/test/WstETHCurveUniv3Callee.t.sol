@@ -135,7 +135,7 @@ contract CurveCalleeTest is DSTest {
         id = Dog(dog).bark("WSTETH-A", address(this), address(this));
     }
 
-    function test_baselineY() public {
+    function test_baseline() public {
         uint256 amt = 50 * WAD;
         newAuction(amt);
         bytes memory data = abi.encode(
