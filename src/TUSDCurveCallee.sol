@@ -39,34 +39,14 @@ interface CharterManagerLike {
     function exit(address crop, address usr, uint256 val) external;
 }
 interface CurvePoolLike {
-    function exchange(int128 i, int128 j, uint256 dx, uint256 min_dy)
+    function exchange_underlying(int128 i, int128 j, uint256 dx, uint256 min_dy)
         external returns (uint256 dy);
-    function remove_liquidity_one_coin(uint256 _token_amount, int128 i, uint256 _min_amount)
-        external;
 }
 
-interface UniV3RouterLike {
-    
-    struct ExactInputParams {
-        bytes   path;
-        address recipient;
-        uint256 deadline;
-        uint256 amountIn;
-        uint256 amountOutMinimum;
-    }
-
-    function exactInput(UniV3RouterLike.ExactInputParams calldata params)
-        external payable returns (uint256 amountOut);
-}
-
-contract TUSDCurveUniv3Callee {
+contract TUSDCurveCallee {
     CurvePoolLike   public immutable curvePool;
-    UniV3RouterLike public immutable uniV3Router;
     DaiJoinLike     public immutable daiJoin;
     TokenLike       public immutable dai;
-    address         public immutable weth; // TODO: remove
-
-    address public constant usdcJoin = address(0xA191e578a6736167326d05c119CE0c90849E84B7); // TODO: remove
 
     uint256         public constant RAY = 10 ** 27;
 
@@ -82,16 +62,12 @@ contract TUSDCurveUniv3Callee {
 
     constructor(
         address curvePool_,
-        address uniV3Router_,
-        address daiJoin_,
-        address weth_ // TODO: remove
+        address daiJoin_
     ) public {
         curvePool      = CurvePoolLike(curvePool_);
-        uniV3Router    = UniV3RouterLike(uniV3Router_);
         daiJoin        = DaiJoinLike(daiJoin_);
         TokenLike dai_ = DaiJoinLike(daiJoin_).dai();
         dai            = dai_;
-        weth           = weth_;
 
         dai_.approve(daiJoin_, type(uint256).max);
     }
@@ -112,9 +88,8 @@ contract TUSDCurveUniv3Callee {
             address to,            // address to send remaining DAI to
             address gemJoin,       // gemJoin adapter address
             uint256 minProfit,     // minimum profit in DAI to make [wad]
-            uint24  poolFee,       // uniswap V3 WETH-DAI pool fee
             address charterManager // pass address(0) if no manager
-        ) = abi.decode(data, (address, address, uint256, uint24, address));
+        ) = abi.decode(data, (address, address, uint256, address));
 
         address gem = GemJoinLike(gemJoin).gem();
 
@@ -128,27 +103,16 @@ contract TUSDCurveUniv3Callee {
             GemJoinLike(gemJoin).exit(address(this), slice);
         }
 
-        TokenLike(gem).approve(address(curvePool), slice);
-        slice = curvePool.exchange({
-            i:      0,     // send token id (TUSD)
-            j:      1,     // receive token id (3CRV)
-            dx:     slice, // send `slice` amount of 3CRV
-            min_dy: 0      // accept any amount of 3CRV (`minProfit` is checked below)
-        });
-
-        gem = address(0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490);
-        CurvePoolLike curvePool2 = CurvePoolLike(0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7);
-
-        TokenLike(gem).approve(address(curvePool2), slice);
-        curvePool2.remove_liquidity_one_coin({ //TODO: no need for slice
-            _token_amount: slice,
-            i:             0, // DAI
-            _min_amount:   0 // TODO change to _add(daiToJoin, minProfit)
-        });
-        // TODO: change name! also no need for uniswapv3
-
         // Calculate amount of DAI to Join (as erc20 WAD value)
         uint256 daiToJoin = _divup(owe, RAY);
+
+        TokenLike(gem).approve(address(curvePool), slice);
+        slice = curvePool.exchange_underlying({
+            i:      0,     // send token id (TUSD)
+            j:      1,     // receive token id (DAI)
+            dx:     slice, // send `slice` amount of TUSD
+            min_dy: _add(daiToJoin, minProfit)
+        });
 
         // Although Curve will accept all gems, this check is a sanity check, just in case
         // Transfer any lingering gem to specified address
