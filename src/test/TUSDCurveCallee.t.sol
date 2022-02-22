@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2021 Dai Foundation
+// Copyright (C) 2022 Dai Foundation
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-pragma solidity ^0.6.12;
+pragma solidity 0.6.12;
 
 import "ds-test/test.sol";
 import { TUSDCurveCallee } from "../TUSDCurveCallee.sol";
@@ -102,6 +102,9 @@ contract CurveCalleeTest is DSTest {
     address vat;
     address dog;
     address dai;
+    address spotter;
+    address osm;
+    address daiJoin;
     LinearDecrease calc;
 
     function giveTokens(address token, uint256 amount) internal {
@@ -154,12 +157,15 @@ contract CurveCalleeTest is DSTest {
 
     function setUp() public {
         clipper = Chainlog(chainlog).getAddress("MCD_CLIP_TUSD_A");
-        address daiJoin = Chainlog(chainlog).getAddress("MCD_JOIN_DAI");
-        callee = new TUSDCurveCallee(curve, daiJoin);
-        vat = Chainlog(chainlog).getAddress("MCD_VAT");
-        dog = Chainlog(chainlog).getAddress("MCD_DOG");
-        dai = Chainlog(chainlog).getAddress("MCD_DAI");
+        daiJoin = Chainlog(chainlog).getAddress("MCD_JOIN_DAI");
+        vat =     Chainlog(chainlog).getAddress("MCD_VAT");
+        dog =     Chainlog(chainlog).getAddress("MCD_DOG");
+        dai =     Chainlog(chainlog).getAddress("MCD_DAI");
         gemJoin = Chainlog(chainlog).getAddress("MCD_JOIN_TUSD_A");
+        spotter = Chainlog(chainlog).getAddress("MCD_SPOT");
+        osm =     Chainlog(chainlog).getAddress("PIP_TUSD");
+
+        callee = new TUSDCurveCallee(curve, daiJoin);
         calc = new LinearDecrease();
 
         Vat(vat).hope(clipper);
@@ -228,7 +234,6 @@ contract CurveCalleeTest is DSTest {
         });
 
         // Set LR to 150%
-        address spotter = Chainlog(chainlog).getAddress("MCD_SPOT");
         takeOwnership(spotter);
         Spot(spotter).file("TUSD-A", bytes32("mat"), 150 * RAY / 100);
         renounceOwnership(spotter);
@@ -287,7 +292,7 @@ contract CurveCalleeTest is DSTest {
             address(gemJoin),
             uint256(minProfit)
         );
-        Hevm(hevm).warp(block.timestamp + tail / 3);
+        Hevm(hevm).warp(block.timestamp + tail / 2);
         Clipper(clipper).take({
             id:   id,
             amt:  amt,
@@ -331,7 +336,6 @@ contract CurveCalleeTest is DSTest {
 
         // Make sure price goes down enough to make up for the Curve slippage
         Hevm(hevm).warp(block.timestamp + tail / 5);
-        address osm = Chainlog(chainlog).getAddress("PIP_TUSD");
         Hevm(hevm).store({
             c:   osm,
             loc: keccak256(abi.encode(address(this), uint256(0))),
