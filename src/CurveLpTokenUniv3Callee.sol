@@ -64,7 +64,6 @@ interface UniV3RouterLike {
 }
 
 contract CurveLpTokenUniv3Callee {
-    CurvePoolLike   public immutable curvePool;
     UniV3RouterLike public immutable uniV3Router;
     DaiJoinLike     public immutable daiJoin;
     TokenLike       public immutable dai;
@@ -84,12 +83,10 @@ contract CurveLpTokenUniv3Callee {
     }
 
     constructor(
-        address curvePool_,
         address uniV3Router_,
         address daiJoin_,
         address weth_
     ) public {
-        curvePool      = CurvePoolLike(curvePool_);
         uniV3Router    = UniV3RouterLike(uniV3Router_);
         daiJoin        = DaiJoinLike(daiJoin_);
         TokenLike dai_ = DaiJoinLike(daiJoin_).dai();
@@ -112,13 +109,13 @@ contract CurveLpTokenUniv3Callee {
         bytes calldata data        // Extra data, see below
     ) external {
         (
-            address      to,        // address to send remaining DAI to
-            address      gemJoin,   // gemJoin adapter address
-            uint256      minProfit, // minimum profit in DAI to make [wad]
-            uint256      coinIndex, // curve pool coin index
-            bytes memory path,      // uniswap v3 path
-            address      manager    // pass address(0) if no manager
-        ) = abi.decode(data, (address, address, uint256, uint256, bytes, address));
+            address          to,        // address to send remaining DAI to
+            address          gemJoin,   // gemJoin adapter address
+            uint256          minProfit, // minimum profit in DAI to make [wad]
+            bytes memory     path,      // uniswap v3 path
+            address          manager,   // pass address(0) if no manager
+            bytes32[] memory curveData  // (0) pool, (1) coinIndex
+        ) = abi.decode(data, (address, address, uint256, bytes, address, bytes32[]));
 
         address gem = GemJoinLike(gemJoin).gem();
 
@@ -132,14 +129,15 @@ contract CurveLpTokenUniv3Callee {
             GemJoinLike(gemJoin).exit(address(this), slice);
         }
 
-        TokenLike(gem).approve(address(curvePool), slice);
-        slice = curvePool.remove_liquidity_one_coin({
+        // curveData used explicitly to avoid stack too deep
+        TokenLike(gem).approve(address(uint256(curveData[0])), slice);
+        slice = CurvePoolLike(address(uint256(curveData[0]))).remove_liquidity_one_coin({
             _token_amount: slice,
-            i:             int128(coinIndex),
+            i:             int128(uint256(curveData[1])),
             _min_amount:   0 // minProfit is checked below
         });
 
-        gem = curvePool.coins(coinIndex);
+        gem = CurvePoolLike(address(uint256(curveData[0]))).coins(uint256(curveData[1]));
         if (gem == ETH) {
             gem = weth;
             WethLike(gem).deposit{
