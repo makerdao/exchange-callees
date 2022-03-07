@@ -409,7 +409,7 @@ contract SimulationTests is DSTest {
         cheAddr = address(che);
         dan = new UniswapV3Callee(uniV3Addr, daiJoinAddr);
         danAddr = address(dan);
-        ed = new CurveLpTokenUniv3Callee(curvePoolAddr, uniV3Addr, daiJoinAddr, wethAddr);
+        ed = new CurveLpTokenUniv3Callee(uniV3Addr, daiJoinAddr, wethAddr);
         edAddr = address(ed);
         getPermissions();
         deployContracts();
@@ -1003,13 +1003,16 @@ contract SimulationTests is DSTest {
 
         uint24 poolFee = 3000;
         bytes memory path = abi.encodePacked(wethAddr, poolFee, daiAddr);
+        bytes32[] memory curveData = new bytes32[](2);
+        curveData[0] = bytes32(uint256(uint160(curvePoolAddr)));
+        curveData[1] = bytes32(0); // coinIndex (0 - eth)
         bytes memory data = abi.encode(
-            edAddr,         // to
-            steCRVJoinAddr, // gemJoin
-            minProfit,      // minProfit
-            0,              // coinIndex (0 - eth)
-            path,           // path
-            cropManagerAddr // manager
+            edAddr,          // to
+            steCRVJoinAddr,  // gemJoin
+            minProfit,       // minProfit
+            path,            // path
+            cropManagerAddr, // manager
+            curveData        // curveData
         );
 
         steCRVClip.take(auctionId, amt, max, edAddr, data);
