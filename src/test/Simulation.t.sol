@@ -313,7 +313,7 @@ contract SimulationTests is DSTest {
         steCRVJoin.setImplementation(address(steCRVJoinImp));
         steCRVJoinAddr = address(steCRVJoin);
         steCRVJoin.rely(cropManagerAddr);
-        SynthetixJoinImp(address(steCRVJoin)).init();
+        SynthetixJoinImp(steCRVJoinAddr).init();
         vat.rely(steCRVJoinAddr);
         vat.init(steCRVName);
         vat.file(steCRVName, "spot", 100 * RAY);
@@ -1027,7 +1027,9 @@ contract SimulationTests is DSTest {
         uint256 auctionId = barkSteCRV();
         hevm.warp(block.timestamp + 1 hours);
         uint256 balancePre = dai.balanceOf(edAddr);
+        uint256 countBefore = steCRVClip.count();
         takeSteCRV(auctionId, amount, 100 * RAY, 0);
+        assertEq(steCRVClip.count(), countBefore - 1);
         uint256 balancePost = dai.balanceOf(edAddr);
         assertGt(balancePost, balancePre);
     }
@@ -1042,7 +1044,9 @@ contract SimulationTests is DSTest {
         uint256 auctionId = barkSteCRV();
         hevm.warp(block.timestamp + 1 hours);
         uint256 balancePre = dai.balanceOf(edAddr);
+        uint256 countBefore = steCRVClip.count();
         takeSteCRV(auctionId, amount, 100 * RAY, minProfit);
+        assertEq(steCRVClip.count(), countBefore - 1);
         uint256 balancePost = dai.balanceOf(edAddr);
         assertGt(balancePost, balancePre + minProfit);
     }
