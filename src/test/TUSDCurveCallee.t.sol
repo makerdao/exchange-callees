@@ -37,6 +37,7 @@ interface Token {
 
 interface Join {
     function join(address, uint256) external;
+    function setImplementation(address, uint256) external;
 }
 
 interface Vat {
@@ -167,6 +168,11 @@ contract CurveCalleeTest is DSTest {
 
         callee = new TUSDCurveCallee(curve, daiJoin);
         calc = new LinearDecrease();
+
+        // TODO: remove once new implementation is set on mainnet
+        takeOwnership(gemJoin);
+        Join(gemJoin).setImplementation(address(0xd8D59c59Ab40B880b54C969920E8d9172182Ad7b), 1);
+        renounceOwnership(gemJoin);
 
         Vat(vat).hope(clipper);
 
