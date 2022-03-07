@@ -87,19 +87,18 @@ contract TUSDCurveCallee {
             uint256 minProfit      // minimum profit in DAI to make [wad]
         ) = abi.decode(data, (address, address, uint256));
 
-        address gem = GemJoinLike(gemJoin).gem();
+        address tusd = GemJoinLike(gemJoin).gem();
 
         // Convert slice to token precision
-        slice = _fromWad(gemJoin, slice);
 
         // Exit gem to token
         GemJoinLike(gemJoin).exit(address(this), slice);
 
-        // Calculate amount of DAI to Join (as erc20 WAD value)
+        // Convert `owe` from RAD to WAD
         uint256 daiToJoin = _divup(owe, RAY);
 
         TokenLike(gem).approve(address(curvePool), slice);
-        slice = curvePool.exchange_underlying({
+        curvePool.exchange_underlying({
             i:      0,     // send token id (TUSD)
             j:      1,     // receive token id (DAI)
             dx:     slice, // send `slice` amount of TUSD
