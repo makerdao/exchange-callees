@@ -18,7 +18,6 @@ pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
 interface GemJoinLike {
-    function dec() external view returns (uint256);
     function gem() external view returns (address);
     function exit(address, uint256) external;
 }
@@ -32,7 +31,6 @@ interface TokenLike {
     function approve(address, uint256) external;
     function transfer(address, uint256) external;
     function balanceOf(address) external view returns (uint256);
-    function symbol() external view returns (string memory);
 }
 
 interface CurvePoolLike {
@@ -71,10 +69,6 @@ contract TUSDCurveCallee {
 
     receive() external payable {}
 
-    function _fromWad(address gemJoin, uint256 wad) internal view returns (uint256 amt) {
-        amt = wad / 10 ** (_sub(18, GemJoinLike(gemJoin).dec()));
-    }
-
     function clipperCall(
         address sender,            // Clipper caller, pays back the loan
         uint256 owe,               // Dai amount to pay back        [rad]
@@ -89,7 +83,7 @@ contract TUSDCurveCallee {
 
         address tusd = GemJoinLike(gemJoin).gem();
 
-        // Convert slice to token precision
+        // Note - no need to convert slice to token precision as this contract TUSD specific (18 decimals)
 
         // Exit gem to token
         GemJoinLike(gemJoin).exit(address(this), slice);
@@ -97,7 +91,7 @@ contract TUSDCurveCallee {
         // Convert `owe` from RAD to WAD
         uint256 daiToJoin = _divup(owe, RAY);
 
-        TokenLike(gem).approve(address(curvePool), slice);
+        TokenLike(tusd).approve(address(curvePool), slice);
         curvePool.exchange_underlying({
             i:      0,     // send token id (TUSD)
             j:      1,     // receive token id (DAI)
@@ -107,8 +101,8 @@ contract TUSDCurveCallee {
 
         // Although Curve will accept all gems, this check is a sanity check, just in case
         // Transfer any lingering gem to specified address
-        if (TokenLike(gem).balanceOf(address(this)) > 0) {
-            TokenLike(gem).transfer(to, TokenLike(gem).balanceOf(address(this)));
+        if (TokenLike(tusd).balanceOf(address(this)) > 0) {
+            TokenLike(tusd).transfer(to, TokenLike(tusd).balanceOf(address(this)));
         }
 
         // Convert DAI bought to internal vat value of the msg.sender of Clipper.take
