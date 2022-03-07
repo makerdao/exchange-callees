@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2021 Dai Foundation
+// Copyright (C) 2022 Dai Foundation
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-pragma solidity >=0.6.12;
+pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
 interface GemJoinLike {
@@ -162,8 +162,8 @@ contract CurveLpTokenUniv3Callee {
 
         // Although Uniswap will accept all gems, this check is a sanity check, just in case
         // Transfer any lingering gem to specified address
-        if (WethLike(gem).balanceOf(address(this)) > 0) {
-            WethLike(gem).transfer(to, WethLike(gem).balanceOf(address(this)));
+        if (TokenLike(gem).balanceOf(address(this)) > 0) {
+            TokenLike(gem).transfer(to, TokenLike(gem).balanceOf(address(this)));
         }
 
         // Convert DAI bought to internal vat value of the msg.sender of Clipper.take
