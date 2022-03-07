@@ -85,14 +85,6 @@ interface LpTokenAbstract is GemAbstract {
     returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
 }
 
-interface CropperAbstract {
-    function join(address crop, address usr, uint256 val) external;
-    function frob(bytes32 ilk, address u, address v, address w, int256 dink, int256 dart) external;
-    function getOrCreateProxy(address usr) external returns (address urp);
-    function exit(address crop, address usr, uint256 val) external;
-    function proxy(address) external view returns (address);
-}
-
 contract VaultHolder {
     constructor(VatAbstract vat) public {
         vat.hope(msg.sender);
@@ -301,7 +293,7 @@ contract SimulationTests is DSTest {
         cropManager = new Cropper();
         cropManagerAddr = address(cropManager);
         cropManager.setImplementation(cropManagerImpAddr);
-        CropperAbstract(cropManagerAddr).getOrCreateProxy(edAddr);
+        cropManager.getOrCreateProxy(edAddr);
         steCRVJoinImp = new SynthetixJoinImp(
             vatAddr,
             steCRVName,
@@ -313,7 +305,7 @@ contract SimulationTests is DSTest {
         steCRVJoin.setImplementation(address(steCRVJoinImp));
         steCRVJoinAddr = address(steCRVJoin);
         steCRVJoin.rely(cropManagerAddr);
-        SynthetixJoinImp(address(steCRVJoin)).init();
+        SynthetixJoinImp(steCRVJoinAddr).init();
         vat.rely(steCRVJoinAddr);
         vat.init(steCRVName);
         vat.file(steCRVName, "spot", 100 * RAY);
