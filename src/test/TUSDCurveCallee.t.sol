@@ -78,6 +78,7 @@ interface Clipper {
     ) external;
     function file(bytes32 what, uint256 data) external;
     function file(bytes32 what, address data) external;
+    function getStatus(uint256 id) external returns (bool, uint256, uint256, uint256);
 }
 
 interface Osm {
@@ -179,6 +180,8 @@ contract CurveCalleeTest is DSTest {
         takeOwnership(dog);
         takeOwnership(clipper);
 
+        // Note: parameters taken from https://forum.makerdao.com/t/proposed-parameters-for-offboarding-tusd-a/13506
+
         // Enable liquidations
         Clipper(clipper).file("stopped", 0);
 
@@ -194,18 +197,18 @@ contract CurveCalleeTest is DSTest {
         // Set buff to 1
         Clipper(clipper).file("buf", 1.0 * RAY); // 0% Initial price buffer
 
-        // Set tau to 432,000,000 second (est. 10bps drop per 5 days = 5000 days till 0)
-        calc.file(bytes32("tau"), 432_000_000);
+        // Set tau to 21,600,000 second (est. 10bps drop per 6 hours = 250 days till 0)
+        calc.file(bytes32("tau"), 21_600_000);
 
         // Cusp not relevant, stays the same (tail will stop the auction)
         // (Currently 90% decrease)
 
-        // Set tail to 2,160,000 (25 days) (implies minimum price of 0.995)
-        Clipper(clipper).file("tail", 2_160_000);
+        // Set tail to 432,000 second (5 days, implies minimum price of 0.98)
+        Clipper(clipper).file("tail", 432_000);
         tail = Clipper(clipper).tail();
 
-        // Set hole on 30m (ideally we want all vaults kicked at once so that same auction curve applies)
-        Dog(dog).file("TUSD-A", "hole", 30_000_000 * RAD);
+        // Set hole on 5m
+        Dog(dog).file("TUSD-A", "hole", 5_000_000 * RAD);
 
         // Set chip to 0 (no need to be fast)
         Clipper(clipper).file("chip", 0);
@@ -355,5 +358,26 @@ contract CurveCalleeTest is DSTest {
             who:  address(callee),
             data: data
         });
+    }
+
+    function test_tailPrice() public {
+        uint256 amt = 20000 * WAD;
+        newAuction(amt);
+
+        (bool needsRedo, uint256 priceBark,,) = Clipper(clipper).getStatus(id);
+        assertTrue(!needsRedo);
+
+        Hevm(hevm).warp(block.timestamp + tail);
+
+        uint256 priceTail;
+        (needsRedo, priceTail,,) = Clipper(clipper).getStatus(id);
+        assertTrue(!needsRedo);
+
+        // Make sure 2% decrease is reached at tail
+        assertEq(priceTail * WAD / priceBark, 98 * WAD / 100);
+
+        Hevm(hevm).warp(block.timestamp + 1);
+        (needsRedo,,,) = Clipper(clipper).getStatus(id);
+        assertTrue(needsRedo);
     }
 }
