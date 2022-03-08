@@ -16,13 +16,14 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 pragma solidity >=0.6.12;
+pragma experimental ABIEncoderV2;
 
 import "ds-test/test.sol";
 import "dss-interfaces/Interfaces.sol";
 import { UniswapV2CalleeDai } from "../UniswapV2Callee.sol";
 import { UniswapV2LpTokenCalleeDai } from "../UniswapV2LpTokenCallee.sol";
 import { UniswapV3Callee } from "../UniswapV3Callee.sol";
-import { CurveLpTokenUniv3Callee, CurvePoolLike } from "../CurveLpTokenUniv3Callee.sol";
+import { CurveLpTokenUniv3Callee, CurvePoolLike} from "../CurveLpTokenUniv3Callee.sol";
 
 import { Cropper, CropperImp } from "dss-crop-join/Cropper.sol";
 import { CropJoin } from "dss-crop-join/CropJoin.sol";
@@ -1003,9 +1004,7 @@ contract SimulationTests is DSTest {
 
         uint24 poolFee = 3000;
         bytes memory path = abi.encodePacked(wethAddr, poolFee, daiAddr);
-        bytes32[] memory curveData = new bytes32[](2);
-        curveData[0] = bytes32(uint256(uint160(curvePoolAddr)));
-        curveData[1] = bytes32(0); // coinIndex (0 - eth)
+        CurveLpTokenUniv3Callee.CurveData memory curveData = CurveLpTokenUniv3Callee.CurveData(curvePoolAddr, 0);
         bytes memory data = abi.encode(
             edAddr,          // to
             steCRVJoinAddr,  // gemJoin

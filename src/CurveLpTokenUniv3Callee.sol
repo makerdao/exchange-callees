@@ -82,6 +82,11 @@ contract CurveLpTokenUniv3Callee {
         z = _add(x, _sub(y, 1)) / y;
     }
 
+    struct CurveData {
+        address pool;
+        uint256 coinIndex;
+    }
+
     constructor(
         address uniV3Router_,
         address daiJoin_,
@@ -114,8 +119,8 @@ contract CurveLpTokenUniv3Callee {
             uint256          minProfit, // minimum profit in DAI to make [wad]
             bytes memory     path,      // uniswap v3 path
             address          manager,   // pass address(0) if no manager
-            bytes32[] memory curveData  // (0) pool, (1) coinIndex
-        ) = abi.decode(data, (address, address, uint256, bytes, address, bytes32[]));
+            CurveData memory curveData  // curve pool data
+        ) = abi.decode(data, (address, address, uint256, bytes, address, CurveData));
 
         address gem = GemJoinLike(gemJoin).gem();
 
@@ -130,14 +135,14 @@ contract CurveLpTokenUniv3Callee {
         }
 
         // curveData used explicitly to avoid stack too deep
-        TokenLike(gem).approve(address(uint256(curveData[0])), slice);
-        slice = CurvePoolLike(address(uint256(curveData[0]))).remove_liquidity_one_coin({
+        TokenLike(gem).approve(curveData.pool, slice);
+        slice = CurvePoolLike(curveData.pool).remove_liquidity_one_coin({
             _token_amount: slice,
-            i:             int128(uint256(curveData[1])),
+            i:             int128(curveData.coinIndex),
             _min_amount:   0 // minProfit is checked below
         });
 
-        gem = CurvePoolLike(address(uint256(curveData[0]))).coins(uint256(curveData[1]));
+        gem = CurvePoolLike(curveData.pool).coins(curveData.coinIndex);
         if (gem == ETH) {
             gem = weth;
             WethLike(gem).deposit{
