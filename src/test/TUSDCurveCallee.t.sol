@@ -79,6 +79,7 @@ interface Clipper {
     function file(bytes32 what, uint256 data) external;
     function file(bytes32 what, address data) external;
     function getStatus(uint256 id) external returns (bool, uint256, uint256, uint256);
+    function count() external returns (uint256);
 }
 
 interface Osm {
@@ -266,6 +267,7 @@ contract CurveCalleeTest is DSTest {
             uint256(0)
         );
         Hevm(hevm).warp(block.timestamp + tail / 2);
+        uint256 countBefore = Clipper(clipper).count();
         Clipper(clipper).take({
             id:   id,
             amt:  amt,
@@ -274,6 +276,7 @@ contract CurveCalleeTest is DSTest {
             data: data
         });
 
+        assertEq(Clipper(clipper).count(), countBefore - 1);
         assertEq(Token(dai).balanceOf(address(this)), 0);
         assertEq(Token(tusd).balanceOf(address(this)), 0);
     }
@@ -288,6 +291,7 @@ contract CurveCalleeTest is DSTest {
             uint256(minProfit)
         );
         Hevm(hevm).warp(block.timestamp + tail / 2);
+        uint256 countBefore = Clipper(clipper).count();
         Clipper(clipper).take({
             id:   id,
             amt:  amt,
@@ -295,6 +299,7 @@ contract CurveCalleeTest is DSTest {
             who:  address(callee),
             data: data
         });
+        assertEq(Clipper(clipper).count(), countBefore - 1);
         assertGe(Token(dai).balanceOf(address(123)), minProfit);
     }
 
@@ -308,6 +313,7 @@ contract CurveCalleeTest is DSTest {
             uint256(minProfit)
         );
         Hevm(hevm).warp(block.timestamp + tail / 2);
+        uint256 countBefore = Clipper(clipper).count();
         Clipper(clipper).take({
             id:   id,
             amt:  amt,
@@ -315,6 +321,7 @@ contract CurveCalleeTest is DSTest {
             who:  address(callee),
             data: data
         });
+        assertEq(Clipper(clipper).count(), countBefore - 1);
         assertGe(Token(dai).balanceOf(address(123)), minProfit);
     }
 
@@ -330,6 +337,7 @@ contract CurveCalleeTest is DSTest {
 
         // Jump ahead to when price goes down enough to make up for the slippage
         Hevm(hevm).warp(block.timestamp + tail * 9 / 10);
+        uint256 countBefore = Clipper(clipper).count();
         Clipper(clipper).take({
             id:   id,
             amt:  amt,
@@ -337,6 +345,7 @@ contract CurveCalleeTest is DSTest {
             who:  address(callee),
             data: data
         });
+        assertEq(Clipper(clipper).count(), countBefore - 1);
         assertGe(Token(dai).balanceOf(address(123)), minProfit);
     }
 
@@ -357,6 +366,7 @@ contract CurveCalleeTest is DSTest {
             val: bytes32(uint256(1))
         });
         uint256 max = uint256(Osm(osm).read()) * 1e9; // WAD * 1e9 = RAY
+        uint256 countBefore = Clipper(clipper).count();
         Clipper(clipper).take({
             id:   id,
             amt:  amt,
@@ -364,6 +374,7 @@ contract CurveCalleeTest is DSTest {
             who:  address(callee),
             data: data
         });
+        assertEq(Clipper(clipper).count(), countBefore - 1);
     }
 
     function test_tailPrice() public {
