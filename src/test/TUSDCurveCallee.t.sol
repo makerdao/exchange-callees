@@ -213,14 +213,14 @@ contract CurveCalleeTest is DSTest {
         // Set chip to 0 (no need to be fast)
         Clipper(clipper).file("chip", 0);
 
-        // Set tip to 500 (kick all at start to achieve linear price discount, a bit higher value so that we guarantee kicking them all - ideally PE helps here)
+        // Set tip to 500 (bit higher value so that we guarantee kicking all vaults)
         Clipper(clipper).file("tip", 500 * RAD);
 
         renounceOwnership(clipper);
         renounceOwnership(dog);
     }
 
-    function newAuction(uint256 amt) internal {
+    function newAuction(uint256 amt) internal returns (uint256 id) {
         giveTokens(tusd, amt);
 
         Token(tusd).approve(gemJoin, amt);
@@ -249,11 +249,17 @@ contract CurveCalleeTest is DSTest {
         Spot(spotter).poke("TUSD-A");
 
         id = Dog(dog).bark("TUSD-A", address(this), address(this));
+
+        // Set LR back to 101%
+        takeOwnership(spotter);
+        Spot(spotter).file("TUSD-A", bytes32("mat"), 101 * RAY / 100);
+        renounceOwnership(spotter);
+        Spot(spotter).poke("TUSD-A");
     }
 
     function test_baseline() public {
-        uint256 amt = 20000 * WAD;
-        newAuction(amt);
+        uint256 amt = 20_000 * WAD;
+        id = newAuction(amt);
         bytes memory data = abi.encode(
             address(123),
             address(gemJoin),
@@ -323,7 +329,7 @@ contract CurveCalleeTest is DSTest {
         );
 
         // Jump ahead to when price goes down enough to make up for the slippage
-        Hevm(hevm).warp(block.timestamp + tail * 9000 / 10000);
+        Hevm(hevm).warp(block.timestamp + tail * 9 / 10);
         Clipper(clipper).take({
             id:   id,
             amt:  amt,
@@ -335,7 +341,7 @@ contract CurveCalleeTest is DSTest {
     }
 
     function test_maxPrice() public {
-        uint256 amt = 20000 * WAD;
+        uint256 amt = 20_000 * WAD;
         newAuction(amt);
         bytes memory data = abi.encode(
             address(this),
@@ -361,7 +367,7 @@ contract CurveCalleeTest is DSTest {
     }
 
     function test_tailPrice() public {
-        uint256 amt = 20000 * WAD;
+        uint256 amt = 20_000 * WAD;
         newAuction(amt);
 
         (bool needsRedo, uint256 priceBark,,) = Clipper(clipper).getStatus(id);
