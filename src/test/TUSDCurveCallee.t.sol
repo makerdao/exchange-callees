@@ -220,7 +220,7 @@ contract CurveCalleeTest is DSTest {
         renounceOwnership(dog);
     }
 
-    function newAuction(uint256 amt) internal returns (uint256 id) {
+    function newAuction(uint256 amt) internal {
         giveTokens(tusd, amt);
 
         Token(tusd).approve(gemJoin, amt);
@@ -259,7 +259,7 @@ contract CurveCalleeTest is DSTest {
 
     function test_baseline() public {
         uint256 amt = 20_000 * WAD;
-        id = newAuction(amt);
+        newAuction(amt);
         bytes memory data = abi.encode(
             address(123),
             address(gemJoin),
