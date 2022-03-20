@@ -16,12 +16,20 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 pragma solidity >=0.6.12;
+pragma experimental ABIEncoderV2;
 
 import "ds-test/test.sol";
 import "dss-interfaces/Interfaces.sol";
 import { UniswapV2CalleeDai } from "../UniswapV2Callee.sol";
 import { UniswapV2LpTokenCalleeDai } from "../UniswapV2LpTokenCallee.sol";
 import { UniswapV3Callee } from "../UniswapV3Callee.sol";
+import { CurveLpTokenUniv3Callee, CurvePoolLike} from "../CurveLpTokenUniv3Callee.sol";
+
+import { Cropper, CropperImp } from "dss-crop-join/Cropper.sol";
+import { CropJoin } from "dss-crop-join/CropJoin.sol";
+import { SynthetixJoinImp } from "dss-crop-join/SynthetixJoin.sol";
+import { ProxyManagerClipper } from "proxy-manager-clipper/ProxyManagerClipper.sol";
+import { DSValue } from "ds-value/value.sol";
 
 import "dss/clip.sol";
 import "dss/abaci.sol";
@@ -29,6 +37,7 @@ import "dss/abaci.sol";
 interface Hevm {
     function warp(uint256) external;
     function store(address c, bytes32 loc, bytes32 val) external;
+    function load(address,bytes32) external returns (bytes32);
 }
 
 interface UniV2Router02Abstract {
@@ -77,6 +86,14 @@ interface LpTokenAbstract is GemAbstract {
     returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
 }
 
+interface CropperAbstract {
+    function join(address crop, address usr, uint256 val) external;
+    function frob(bytes32 ilk, address u, address v, address w, int256 dink, int256 dart) external;
+    function getOrCreateProxy(address usr) external returns (address urp);
+    function exit(address crop, address usr, uint256 val) external;
+    function proxy(address) external view returns (address);
+}
+
 contract VaultHolder {
     constructor(VatAbstract vat) public {
         vat.hope(msg.sender);
@@ -91,6 +108,12 @@ contract SimulationTests is DSTest {
     address constant hevmAddr = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
     bytes32 constant linkName = "LINK-A";
     bytes32 constant lpDaiEthName = "UNIV2DAIETH-A";
+    bytes32 constant steCRVName = "CURVESTETHETH-A";
+    address constant curvePoolAddr = 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022;
+    address constant lidoTokenAddr = 0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32;
+    address constant lidoStakingRewardsAddr = 0x99ac10631F69C753DDb595D074422a0922D9056B;
+    address constant steCRVAddr = 0x06325440D014e39736583c165C2963BA99fAf14E;
+    address constant steCRVPoolAddr = 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022;
 
     uint256 constant WAD = 1E18;
     uint256 constant RAY = 1E27;
@@ -124,6 +147,61 @@ contract SimulationTests is DSTest {
         }
     }
 
+    function giveTokens(address token, uint256 amount) public {
+        // Edge case - balance is already set for some reason
+        if (GemAbstract(token).balanceOf(address(this)) == amount) return;
+
+        // Solidity-style
+        for (uint256 i = 0; i < 20; i++) {
+            // Scan the storage for the balance storage slot
+            bytes32 prevValue = hevm.load(
+                token,
+                keccak256(abi.encode(address(this), uint256(i)))
+            );
+            hevm.store(
+                token,
+                keccak256(abi.encode(address(this), uint256(i))),
+                bytes32(amount)
+            );
+            if (GemAbstract(token).balanceOf(address(this)) == amount) {
+                // Found it
+                return;
+            } else {
+                // Keep going after restoring the original value
+                hevm.store(
+                    token,
+                    keccak256(abi.encode(address(this), uint256(i))),
+                    prevValue
+                );
+            }
+        }
+
+        // Vyper-style
+        for (uint256 i = 0; i < 20; i++) {
+            // Scan the storage for the balance storage slot
+            bytes32 prevValue = hevm.load(
+                token,
+                keccak256(abi.encode(uint256(i), address(this)))
+            );
+            hevm.store(
+                token,
+                keccak256(abi.encode(uint256(i), address(this))),
+                bytes32(amount)
+            );
+            if (GemAbstract(token).balanceOf(address(this)) == amount) {
+                // Found it
+                return;
+            } else {
+                // Keep going after restoring the original value
+                hevm.store(
+                    token,
+                    keccak256(abi.encode(uint256(i), address(this))),
+                    prevValue
+                );
+            }
+        }
+    }
+
     address wethAddr;
     address linkAddr;
     address daiAddr;
@@ -141,6 +219,12 @@ contract SimulationTests is DSTest {
     address lpDaiEthPipAddr;
     address linkPipAddr;
     address ethPipAddr;
+    address steCRVJoinAddr;
+    address cropManagerAddr;
+    address cropManagerImpAddr;
+    address steCRVClipAddr;
+    address steCRVPipAddr;
+    address steCRVCalcAddr;
 
     Hevm hevm;
     UniV2Router02Abstract uniRouter;
@@ -158,6 +242,16 @@ contract SimulationTests is DSTest {
     LPOsmAbstract lpDaiEthPip;
     OsmAbstract linkPip;
     OsmAbstract ethPip;
+    GemAbstract steCRV;
+    CropJoin steCRVJoin;
+    SynthetixJoinImp steCRVJoinImp;
+    Cropper cropManager;
+    CropperImp cropManagerImp;
+    ProxyManagerClipper steCRVClip;
+    SpotAbstract spotter;
+    DSValue steCRVPip;
+    StairstepExponentialDecrease steCRVCalc;
+    CurvePoolLike steCRVPool;
 
     function setAddresses() private {
         ChainlogHelper helper = new ChainlogHelper();
@@ -198,6 +292,59 @@ contract SimulationTests is DSTest {
         lpDaiEthPip = LPOsmAbstract(lpDaiEthPipAddr);
         linkPip = OsmAbstract(linkPipAddr);
         ethPip = OsmAbstract(ethPipAddr);
+        steCRV = GemAbstract(steCRVAddr);
+        spotter = SpotAbstract(spotterAddr);
+    }
+
+    function deployContracts() private {
+        cropManagerImp = new CropperImp(vatAddr);
+        cropManagerImpAddr = address(cropManagerImp);
+        cropManager = new Cropper();
+        cropManagerAddr = address(cropManager);
+        cropManager.setImplementation(cropManagerImpAddr);
+        CropperAbstract(cropManagerAddr).getOrCreateProxy(edAddr);
+        steCRVJoinImp = new SynthetixJoinImp(
+            vatAddr,
+            steCRVName,
+            steCRVAddr,
+            lidoTokenAddr,
+            lidoStakingRewardsAddr
+        );
+        steCRVJoin = new CropJoin();
+        steCRVJoin.setImplementation(address(steCRVJoinImp));
+        steCRVJoinAddr = address(steCRVJoin);
+        steCRVJoin.rely(cropManagerAddr);
+        SynthetixJoinImp(steCRVJoinAddr).init();
+        vat.rely(steCRVJoinAddr);
+        vat.init(steCRVName);
+        vat.file(steCRVName, "spot", 100 * RAY);
+        vat.file(steCRVName, "line", 1_000_000 * RAD);
+        jug.init(steCRVName);
+        jug.file(steCRVName, "duty", 1000000001847694957439350562);
+        hevm.warp(block.timestamp + 600);
+        dog.file(steCRVName, "hole", 10_000 * RAD);
+        dog.file(steCRVName, "chop", 113 * WAD / 100);
+        steCRVClip = new ProxyManagerClipper(
+            vatAddr,
+            spotterAddr,
+            dogAddr,
+            steCRVJoinAddr,
+            cropManagerAddr
+        );
+        steCRVClip.file("tail", 2 hours);
+        steCRVClipAddr = address(steCRVClip);
+        steCRVCalc = new StairstepExponentialDecrease();
+        steCRVCalc.file("step", 90);
+        steCRVCalc.file("cut", 99 * RAY / 100);
+        steCRVCalcAddr = address(steCRVCalc);
+        steCRVClip.file("calc", steCRVCalcAddr);
+        dog.file(steCRVName, "clip", steCRVClipAddr);
+        steCRVClip.rely(dogAddr);
+        dog.rely(steCRVClipAddr);
+        steCRVPip = new DSValue();
+        steCRVPip.poke(bytes32(100 * WAD));
+        steCRVPipAddr = address(steCRVPip);
+        spotter.file(steCRVName, "pip", steCRVPipAddr);
     }
 
     VaultHolder ali;
@@ -208,6 +355,8 @@ contract SimulationTests is DSTest {
     address cheAddr;
     UniswapV3Callee dan;
     address danAddr;
+    CurveLpTokenUniv3Callee ed;
+    address edAddr;
 
     function getPermissions() private {
         hevm.store(
@@ -238,6 +387,16 @@ contract SimulationTests is DSTest {
             bytes32(uint256(1))
         );
         ethPip.kiss(address(this));
+        hevm.store(
+            jugAddr,
+            keccak256(abi.encode(address(this), uint256(0))),
+            bytes32(uint256(1))
+        );
+        hevm.store(
+            spotterAddr,
+            keccak256(abi.encode(address(this), uint256(0))),
+            bytes32(uint256(1))
+        );
     }
 
     function setUp() public {
@@ -251,7 +410,10 @@ contract SimulationTests is DSTest {
         cheAddr = address(che);
         dan = new UniswapV3Callee(uniV3Addr, daiJoinAddr);
         danAddr = address(dan);
+        ed = new CurveLpTokenUniv3Callee(uniV3Addr, daiJoinAddr, wethAddr);
+        edAddr = address(ed);
         getPermissions();
+        deployContracts();
     }
 
     function getLinkPrice() private view returns (uint256 val) {
@@ -290,6 +452,16 @@ contract SimulationTests is DSTest {
         uint256 price = getLpDaiEthPrice();
         assertGt(price, 0);
         log_named_uint("LP DAI ETH price", price / WAD);
+    }
+
+    function getSteCRVPrice() private view returns (uint256 val) {
+        val = uint256(steCRVPip.read());
+    }
+
+    function testGetSteCRVPrice() public {
+        uint256 price = getSteCRVPrice();
+        assertGt(price, 0);
+        log_named_uint("SteCRV price", price / WAD);
     }
 
     function getWeth(uint256 amount) private {
@@ -355,6 +527,18 @@ contract SimulationTests is DSTest {
         uint256 actual = lpDaiEth.balanceOf(address(this));
         assertGt(actual, expected);
         assertLt(actual - expected, actual / 10);
+    }
+
+    function getSteCRV(uint256 amountLp) private {
+        giveTokens(steCRVAddr, amountLp);
+    }
+
+    function testGetSteCRV() public {
+        assertEq(steCRV.balanceOf(address(this)), 0);
+        uint256 expected = 30 * WAD;
+        getSteCRV(expected);
+        uint256 actual = steCRV.balanceOf(address(this));
+        assertEq(actual, expected);
     }
 
     function burnLpDaiEth(uint256 amount) private {
@@ -465,6 +649,33 @@ contract SimulationTests is DSTest {
         assertEq(gemPost, gemPre + amount);
     }
 
+    function joinSteCRV(uint256 amount) private {
+        steCRV.approve(cropManagerAddr, amount);
+        CropperAbstract(cropManagerAddr).join(steCRVJoinAddr, address(this), amount);
+    }
+
+    function testJoinSteCRV() public {
+        uint256 amount = 30 * WAD;
+        getSteCRV(amount);
+        uint256 gemPre = vat.gem(
+            steCRVName,
+            CropperAbstract(cropManagerAddr).proxy(address(this))
+        );
+        joinSteCRV(amount);
+        uint256 gemPost = vat.gem(
+            steCRVName,
+            CropperAbstract(cropManagerAddr).proxy(address(this))
+        );
+        assertEq(gemPost, gemPre + amount);
+    }
+
+    function testExitSteCRV() public {
+        uint256 amount = 30 * WAD;
+        getSteCRV(amount);
+        joinSteCRV(amount);
+        CropperAbstract(cropManagerAddr).exit(steCRVJoinAddr, address(this), amount);
+    }
+
     function frobMax(uint256 gem, bytes32 ilkName) private {
         uint256 ink = gem;
         (, uint256 rate, uint256 spot, ,) = vat.ilks(ilkName);
@@ -485,6 +696,25 @@ contract SimulationTests is DSTest {
         }
     }
 
+    function frobMaxSteCRV(uint256 ink) private {
+        (, uint256 rate, uint256 spot, ,) = vat.ilks(steCRVName);
+        uint256 art = ink * spot / rate;
+        CropperAbstract(cropManagerAddr).frob(steCRVName, address(this), address(this), address(this), int256(ink), int256(art));
+    }
+
+    function testFrobMaxSteCRV() public {
+        uint256 amountSteCRV = 100 * WAD;
+        getSteCRV(amountSteCRV);
+        joinSteCRV(amountSteCRV);
+        frobMaxSteCRV(amountSteCRV);
+        try CropperAbstract(cropManagerAddr).frob(steCRVName, address(this), address(this), address(this), 0, 1) {
+            log("not at max frob");
+            fail();
+        } catch {
+            log("success");
+        }
+    }
+
     function drip(bytes32 ilkName) private {
         jug.drip(ilkName);
     }
@@ -493,6 +723,13 @@ contract SimulationTests is DSTest {
         (, uint256 ratePre, , , ) = vat.ilks(linkName);
         drip(linkName);
         (, uint256 ratePost, , , ) = vat.ilks(linkName);
+        assertGt(ratePost, ratePre);
+    }
+
+    function testDripSteCRV() public {
+        (, uint256 ratePre, , , ) = vat.ilks(steCRVName);
+        drip(steCRVName);
+        (, uint256 ratePost, , , ) = vat.ilks(steCRVName);
         assertGt(ratePost, ratePre);
     }
 
@@ -539,6 +776,30 @@ contract SimulationTests is DSTest {
          ,, uint256 lot, address usr, uint96 tic,
          ) = lpDaiEthClip.sales(auctionId);
         assertEq(usr, aliAddr);
+        assertEq(lot, amount);
+        assertEq(tic, block.timestamp);
+    }
+
+    function barkSteCRV() private returns (uint256 auctionId) {
+        dog.bark(
+            steCRVName,
+            CropperAbstract(cropManagerAddr).proxy(address(this)),
+            address(this)
+        );
+        auctionId = steCRVClip.kicks();
+    }
+
+    function testBarkSteCRV() public {
+        uint256 amount = 30 * WAD;
+        getSteCRV(amount);
+        joinSteCRV(amount);
+        frobMaxSteCRV(amount);
+        drip(steCRVName);
+        uint256 auctionId = barkSteCRV();
+        (
+        ,, uint256 lot, address usr, uint96 tic,
+        ) = steCRVClip.sales(auctionId);
+        assertEq(usr, CropperAbstract(cropManagerAddr).proxy(address(this)));
         assertEq(lot, amount);
         assertEq(tic, block.timestamp);
     }
@@ -731,5 +992,61 @@ contract SimulationTests is DSTest {
         assertEq(dai.balanceOf(bobAddr), 0);
         takeLpDaiEth(auctionId, amount, auctionPrice, minProfit);
         assertGe(dai.balanceOf(bobAddr), minProfit);
+    }
+
+    function takeSteCRV(
+        uint256 auctionId,
+        uint256 amt,
+        uint256 max,
+        uint256 minProfit
+    ) private {
+        vat.hope(steCRVClipAddr);
+
+        uint24 poolFee = 3000;
+        bytes memory path = abi.encodePacked(wethAddr, poolFee, daiAddr);
+        CurveLpTokenUniv3Callee.CurveData memory curveData = CurveLpTokenUniv3Callee.CurveData(curvePoolAddr, 0);
+        bytes memory data = abi.encode(
+            edAddr,          // to
+            steCRVJoinAddr,  // gemJoin
+            minProfit,       // minProfit
+            path,            // path
+            cropManagerAddr, // manager
+            curveData        // curveData
+        );
+
+        steCRVClip.take(auctionId, amt, max, edAddr, data);
+    }
+
+    function testTakeSteCRVNoProfit() public {
+        uint256 amount = 30 * WAD;
+        getSteCRV(amount);
+        joinSteCRV(amount);
+        frobMaxSteCRV(amount);
+        drip(steCRVName);
+        uint256 auctionId = barkSteCRV();
+        hevm.warp(block.timestamp + 1 hours);
+        uint256 balancePre = dai.balanceOf(edAddr);
+        uint256 countBefore = steCRVClip.count();
+        takeSteCRV(auctionId, amount, 100 * RAY, 0);
+        assertEq(steCRVClip.count(), countBefore - 1);
+        uint256 balancePost = dai.balanceOf(edAddr);
+        assertGt(balancePost, balancePre);
+    }
+
+    function testTakeSteCRVProfit() public {
+        uint256 amount = 30 * WAD;
+        uint256 minProfit = 30_000 * WAD;
+        getSteCRV(amount);
+        joinSteCRV(amount);
+        frobMaxSteCRV(amount);
+        drip(steCRVName);
+        uint256 auctionId = barkSteCRV();
+        hevm.warp(block.timestamp + 1 hours);
+        uint256 balancePre = dai.balanceOf(edAddr);
+        uint256 countBefore = steCRVClip.count();
+        takeSteCRV(auctionId, amount, 100 * RAY, minProfit);
+        assertEq(steCRVClip.count(), countBefore - 1);
+        uint256 balancePost = dai.balanceOf(edAddr);
+        assertGt(balancePost, balancePre + minProfit);
     }
 }
