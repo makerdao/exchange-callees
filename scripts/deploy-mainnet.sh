@@ -23,8 +23,13 @@ CurveLpTokenUniv3Callee=$(dapp create CurveLpTokenUniv3Callee \
   0x9759A6Ac90977b93B58547b4A71c78317f391A28 \
   0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2)
 
+TUSDCurveCallee=$(dapp create TUSDCurveCallee \
+  0xEcd5e75AFb02eFa118AF914515D6521aaBd189F1 \
+  0x9759A6Ac90977b93B58547b4A71c78317f391A28)
+
 echo "UniswapV2CalleeDai: ${UniswapV2CalleeDai}"
 echo "UniswapV2LpTokenCalleeDai: ${UniswapV2LpTokenCalleeDai}"
 echo "UniswapV3Callee: ${UniswapV3Callee}"
 echo "WstETHCurveUniv3Callee: ${WstETHCurveUniv3Callee}"
 echo "CurveLpTokenUniv3Callee: ${CurveLpTokenUniv3Callee}"
+echo "TUSDCurveCallee: ${TUSDCurveCallee}"
