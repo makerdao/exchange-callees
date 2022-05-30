@@ -118,9 +118,9 @@ contract WstETHCurveUniv3Callee {
             address to,            // address to send remaining DAI to
             address gemJoin,       // gemJoin adapter address
             uint256 minProfit,     // minimum profit in DAI to make [wad]
-            uint24  poolFee,       // uniswap V3 WETH-DAI pool fee
+            bytes memory path,     // uniswap v3 path
             address charterManager // pass address(0) if no manager
-        ) = abi.decode(data, (address, address, uint256, uint24, address));
+        ) = abi.decode(data, (address, address, uint256, bytes, address));
 
         address gem = GemJoinLike(gemJoin).gem();
 
@@ -157,7 +157,6 @@ contract WstETHCurveUniv3Callee {
         uint256 daiToJoin = _divup(owe, RAY);
 
         // Do operation and get dai amount bought (checking the profit is achieved)
-        bytes memory path = abi.encodePacked(gem, poolFee, address(dai));
         UniV3RouterLike.ExactInputParams memory params = UniV3RouterLike.ExactInputParams({
             path:             path,
             recipient:        address(this),
@@ -180,4 +179,3 @@ contract WstETHCurveUniv3Callee {
         dai.transfer(to, dai.balanceOf(address(this)));
     }
 }
-

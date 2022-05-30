@@ -684,7 +684,8 @@ contract SimulationTests is DSTest {
     }
 
     function testFrobMax() public {
-        uint256 amountLink = 2_000 * WAD;
+        (,,,, uint256 dustRad) = vat.ilks(linkName);
+        uint256 amountLink = (dustRad / getLinkPriceRay()) * 2;
         getLink(amountLink);
         joinLink(amountLink);
         frobMax(amountLink, linkName);
@@ -739,7 +740,8 @@ contract SimulationTests is DSTest {
     }
 
     function testBarkLink() public {
-        uint256 amountLink = 2_000 * WAD;
+        (,,,, uint256 dustRad) = vat.ilks(linkName);
+        uint256 amountLink = (dustRad / getLinkPriceRay()) * 2;
         uint256 kicksPre = linkClip.kicks();
         getLink(amountLink);
         joinLink(amountLink);

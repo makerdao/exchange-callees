@@ -91,11 +91,16 @@ contract CurveCalleeTest is DSTest {
     WstETHCurveUniv3Callee callee;
     uint256 tail;
     address vat;
+    address weth;
+    address dai;
+    address usdc;
     
     function setUp() public {
         clipper = Chainlog(chainlog).getAddress("MCD_CLIP_WSTETH_A");
         address daiJoin = Chainlog(chainlog).getAddress("MCD_JOIN_DAI");
-        address weth = Chainlog(chainlog).getAddress("ETH");
+        weth = Chainlog(chainlog).getAddress("ETH");
+        dai = Chainlog(chainlog).getAddress("MCD_DAI");
+        usdc = Chainlog(chainlog).getAddress("USDC");
         callee = new WstETHCurveUniv3Callee(curve, uniV3, daiJoin, weth);
         vat = Chainlog(chainlog).getAddress("MCD_VAT");
         Vat(vat).hope(clipper);
@@ -138,11 +143,12 @@ contract CurveCalleeTest is DSTest {
     function test_baseline() public {
         uint256 amt = 50 * WAD;
         newAuction(amt);
+        uint24 poolFee = 3000;
         bytes memory data = abi.encode(
             address(123),
             address(gemJoin),
             uint256(0),
-            uint24(3000),
+            abi.encodePacked(weth, poolFee, dai),
             address(0)
         );
         Hevm(hevm).warp(block.timestamp + tail / 2);
@@ -153,28 +159,29 @@ contract CurveCalleeTest is DSTest {
             who:  address(callee),
             data: data
         });
-        address dai = Chainlog(chainlog).getAddress("MCD_DAI");
         assertEq(Token(dai).balanceOf(address(this)), 0);
         assertEq(Token(wstEth).balanceOf(address(this)), 0);
     }
 
-    function test_bigAmt() public {
+    function test_bigAmtWithComplexPath() public {
         uint256 amt = 3000 * WAD;
         newAuction(amt);
+        uint24 pooAlFee = 500;
+        uint24 pooBlFee = 100;
         bytes memory data = abi.encode(
             address(this),
             address(gemJoin),
             uint256(0),
-            uint24(3000),
+            abi.encodePacked(weth, pooAlFee, usdc, pooBlFee, dai),
             address(0)
         );
         Hevm(hevm).warp(block.timestamp + tail / 2);
         Clipper(clipper).take({
-            id:   id,
-            amt:  amt,
-            max:  type(uint256).max,
-            who:  address(callee),
-            data: data
+        id:   id,
+        amt:  amt,
+        max:  type(uint256).max,
+        who:  address(callee),
+        data: data
         });
     }
 
@@ -182,11 +189,12 @@ contract CurveCalleeTest is DSTest {
         uint256 minProfit = 10_000 * WAD;
         uint256 amt = 50 * WAD;
         newAuction(amt);
+        uint24 poolFee = 3000;
         bytes memory data = abi.encode(
             address(123),
             address(gemJoin),
             uint256(minProfit),
-            uint24(3000),
+            abi.encodePacked(weth, poolFee, dai),
             address(0)
         );
         Hevm(hevm).warp(block.timestamp + tail / 2);
@@ -197,7 +205,6 @@ contract CurveCalleeTest is DSTest {
             who:  address(callee),
             data: data
         });
-        address dai = Chainlog(chainlog).getAddress("MCD_DAI");
         assertGe(Token(dai).balanceOf(address(123)), minProfit);
     }
 
@@ -209,7 +216,7 @@ contract CurveCalleeTest is DSTest {
             address(this),
             address(gemJoin),
             uint256(0),
-            poolFee,
+            abi.encodePacked(weth, poolFee, dai),
             address(0)
         );
         Hevm(hevm).warp(block.timestamp + tail / 2);
@@ -230,7 +237,7 @@ contract CurveCalleeTest is DSTest {
             address(this),
             address(gemJoin),
             uint256(0),
-            poolFee,
+            abi.encodePacked(weth, poolFee, dai),
             address(0)
         );
         Hevm(hevm).warp(block.timestamp + tail / 2);
@@ -246,11 +253,12 @@ contract CurveCalleeTest is DSTest {
     function test_maxPrice() public {
         uint256 amt = 50 * WAD;
         newAuction(amt);
+        uint24 poolFee = 3000;
         bytes memory data = abi.encode(
             address(this),
             address(gemJoin),
             uint256(0),
-            uint24(3000),
+            abi.encodePacked(weth, poolFee, dai),
             address(0)
         );
         Hevm(hevm).warp(block.timestamp + tail / 2);
@@ -274,11 +282,12 @@ contract CurveCalleeTest is DSTest {
     function testFail_maxPrice() public {
         uint256 amt = 50 * WAD;
         newAuction(amt);
+        uint24 poolFee = 3000;
         bytes memory data = abi.encode(
             address(this),
             address(gemJoin),
             uint256(0),
-            uint24(3000),
+            abi.encodePacked(weth, poolFee, dai),
             address(0)
         );
         Hevm(hevm).warp(block.timestamp + tail / 5);
