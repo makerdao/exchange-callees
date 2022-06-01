@@ -166,13 +166,13 @@ contract CurveCalleeTest is DSTest {
     function test_bigAmtWithComplexPath() public {
         uint256 amt = 3000 * WAD;
         newAuction(amt);
-        uint24 pooAlFee = 500;
-        uint24 pooBlFee = 100;
+        uint24 poolAFee = 500;
+        uint24 poolBFee = 100;
         bytes memory data = abi.encode(
             address(this),
             address(gemJoin),
             uint256(0),
-            abi.encodePacked(weth, pooAlFee, usdc, pooBlFee, dai),
+            abi.encodePacked(weth, poolAFee, usdc, poolBFee, dai),
             address(0)
         );
         Hevm(hevm).warp(block.timestamp + tail / 2);
