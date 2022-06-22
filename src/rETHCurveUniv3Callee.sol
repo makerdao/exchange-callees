@@ -1,5 +1,5 @@
+// SPDX-FileCopyrightText: © 2022 Dai Foundation <www.daifoundation.org>
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2021 Dai Foundation
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -39,11 +39,6 @@ interface CharterManagerLike {
     function exit(address crop, address usr, uint256 val) external;
 }
 
-interface WstEthLike is TokenLike {
-    function unwrap(uint256 _wstEthAmount) external returns (uint256);
-    function stETH() external view returns (address);
-}
-
 interface CurvePoolLike {
     function exchange(int128 i, int128 j, uint256 dx, uint256 min_dy)
         external returns (uint256 dy);
@@ -67,7 +62,7 @@ interface UniV3RouterLike {
         external payable returns (uint256 amountOut);
 }
 
-contract WstETHCurveUniv3Callee {
+contract rETHCurveUniv3Callee {
     CurvePoolLike   public immutable curvePool;
     UniV3RouterLike public immutable uniV3Router;
     DaiJoinLike     public immutable daiJoin;
@@ -134,14 +129,11 @@ contract WstETHCurveUniv3Callee {
             GemJoinLike(gemJoin).exit(address(this), slice);
         }
 
-        slice = WstEthLike(gem).unwrap(slice);
-        gem = WstEthLike(gem).stETH();
-
         TokenLike(gem).approve(address(curvePool), slice);
         slice = curvePool.exchange({
-            i:      1,     // send token id 1 (stETH)
+            i:      1,     // send token id 1 (rETH)
             j:      0,     // receive token id 0 (ETH)
-            dx:     slice, // send `slice` amount of stETH
+            dx:     slice, // send `slice` amount of rETH
             min_dy: 0      // accept any amount of ETH (`minProfit` is checked below)
         });
 
