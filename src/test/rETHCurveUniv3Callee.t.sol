@@ -17,7 +17,7 @@
 pragma solidity ^0.6.12;
 
 import "ds-test/test.sol";
-import { WstETHCurveUniv3Callee } from "../WstETHCurveUniv3Callee.sol";
+import { rETHCurveUniv3Callee } from "../rETHCurveUniv3Callee.sol";
 
 interface Hevm {
     function store(address c, bytes32 loc, bytes32 val) external;
@@ -79,7 +79,7 @@ interface Osm {
 contract CurveCalleeTest is DSTest {
 
     address constant hevm     = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
-    address constant wstEth   = 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0;
+    address constant rEth     = 0xae78736Cd615f374D3085123A210448E74Fc6393;
     address constant chainlog = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
     address constant curve    = 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022;
     address constant uniV3    = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
@@ -88,7 +88,7 @@ contract CurveCalleeTest is DSTest {
     address gemJoin;
     uint256 id;
     address clipper;
-    WstETHCurveUniv3Callee callee;
+    rETHCurveUniv3Callee callee;
     uint256 tail;
     address vat;
     address weth;
@@ -96,28 +96,28 @@ contract CurveCalleeTest is DSTest {
     address usdc;
 
     function setUp() public {
-        clipper = Chainlog(chainlog).getAddress("MCD_CLIP_WSTETH_A");
+        clipper = Chainlog(chainlog).getAddress("MCD_CLIP_RETH_A");
         address daiJoin = Chainlog(chainlog).getAddress("MCD_JOIN_DAI");
         weth = Chainlog(chainlog).getAddress("ETH");
         dai = Chainlog(chainlog).getAddress("MCD_DAI");
         usdc = Chainlog(chainlog).getAddress("USDC");
-        callee = new WstETHCurveUniv3Callee(curve, uniV3, daiJoin, weth);
+        callee = new rETHCurveUniv3Callee(curve, uniV3, daiJoin, weth);
         vat = Chainlog(chainlog).getAddress("MCD_VAT");
         Vat(vat).hope(clipper);
         tail = Clipper(clipper).tail();
     }
 
     function newAuction(uint256 amt) internal {
-        // wstEth._balances[address(this)] = amt;
+        // rEth._balances[address(this)] = amt;
         Hevm(hevm).store({
-            c:   wstEth,
-            loc: keccak256(abi.encode(address(this), uint256(0))),
+            c:   rEth,
+            loc: keccak256(abi.encode(address(this), uint256(2))),
             val: bytes32(amt)
         });
-        gemJoin = Chainlog(chainlog).getAddress("MCD_JOIN_WSTETH_A");
-        Token(wstEth).approve(gemJoin, amt);
+        gemJoin = Chainlog(chainlog).getAddress("MCD_JOIN_RETH_A");
+        Token(rEth).approve(gemJoin, amt);
         Join(gemJoin).join(address(this), amt);
-        (, uint256 rate, uint256 spot,,) = Vat(vat).ilks("WSTETH-A");
+        (, uint256 rate, uint256 spot,,) = Vat(vat).ilks("RETH-A");
         uint256 maxArt = amt * spot / rate;
         // vat.wards[address(this)] = 1;
         Hevm(hevm).store({
@@ -125,9 +125,9 @@ contract CurveCalleeTest is DSTest {
             loc: keccak256(abi.encode(address(this), uint256(0))),
             val: bytes32(uint256(1))
         });
-        Vat(vat).file("WSTETH-A", "line", type(uint256).max);
+        Vat(vat).file("RETH-A", "line", type(uint256).max);
         Vat(vat).frob({
-            i:    "WSTETH-A",
+            i:    "RETH-A",
             u:    address(this),
             v:    address(this),
             w:    address(this),
@@ -135,9 +135,9 @@ contract CurveCalleeTest is DSTest {
             dart: int(maxArt)
         });
         address jug = Chainlog(chainlog).getAddress("MCD_JUG");
-        Jug(jug).drip("WSTETH-A");
+        Jug(jug).drip("RETH-A");
         address dog = Chainlog(chainlog).getAddress("MCD_DOG");
-        id = Dog(dog).bark("WSTETH-A", address(this), address(this));
+        id = Dog(dog).bark("RETH-A", address(this), address(this));
     }
 
     function test_baseline() public {
@@ -160,7 +160,7 @@ contract CurveCalleeTest is DSTest {
             data: data
         });
         assertEq(Token(dai).balanceOf(address(this)), 0);
-        assertEq(Token(wstEth).balanceOf(address(this)), 0);
+        assertEq(Token(rEth).balanceOf(address(this)), 0);
     }
 
     function test_bigAmtWithComplexPath() public {
