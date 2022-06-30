@@ -19,6 +19,9 @@ pragma solidity ^0.6.12;
 import "ds-test/test.sol";
 import { rETHCurveUniv3Callee } from "../rETHCurveUniv3Callee.sol";
 
+// FIXME: remove this import once rETH has been onboarded
+import { Clipper } from "dss/clip.sol";
+
 interface Hevm {
     function store(address c, bytes32 loc, bytes32 val) external;
     function warp(uint256) external;
@@ -60,7 +63,7 @@ interface Dog {
     function bark(bytes32, address, address) external returns (uint256);
 }
 
-interface Clipper {
+interface ClipperLike {
     function tail() external view returns (uint256);
     function take(
         uint256 id,
@@ -74,6 +77,11 @@ interface Clipper {
 interface Osm {
     function read() external view returns (bytes32);
     function kiss(address) external;
+}
+
+// FIXME: delete this interface once rETH has been onboarded
+interface ChainlogTemp {
+    function setAddress(bytes32, address) external;
 }
 
 contract CurveCalleeTest is DSTest {
@@ -95,7 +103,23 @@ contract CurveCalleeTest is DSTest {
     address dai;
     address usdc;
 
+    // FIXME: delete this function once rETH has been onboarded
+    function onboardRETH() private {
+        vat = Chainlog(chainlog).getAddress("MCD_VAT");
+        address spotter = Chainlog(chainlog).getAddress("MCD_SPOT");
+        address dog = Chainlog(chainlog).getAddress("MCD_DOG");
+        bytes32 ilk = "RETH-A";
+        Clipper newClipper = new Clipper(vat, spotter, dog, ilk);
+        Hevm(hevm).store({
+            c:    chainlog,
+            loc:  keccak256(abi.encode(address(this), uint256(0))),
+            val:  bytes32(uint256(1))
+        });
+        ChainlogTemp(chainlog).setAddress("MCD_CLIP_RETH_A", address(newClipper));
+    }
+
     function setUp() public {
+        onboardRETH(); // FIXME: delete this line once rETH has been onboarded
         clipper = Chainlog(chainlog).getAddress("MCD_CLIP_RETH_A");
         address daiJoin = Chainlog(chainlog).getAddress("MCD_JOIN_DAI");
         weth = Chainlog(chainlog).getAddress("ETH");
@@ -104,7 +128,7 @@ contract CurveCalleeTest is DSTest {
         callee = new rETHCurveUniv3Callee(curve, uniV3, daiJoin, weth);
         vat = Chainlog(chainlog).getAddress("MCD_VAT");
         Vat(vat).hope(clipper);
-        tail = Clipper(clipper).tail();
+        tail = ClipperLike(clipper).tail();
     }
 
     function newAuction(uint256 amt) internal {
@@ -152,7 +176,7 @@ contract CurveCalleeTest is DSTest {
             address(0)
         );
         Hevm(hevm).warp(block.timestamp + tail / 2);
-        Clipper(clipper).take({
+        ClipperLike(clipper).take({
             id:   id,
             amt:  amt,
             max:  type(uint256).max,
@@ -176,7 +200,7 @@ contract CurveCalleeTest is DSTest {
             address(0)
         );
         Hevm(hevm).warp(block.timestamp + tail / 2);
-        Clipper(clipper).take({
+        ClipperLike(clipper).take({
         id:   id,
         amt:  amt,
         max:  type(uint256).max,
@@ -198,7 +222,7 @@ contract CurveCalleeTest is DSTest {
             address(0)
         );
         Hevm(hevm).warp(block.timestamp + tail / 2);
-        Clipper(clipper).take({
+        ClipperLike(clipper).take({
             id:   id,
             amt:  amt,
             max:  type(uint256).max,
@@ -220,7 +244,7 @@ contract CurveCalleeTest is DSTest {
             address(0)
         );
         Hevm(hevm).warp(block.timestamp + tail / 2);
-        Clipper(clipper).take({
+        ClipperLike(clipper).take({
             id:   id,
             amt:  amt,
             max:  type(uint256).max,
@@ -241,7 +265,7 @@ contract CurveCalleeTest is DSTest {
             address(0)
         );
         Hevm(hevm).warp(block.timestamp + tail / 2);
-        Clipper(clipper).take({
+        ClipperLike(clipper).take({
             id:   id,
             amt:  amt,
             max:  type(uint256).max,
@@ -270,7 +294,7 @@ contract CurveCalleeTest is DSTest {
         });
         Osm(osm).kiss(address(this));
         uint256 max = uint256(Osm(osm).read()) * 1e9; // WAD * 1e9 = RAY
-        Clipper(clipper).take({
+        ClipperLike(clipper).take({
             id:   id,
             amt:  amt,
             max:  max,
@@ -299,7 +323,7 @@ contract CurveCalleeTest is DSTest {
         });
         Osm(osm).kiss(address(this));
         uint256 max = uint256(Osm(osm).read()) * 1e9; // WAD * 1e9 = RAY
-        Clipper(clipper).take({
+        ClipperLike(clipper).take({
             id:   id,
             amt:  amt,
             max:  max,
