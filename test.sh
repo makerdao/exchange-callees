@@ -1,10 +1,11 @@
 #! /bin/bash
 
+LATEST_BLOCK=$(cast block --rpc-url $ETH_RPC_URL latest number)
 if test -f block; then
     BLOCK=$(cat block)
-    echo "using cached block ${BLOCK}, delete ./block to refresh"
+    AGE=$((LATEST_BLOCK - BLOCK))
+    echo "using cached block ${BLOCK} (${AGE} blocks ago), delete ./block to refresh"
 else
-    LATEST_BLOCK=$(cast block --rpc-url $ETH_RPC_URL latest number)
     BLOCK=$(($LATEST_BLOCK-6))
     echo "using fresh block ${BLOCK}"
 fi
