@@ -80,15 +80,18 @@ interface Osm {
     function kiss(address) external;
 }
 
-// FIXME: delete this interface once rETH has been onboarded
+// FIXME: delete these interfaces once rETH has been onboarded
 interface ChainlogTemp {
     function setAddress(bytes32, address) external;
+}
+interface VatTemp {
+    function rely(address) external;
 }
 
 contract CurveCalleeTest is DSTest {
 
     address constant hevm     = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
-    address constant rEth     = 0xae78736Cd615f374D3085123A210448E74Fc6393;
+    address constant rETH     = 0xae78736Cd615f374D3085123A210448E74Fc6393;
     address constant chainlog = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
     address constant curve    = 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022;
     address constant uniV3    = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
@@ -111,7 +114,13 @@ contract CurveCalleeTest is DSTest {
         address dog = Chainlog(chainlog).getAddress("MCD_DOG");
         bytes32 ilk = "RETH-A";
         Clipper rETHClipper = new Clipper(vat, spotter, dog, ilk);
-        GemJoin rETHJoin = new GemJoin(vat, ilk, rEth);
+        GemJoin rETHJoin = new GemJoin(vat, ilk, rETH);
+        Hevm(hevm).store({
+            c:   vat,
+            loc: keccak256(abi.encode(address(this), uint256(0))),
+            val: bytes32(uint256(1))
+        });
+        VatTemp(vat).rely(address(rETHJoin));
         Hevm(hevm).store({
             c:    chainlog,
             loc:  keccak256(abi.encode(address(this), uint256(0))),
@@ -135,14 +144,14 @@ contract CurveCalleeTest is DSTest {
     }
 
     function newAuction(uint256 amt) internal {
-        // rEth._balances[address(this)] = amt;
+        // rETH._balances[address(this)] = amt;
         Hevm(hevm).store({
-            c:   rEth,
+            c:   rETH,
             loc: keccak256(abi.encode(address(this), uint256(2))),
             val: bytes32(amt)
         });
         gemJoin = Chainlog(chainlog).getAddress("MCD_JOIN_RETH_A");
-        Token(rEth).approve(gemJoin, amt);
+        Token(rETH).approve(gemJoin, amt);
         Join(gemJoin).join(address(this), amt);
         (, uint256 rate, uint256 spot,,) = Vat(vat).ilks("RETH-A");
         uint256 maxArt = amt * spot / rate;
@@ -187,7 +196,7 @@ contract CurveCalleeTest is DSTest {
             data: data
         });
         assertEq(Token(dai).balanceOf(address(this)), 0);
-        assertEq(Token(rEth).balanceOf(address(this)), 0);
+        assertEq(Token(rETH).balanceOf(address(this)), 0);
     }
 
     function test_bigAmtWithComplexPath() public {
