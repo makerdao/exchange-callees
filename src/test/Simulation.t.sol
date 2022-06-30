@@ -1037,7 +1037,7 @@ contract SimulationTests is DSTest {
 
     function testTakeSteCRVProfit() public {
         uint256 amount = 30 * WAD;
-        uint256 minProfit = 30_000 * WAD;
+        uint256 minProfit = 3_000 * WAD;
         getSteCRV(amount);
         joinSteCRV(amount);
         frobMaxSteCRV(amount);
