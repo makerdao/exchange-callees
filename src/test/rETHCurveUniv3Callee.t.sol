@@ -19,8 +19,9 @@ pragma solidity ^0.6.12;
 import "ds-test/test.sol";
 import { rETHCurveUniv3Callee } from "../rETHCurveUniv3Callee.sol";
 
-// FIXME: remove this import once rETH has been onboarded
+// FIXME: remove these imports once rETH has been onboarded
 import { Clipper } from "dss/clip.sol";
+import { GemJoin } from "dss/join.sol";
 
 interface Hevm {
     function store(address c, bytes32 loc, bytes32 val) external;
@@ -109,13 +110,15 @@ contract CurveCalleeTest is DSTest {
         address spotter = Chainlog(chainlog).getAddress("MCD_SPOT");
         address dog = Chainlog(chainlog).getAddress("MCD_DOG");
         bytes32 ilk = "RETH-A";
-        Clipper newClipper = new Clipper(vat, spotter, dog, ilk);
+        Clipper rETHClipper = new Clipper(vat, spotter, dog, ilk);
+        GemJoin rETHJoin = new GemJoin(vat, ilk, rEth);
         Hevm(hevm).store({
             c:    chainlog,
             loc:  keccak256(abi.encode(address(this), uint256(0))),
             val:  bytes32(uint256(1))
         });
-        ChainlogTemp(chainlog).setAddress("MCD_CLIP_RETH_A", address(newClipper));
+        ChainlogTemp(chainlog).setAddress("MCD_CLIP_RETH_A", address(rETHClipper));
+        ChainlogTemp(chainlog).setAddress("MCD_JOIN_RETH_A", address(rETHJoin));
     }
 
     function setUp() public {
