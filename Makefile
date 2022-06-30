@@ -11,3 +11,4 @@ flatten         :;
 	hevm flatten --source-file "src/UniswapV3Callee.sol" > out/UniswapV3Callee.sol
 	hevm flatten --source-file "src/WstETHCurveUniv3Callee.sol" > out/WstETHCurveUniv3Callee.sol
 	hevm flatten --source-file "src/CurveLpTokenUniv3Callee.sol" > out/CurveLpTokenUniv3Callee.sol
+	hevm flatten --source-file "src/rETHCurveUniv3Callee.sol" > out/rETHCurveUniv3Callee.sol
