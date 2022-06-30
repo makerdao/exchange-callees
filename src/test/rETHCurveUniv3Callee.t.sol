@@ -147,7 +147,7 @@ contract CurveCalleeTest is DSTest {
         // rETH._balances[address(this)] = amt;
         Hevm(hevm).store({
             c:   rETH,
-            loc: keccak256(abi.encode(address(this), uint256(2))),
+            loc: keccak256(abi.encode(address(this), uint256(1))),
             val: bytes32(amt)
         });
         gemJoin = Chainlog(chainlog).getAddress("MCD_JOIN_RETH_A");
