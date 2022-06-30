@@ -88,6 +88,15 @@ interface VatTemp {
     function rely(address) external;
     function init(bytes32) external;
 }
+interface JugTemp {
+    function init(bytes32) external;
+    function file(bytes32, bytes32, uint256) external;
+}
+interface SpotterTemp {
+    function file(bytes32, bytes32, address) external;
+    function file(bytes32, bytes32, uint256) external;
+    function poke(bytes32) external;
+}
 
 contract CurveCalleeTest is DSTest {
 
@@ -113,6 +122,7 @@ contract CurveCalleeTest is DSTest {
         vat = Chainlog(chainlog).getAddress("MCD_VAT");
         address spotter = Chainlog(chainlog).getAddress("MCD_SPOT");
         address dog = Chainlog(chainlog).getAddress("MCD_DOG");
+        address jug = Chainlog(chainlog).getAddress("MCD_JUG");
         bytes32 ilk = "RETH-A";
         Clipper rETHClipper = new Clipper(vat, spotter, dog, ilk);
         GemJoin rETHJoin = new GemJoin(vat, ilk, rETH);
@@ -123,6 +133,21 @@ contract CurveCalleeTest is DSTest {
         });
         VatTemp(vat).rely(address(rETHJoin));
         VatTemp(vat).init(ilk);
+        Hevm(hevm).store({
+            c:    jug,
+            loc:  keccak256(abi.encode(address(this), uint256(0))),
+            val:  bytes32(uint256(1))
+        });
+        JugTemp(jug).init(ilk);
+        JugTemp(jug).file(ilk, "duty", 1000000000705562181084137268);
+        Hevm(hevm).store({
+            c:    spotter,
+            loc:  keccak256(abi.encode(address(this), uint256(0))),
+            val:  bytes32(uint256(1))
+        });
+        SpotterTemp(spotter).file(ilk, "pip", 0x81FE72B5A8d1A857d176C3E7d5Bd2679A9B85763);
+        SpotterTemp(spotter).file(ilk, "mat", 1450000000000000000000000000);
+        SpotterTemp(spotter).poke(ilk);
         Hevm(hevm).store({
             c:    chainlog,
             loc:  keccak256(abi.encode(address(this), uint256(0))),
