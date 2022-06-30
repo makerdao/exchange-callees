@@ -86,6 +86,7 @@ interface ChainlogTemp {
 }
 interface VatTemp {
     function rely(address) external;
+    function init(bytes32) external;
 }
 
 contract CurveCalleeTest is DSTest {
@@ -121,6 +122,7 @@ contract CurveCalleeTest is DSTest {
             val: bytes32(uint256(1))
         });
         VatTemp(vat).rely(address(rETHJoin));
+        VatTemp(vat).init(ilk);
         Hevm(hevm).store({
             c:    chainlog,
             loc:  keccak256(abi.encode(address(this), uint256(0))),
