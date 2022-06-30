@@ -1,7 +1,16 @@
 #! /bin/bash
 
-if [[ $# -eq 0 ]] ; then
-    dapp --use solc:0.6.12 test --rpc
+if test -f block; then
+    BLOCK=$(cat block)
+    echo "using cached block ${BLOCK}, delete ./block to refresh"
 else
-    dapp --use solc:0.6.12 test --rpc --verbosity 3 -m ${1}
+    LATEST_BLOCK=$(cast block --rpc-url $ETH_RPC_URL latest number)
+    BLOCK=$(($LATEST_BLOCK-6))
+    echo "using fresh block ${BLOCK}"
 fi
+if [[ $# -eq 0 ]] ; then
+    forge test --fork-url $ETH_RPC_URL --fork-block-number $BLOCK
+else
+    forge test --fork-url $ETH_RPC_URL --fork-block-number $BLOCK --match ${1} -vvv
+fi
+echo $BLOCK > block
