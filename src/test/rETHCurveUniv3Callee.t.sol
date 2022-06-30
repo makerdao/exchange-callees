@@ -140,6 +140,7 @@ contract CurveCalleeTest is DSTest {
         });
         JugTemp(jug).init(ilk);
         JugTemp(jug).file(ilk, "duty", 1000000000705562181084137268);
+        Hevm(hevm).warp(block.timestamp + 1);
         Hevm(hevm).store({
             c:    spotter,
             loc:  keccak256(abi.encode(address(this), uint256(0))),
