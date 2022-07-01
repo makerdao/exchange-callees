@@ -162,6 +162,7 @@ contract CurveCalleeTest is DSTest {
         Fileable(spotter).file(ilk, "mat", 1450000000000000000000000000);
         SpotterTemp(spotter).poke(ilk);
         Fileable(dog).file(ilk, "hole", type(uint256).max);
+        Fileable(dog).file(ilk, "chop", 11 * WAD / 10);
         ChainlogTemp(chainlog).setAddress("MCD_CLIP_RETH_A", address(rETHClipper));
         ChainlogTemp(chainlog).setAddress("MCD_JOIN_RETH_A", address(rETHJoin));
     }
