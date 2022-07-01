@@ -22,6 +22,7 @@ import { rETHCurveUniv3Callee } from "../rETHCurveUniv3Callee.sol";
 // FIXME: remove these imports once rETH has been onboarded
 import { Clipper } from "dss/clip.sol";
 import { GemJoin } from "dss/join.sol";
+import { StairstepExponentialDecrease } from "dss/abaci.sol";
 
 interface Hevm {
     function store(address c, bytes32 loc, bytes32 val) external;
@@ -110,7 +111,9 @@ contract CurveCalleeTest is DSTest {
     address constant chainlog = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
     address constant curve    = 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022;
     address constant uniV3    = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
-    uint256 constant WAD      = 1e18;
+
+    uint256 constant WAD = 1e18;
+    uint256 constant RAY = 1e27;
 
     address gemJoin;
     uint256 id;
@@ -175,6 +178,10 @@ contract CurveCalleeTest is DSTest {
         Fileable(dog).file(ilk, "clip", address(rETHClipper));
         rETHClipper.rely(dog);
         PipTemp(pipEth).kiss(address(rETHClipper));
+        StairstepExponentialDecrease rETHCalc = new StairstepExponentialDecrease();
+        rETHCalc.file("cut", 99 * RAY / 100);
+        rETHCalc.file("step", 90);
+        rETHClipper.file("calc", address(rETHCalc));
         ChainlogTemp(chainlog).setAddress("MCD_CLIP_RETH_A", address(rETHClipper));
         ChainlogTemp(chainlog).setAddress("MCD_JOIN_RETH_A", address(rETHJoin));
     }
