@@ -109,7 +109,7 @@ contract CurveCalleeTest is DSTest {
     address constant hevm     = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
     address constant rETH     = 0xae78736Cd615f374D3085123A210448E74Fc6393;
     address constant chainlog = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
-    address constant curve    = 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022;
+    address constant curve    = 0xF9440930043eb3997fc70e1339dBb11F341de7A8;
     address constant uniV3    = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
 
     uint256 constant WAD = 1e18;
