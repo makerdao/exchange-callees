@@ -95,6 +95,9 @@ interface JugTemp {
 interface SpotterTemp {
     function poke(bytes32) external;
 }
+interface PipTemp {
+    function kiss(address) external;
+}
 interface Fileable {
     function file(bytes32, bytes32, address) external;
     function file(bytes32, bytes32, uint256) external;
@@ -125,6 +128,7 @@ contract CurveCalleeTest is DSTest {
         address spotter = Chainlog(chainlog).getAddress("MCD_SPOT");
         address dog = Chainlog(chainlog).getAddress("MCD_DOG");
         address jug = Chainlog(chainlog).getAddress("MCD_JUG");
+        address pipEth = Chainlog(chainlog).getAddress("PIP_ETH");
         bytes32 ilk = "RETH-A";
         Clipper rETHClipper = new Clipper(vat, spotter, dog, ilk);
         GemJoin rETHJoin = new GemJoin(vat, ilk, rETH);
@@ -149,6 +153,11 @@ contract CurveCalleeTest is DSTest {
             val:  bytes32(uint256(1))
         });
         Hevm(hevm).store({
+            c:    pipEth,
+            loc:  keccak256(abi.encode(address(this), uint256(0))),
+            val:  bytes32(uint256(1))
+        });
+        Hevm(hevm).store({
             c:    chainlog,
             loc:  keccak256(abi.encode(address(this), uint256(0))),
             val:  bytes32(uint256(1))
@@ -158,11 +167,14 @@ contract CurveCalleeTest is DSTest {
         JugTemp(jug).init(ilk);
         Fileable(jug).file(ilk, "duty", 1000000000705562181084137268);
         Hevm(hevm).warp(block.timestamp + 1);
-        Fileable(spotter).file(ilk, "pip", 0x81FE72B5A8d1A857d176C3E7d5Bd2679A9B85763);
+        Fileable(spotter).file(ilk, "pip", pipEth);
         Fileable(spotter).file(ilk, "mat", 1450000000000000000000000000);
         SpotterTemp(spotter).poke(ilk);
         Fileable(dog).file(ilk, "hole", type(uint256).max);
         Fileable(dog).file(ilk, "chop", 11 * WAD / 10);
+        Fileable(dog).file(ilk, "clip", address(rETHClipper));
+        rETHClipper.rely(dog);
+        PipTemp(pipEth).kiss(address(rETHClipper));
         ChainlogTemp(chainlog).setAddress("MCD_CLIP_RETH_A", address(rETHClipper));
         ChainlogTemp(chainlog).setAddress("MCD_JOIN_RETH_A", address(rETHJoin));
     }
