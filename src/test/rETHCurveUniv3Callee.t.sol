@@ -90,12 +90,14 @@ interface VatTemp {
 }
 interface JugTemp {
     function init(bytes32) external;
-    function file(bytes32, bytes32, uint256) external;
+    function ilks(bytes32) external view returns (uint256,uint256);
 }
 interface SpotterTemp {
+    function poke(bytes32) external;
+}
+interface Fileable {
     function file(bytes32, bytes32, address) external;
     function file(bytes32, bytes32, uint256) external;
-    function poke(bytes32) external;
 }
 
 contract CurveCalleeTest is DSTest {
@@ -131,29 +133,35 @@ contract CurveCalleeTest is DSTest {
             loc: keccak256(abi.encode(address(this), uint256(0))),
             val: bytes32(uint256(1))
         });
-        VatTemp(vat).rely(address(rETHJoin));
-        VatTemp(vat).init(ilk);
         Hevm(hevm).store({
             c:    jug,
             loc:  keccak256(abi.encode(address(this), uint256(0))),
             val:  bytes32(uint256(1))
         });
-        JugTemp(jug).init(ilk);
-        JugTemp(jug).file(ilk, "duty", 1000000000705562181084137268);
-        Hevm(hevm).warp(block.timestamp + 1);
         Hevm(hevm).store({
             c:    spotter,
             loc:  keccak256(abi.encode(address(this), uint256(0))),
             val:  bytes32(uint256(1))
         });
-        SpotterTemp(spotter).file(ilk, "pip", 0x81FE72B5A8d1A857d176C3E7d5Bd2679A9B85763);
-        SpotterTemp(spotter).file(ilk, "mat", 1450000000000000000000000000);
-        SpotterTemp(spotter).poke(ilk);
+        Hevm(hevm).store({
+            c:    dog,
+            loc:  keccak256(abi.encode(address(this), uint256(0))),
+            val:  bytes32(uint256(1))
+        });
         Hevm(hevm).store({
             c:    chainlog,
             loc:  keccak256(abi.encode(address(this), uint256(0))),
             val:  bytes32(uint256(1))
         });
+        VatTemp(vat).rely(address(rETHJoin));
+        VatTemp(vat).init(ilk);
+        JugTemp(jug).init(ilk);
+        Fileable(jug).file(ilk, "duty", 1000000000705562181084137268);
+        Hevm(hevm).warp(block.timestamp + 1);
+        Fileable(spotter).file(ilk, "pip", 0x81FE72B5A8d1A857d176C3E7d5Bd2679A9B85763);
+        Fileable(spotter).file(ilk, "mat", 1450000000000000000000000000);
+        SpotterTemp(spotter).poke(ilk);
+        Fileable(dog).file(ilk, "hole", type(uint256).max);
         ChainlogTemp(chainlog).setAddress("MCD_CLIP_RETH_A", address(rETHClipper));
         ChainlogTemp(chainlog).setAddress("MCD_JOIN_RETH_A", address(rETHJoin));
     }
