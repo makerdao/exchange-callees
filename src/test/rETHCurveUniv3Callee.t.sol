@@ -81,12 +81,11 @@ interface Osm {
     function kiss(address) external;
 }
 
-// FIXME: delete these interfaces once rETH has been onboarded
+// FIXME: delete all the following interfaces once rETH has been onboarded
 interface ChainlogTemp {
     function setAddress(bytes32, address) external;
 }
 interface VatTemp {
-    function rely(address) external;
     function init(bytes32) external;
 }
 interface JugTemp {
@@ -103,13 +102,15 @@ interface Fileable {
     function file(bytes32, bytes32, address) external;
     function file(bytes32, bytes32, uint256) external;
 }
+interface Authable {
+    function rely(address) external;
+}
 
 contract CurveCalleeTest is DSTest {
 
     address constant hevm     = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
     address constant rETH     = 0xae78736Cd615f374D3085123A210448E74Fc6393;
     address constant chainlog = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
-    address constant curve    = 0xF9440930043eb3997fc70e1339dBb11F341de7A8;
     address constant uniV3    = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
 
     uint256 constant WAD = 1e18;
@@ -165,7 +166,7 @@ contract CurveCalleeTest is DSTest {
             loc:  keccak256(abi.encode(address(this), uint256(0))),
             val:  bytes32(uint256(1))
         });
-        VatTemp(vat).rely(address(rETHJoin));
+        Authable(vat).rely(address(rETHJoin));
         VatTemp(vat).init(ilk);
         JugTemp(jug).init(ilk);
         Fileable(jug).file(ilk, "duty", 1000000000705562181084137268);
@@ -182,6 +183,7 @@ contract CurveCalleeTest is DSTest {
         rETHCalc.file("cut", 99 * RAY / 100);
         rETHCalc.file("step", 90);
         rETHClipper.file("calc", address(rETHCalc));
+        Authable(dog).rely(address(rETHClipper));
         ChainlogTemp(chainlog).setAddress("MCD_CLIP_RETH_A", address(rETHClipper));
         ChainlogTemp(chainlog).setAddress("MCD_JOIN_RETH_A", address(rETHJoin));
     }
@@ -193,7 +195,7 @@ contract CurveCalleeTest is DSTest {
         weth = Chainlog(chainlog).getAddress("ETH");
         dai = Chainlog(chainlog).getAddress("MCD_DAI");
         usdc = Chainlog(chainlog).getAddress("USDC");
-        callee = new rETHCurveUniv3Callee(curve, uniV3, daiJoin, weth);
+        callee = new rETHCurveUniv3Callee(uniV3, daiJoin, weth);
         vat = Chainlog(chainlog).getAddress("MCD_VAT");
         Vat(vat).hope(clipper);
         tail = ClipperLike(clipper).tail();

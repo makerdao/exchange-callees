@@ -1,5 +1,7 @@
 #! /bin/bash
 
+[[ "$(cast chain --rpc-url="$ETH_RPC_URL")" == "ethlive"  ]] || { echo "Please set a mainnet ETH_RPC_URL"; exit 1;  }
+
 LATEST_BLOCK=$(cast block --rpc-url $ETH_RPC_URL latest number)
 if test -f block; then
     BLOCK=$(cat block)
