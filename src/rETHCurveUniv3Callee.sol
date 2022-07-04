@@ -39,9 +39,15 @@ interface CharterManagerLike {
     function exit(address crop, address usr, uint256 val) external;
 }
 
+interface WstEthLike is TokenLike {
+    function unwrap(uint256 _wstEthAmount) external returns (uint256);
+    function stETH() external view returns (address);
+}
+
 interface CurvePoolLike {
     function exchange(int128 i, int128 j, uint256 dx, uint256 min_dy)
         external returns (uint256 dy);
+    function coins(uint256 id) external view returns (address);
 }
 
 interface WethLike is TokenLike {
@@ -49,7 +55,7 @@ interface WethLike is TokenLike {
 }
 
 interface UniV3RouterLike {
-    
+
     struct ExactInputParams {
         bytes   path;
         address recipient;
@@ -63,7 +69,10 @@ interface UniV3RouterLike {
 }
 
 contract rETHCurveUniv3Callee {
-    CurvePoolLike   public immutable curvePool;
+
+    address public constant rocketToLido = 0x447Ddd4960d9fdBF6af9a790560d0AF76795CB08;
+    address public constant lidoToETH  = 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022;
+
     UniV3RouterLike public immutable uniV3Router;
     DaiJoinLike     public immutable daiJoin;
     TokenLike       public immutable dai;
@@ -81,13 +90,7 @@ contract rETHCurveUniv3Callee {
         z = _add(x, _sub(y, 1)) / y;
     }
 
-    constructor(
-        address curvePool_,
-        address uniV3Router_,
-        address daiJoin_,
-        address weth_
-    ) public {
-        curvePool      = CurvePoolLike(curvePool_);
+    constructor(address uniV3Router_, address daiJoin_, address weth_) public {
         uniV3Router    = UniV3RouterLike(uniV3Router_);
         daiJoin        = DaiJoinLike(daiJoin_);
         TokenLike dai_ = DaiJoinLike(daiJoin_).dai();
@@ -117,7 +120,7 @@ contract rETHCurveUniv3Callee {
             address charterManager // pass address(0) if no manager
         ) = abi.decode(data, (address, address, uint256, bytes, address));
 
-        address gem = GemJoinLike(gemJoin).gem();
+        address gem = GemJoinLike(gemJoin).gem(); // RocketPool rETH
 
         // Convert slice to token precision
         slice = _fromWad(gemJoin, slice);
@@ -129,18 +132,34 @@ contract rETHCurveUniv3Callee {
             GemJoinLike(gemJoin).exit(address(this), slice);
         }
 
-        TokenLike(gem).approve(address(curvePool), slice);
-        slice = curvePool.exchange({
-            i:      1,     // send token id 1 (rETH)
-            j:      0,     // receive token id 0 (ETH)
+        // rETH -> wstETH
+        TokenLike(gem).approve(rocketToLido, slice);
+        slice = CurvePoolLike(rocketToLido).exchange({
+            i:      0,     // send token id 1 (RocketPool rETH)
+            j:      1,     // receive token id 0 (wstETH)
             dx:     slice, // send `slice` amount of rETH
             min_dy: 0      // accept any amount of ETH (`minProfit` is checked below)
         });
+        gem = CurvePoolLike(rocketToLido).coins(1);
 
-        gem = weth;
-        WethLike(gem).deposit{
+        // wstETH -> stETH
+        slice = WstEthLike(gem).unwrap(slice);
+        gem = WstEthLike(gem).stETH();
+
+        // stETH -> ETH
+        TokenLike(gem).approve(lidoToETH, slice);
+        slice = CurvePoolLike(lidoToETH).exchange({
+            i:      1,     // send token id 1 (stETH)
+            j:      0,     // receive token id 0 (ETH)
+            dx:     slice, // send `slice` amount of stETH
+            min_dy: 0      // accept any amount of ETH (`minProfit` is checked below)
+        });
+
+        // ETH -> wETH
+        WethLike(weth).deposit{
             value: slice
         }();
+        gem = weth;
 
         // Approve uniV3 to take gem
         WethLike(gem).approve(address(uniV3Router), slice);
