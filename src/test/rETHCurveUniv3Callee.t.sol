@@ -184,6 +184,8 @@ contract CurveCalleeTest is DSTest {
         rETHCalc.file("step", 90);
         rETHClipper.file("calc", address(rETHCalc));
         Authable(dog).rely(address(rETHClipper));
+        rETHClipper.file("buf", 12 * RAY / 10);
+        rETHClipper.file("tail", 8400);
         ChainlogTemp(chainlog).setAddress("MCD_CLIP_RETH_A", address(rETHClipper));
         ChainlogTemp(chainlog).setAddress("MCD_JOIN_RETH_A", address(rETHJoin));
     }
@@ -356,7 +358,7 @@ contract CurveCalleeTest is DSTest {
             address(0)
         );
         Hevm(hevm).warp(block.timestamp + tail / 2);
-        address osm = Chainlog(chainlog).getAddress("PIP_WSTETH");
+        address osm = Chainlog(chainlog).getAddress("PIP_ETH");
         Hevm(hevm).store({
             c:   osm,
             loc: keccak256(abi.encode(address(this), uint256(0))),
@@ -385,7 +387,7 @@ contract CurveCalleeTest is DSTest {
             address(0)
         );
         Hevm(hevm).warp(block.timestamp + tail / 5);
-        address osm = Chainlog(chainlog).getAddress("PIP_WSTETH");
+        address osm = Chainlog(chainlog).getAddress("PIP_ETH");
         Hevm(hevm).store({
             c:   osm,
             loc: keccak256(abi.encode(address(this), uint256(0))),
