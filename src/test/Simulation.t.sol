@@ -108,12 +108,10 @@ contract SimulationTests is DSTest {
     address constant hevmAddr = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
     bytes32 constant linkName = "LINK-A";
     bytes32 constant lpUsdcEthName = "UNIV2USDCETH-A";
-    bytes32 constant steCRVName = "CURVESTETHETH-A";
+    bytes32 constant steCRVName = "CRVV1ETHSTETH-A";
     address constant curvePoolAddr = 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022;
     address constant lidoTokenAddr = 0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32;
     address constant lidoStakingRewardsAddr = 0x99ac10631F69C753DDb595D074422a0922D9056B;
-    address constant steCRVAddr = 0x06325440D014e39736583c165C2963BA99fAf14E;
-    address constant steCRVPoolAddr = 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022;
 
     uint256 constant WAD = 1E18;
     uint256 constant RAY = 1E27;
@@ -205,6 +203,7 @@ contract SimulationTests is DSTest {
     address wethAddr;
     address linkAddr;
     address usdcAddr;
+    address steCRVAddr;
     address daiAddr;
     address vatAddr;
     address linkJoinAddr;
@@ -222,10 +221,8 @@ contract SimulationTests is DSTest {
     address ethPipAddr;
     address steCRVJoinAddr;
     address cropManagerAddr;
-    address cropManagerImpAddr;
     address steCRVClipAddr;
     address steCRVPipAddr;
-    address steCRVCalcAddr;
 
     Hevm hevm;
     UniV2Router02Abstract uniRouter;
@@ -246,14 +243,10 @@ contract SimulationTests is DSTest {
     OsmAbstract ethPip;
     GemAbstract steCRV;
     CropJoin steCRVJoin;
-    SynthetixJoinImp steCRVJoinImp;
     Cropper cropManager;
-    CropperImp cropManagerImp;
     ProxyManagerClipper steCRVClip;
+    OsmAbstract steCRVPip;
     SpotAbstract spotter;
-    DSValue steCRVPip;
-    StairstepExponentialDecrease steCRVCalc;
-    CurvePoolLike steCRVPool;
 
     function setAddresses() private {
         ChainlogHelper helper = new ChainlogHelper();
@@ -261,6 +254,7 @@ contract SimulationTests is DSTest {
         wethAddr = chainLog.getAddress("ETH");
         linkAddr = chainLog.getAddress("LINK");
         usdcAddr = chainLog.getAddress("USDC");
+        steCRVAddr = chainLog.getAddress("CRVV1ETHSTETH");
         vatAddr = chainLog.getAddress("MCD_VAT");
         daiAddr = chainLog.getAddress("MCD_DAI");
         linkJoinAddr = chainLog.getAddress("MCD_JOIN_LINK_A");
@@ -276,6 +270,10 @@ contract SimulationTests is DSTest {
         lpUsdcEthPipAddr = chainLog.getAddress("PIP_UNIV2USDCETH");
         linkPipAddr = chainLog.getAddress("PIP_LINK");
         ethPipAddr = chainLog.getAddress("PIP_ETH");
+        steCRVJoinAddr = chainLog.getAddress("MCD_JOIN_CRVV1ETHSTETH_A");
+        cropManagerAddr = chainLog.getAddress("MCD_CROPPER");
+        steCRVClipAddr = chainLog.getAddress("MCD_CLIP_CRVV1ETHSTETH_A");
+        steCRVPipAddr = chainLog.getAddress("PIP_CRVV1ETHSTETH");
     }
 
     function setInterfaces() private {
@@ -284,6 +282,7 @@ contract SimulationTests is DSTest {
         weth = WethAbstract(wethAddr);
         link = GemAbstract(linkAddr);
         usdc = GemAbstract(usdcAddr);
+        steCRV = GemAbstract(steCRVAddr);
         vat = VatAbstract(vatAddr);
         dai = DaiAbstract(daiAddr);
         linkJoin = GemJoinAbstract(linkJoinAddr);
@@ -296,59 +295,9 @@ contract SimulationTests is DSTest {
         lpUsdcEthPip = LPOsmAbstract(lpUsdcEthPipAddr);
         linkPip = OsmAbstract(linkPipAddr);
         ethPip = OsmAbstract(ethPipAddr);
-        steCRV = GemAbstract(steCRVAddr);
+        steCRVPip = OsmAbstract(steCRVPipAddr);
+        steCRVClip = ProxyManagerClipper(steCRVClipAddr);
         spotter = SpotAbstract(spotterAddr);
-    }
-
-    function deployContracts() private {
-        cropManagerImp = new CropperImp(vatAddr);
-        cropManagerImpAddr = address(cropManagerImp);
-        cropManager = new Cropper();
-        cropManagerAddr = address(cropManager);
-        cropManager.setImplementation(cropManagerImpAddr);
-        CropperAbstract(cropManagerAddr).getOrCreateProxy(edAddr);
-        steCRVJoinImp = new SynthetixJoinImp(
-            vatAddr,
-            steCRVName,
-            steCRVAddr,
-            lidoTokenAddr,
-            lidoStakingRewardsAddr
-        );
-        steCRVJoin = new CropJoin();
-        steCRVJoin.setImplementation(address(steCRVJoinImp));
-        steCRVJoinAddr = address(steCRVJoin);
-        steCRVJoin.rely(cropManagerAddr);
-        SynthetixJoinImp(steCRVJoinAddr).init();
-        vat.rely(steCRVJoinAddr);
-        vat.init(steCRVName);
-        vat.file(steCRVName, "spot", 100 * RAY);
-        vat.file(steCRVName, "line", 1_000_000 * RAD);
-        jug.init(steCRVName);
-        jug.file(steCRVName, "duty", 1000000001847694957439350562);
-        hevm.warp(block.timestamp + 600);
-        dog.file(steCRVName, "hole", 10_000 * RAD);
-        dog.file(steCRVName, "chop", 113 * WAD / 100);
-        steCRVClip = new ProxyManagerClipper(
-            vatAddr,
-            spotterAddr,
-            dogAddr,
-            steCRVJoinAddr,
-            cropManagerAddr
-        );
-        steCRVClip.file("tail", 2 hours);
-        steCRVClipAddr = address(steCRVClip);
-        steCRVCalc = new StairstepExponentialDecrease();
-        steCRVCalc.file("step", 90);
-        steCRVCalc.file("cut", 99 * RAY / 100);
-        steCRVCalcAddr = address(steCRVCalc);
-        steCRVClip.file("calc", steCRVCalcAddr);
-        dog.file(steCRVName, "clip", steCRVClipAddr);
-        steCRVClip.rely(dogAddr);
-        dog.rely(steCRVClipAddr);
-        steCRVPip = new DSValue();
-        steCRVPip.poke(bytes32(100 * WAD));
-        steCRVPipAddr = address(steCRVPip);
-        spotter.file(steCRVName, "pip", steCRVPipAddr);
     }
 
     VaultHolder ali;
@@ -392,6 +341,12 @@ contract SimulationTests is DSTest {
         );
         ethPip.kiss(address(this));
         hevm.store(
+            steCRVPipAddr,
+            keccak256(abi.encode(address(this), uint256(0))),
+            bytes32(uint256(1))
+        );
+        steCRVPip.kiss(address(this));
+        hevm.store(
             jugAddr,
             keccak256(abi.encode(address(this), uint256(0))),
             bytes32(uint256(1))
@@ -416,8 +371,8 @@ contract SimulationTests is DSTest {
         danAddr = address(dan);
         ed = new CurveLpTokenUniv3Callee(uniV3Addr, daiJoinAddr, wethAddr);
         edAddr = address(ed);
+        CropperAbstract(cropManagerAddr).getOrCreateProxy(edAddr);
         getPermissions();
-        deployContracts();
     }
 
     function getLinkPrice() private view returns (uint256 val) {
@@ -1030,7 +985,7 @@ contract SimulationTests is DSTest {
         hevm.warp(block.timestamp + 1 hours);
         uint256 balancePre = dai.balanceOf(edAddr);
         uint256 countBefore = steCRVClip.count();
-        takeSteCRV(auctionId, amount, 100 * RAY, 0);
+        takeSteCRV(auctionId, amount, 5000 * RAY, 0);
         assertEq(steCRVClip.count(), countBefore - 1);
         uint256 balancePost = dai.balanceOf(edAddr);
         assertGt(balancePost, balancePre);
@@ -1038,7 +993,7 @@ contract SimulationTests is DSTest {
 
     function testTakeSteCRVProfit() public {
         uint256 amount = 30 * WAD;
-        uint256 minProfit = 30_000 * WAD;
+        uint256 minProfit = 1000 * WAD;
         getSteCRV(amount);
         joinSteCRV(amount);
         frobMaxSteCRV(amount);
@@ -1047,7 +1002,7 @@ contract SimulationTests is DSTest {
         hevm.warp(block.timestamp + 1 hours);
         uint256 balancePre = dai.balanceOf(edAddr);
         uint256 countBefore = steCRVClip.count();
-        takeSteCRV(auctionId, amount, 100 * RAY, minProfit);
+        takeSteCRV(auctionId, amount, 5000 * RAY, minProfit);
         assertEq(steCRVClip.count(), countBefore - 1);
         uint256 balancePost = dai.balanceOf(edAddr);
         assertGt(balancePost, balancePre + minProfit);
