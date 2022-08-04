@@ -2,6 +2,7 @@ all             :; DAPP_BUILD_OPTIMIZE=1 DAPP_BUILD_OPTIMIZE_RUNS=200 dapp --use
 clean           :; dapp clean
 # usage:        make test match=Burn
 test            :; ./test.sh ${match}
+test-forge		:; ./test-forge.sh ${match}
 deploy          :; echo "use deploy-goerli or deploy-mainnet"
 deploy-goerli   :; make && ./scripts/deploy-goerli.sh
 deploy-mainnet  :; make && ./scripts/deploy-mainnet.sh
