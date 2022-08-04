@@ -70,9 +70,8 @@ interface UniV3RouterLike {
 
 contract rETHCurveUniv3Callee {
 
-    address public constant rocketToLido = 0x447Ddd4960d9fdBF6af9a790560d0AF76795CB08;
-    address public constant lidoToETH  = 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022;
-
+    CurvePoolLike   public immutable rocketToLido;
+    CurvePoolLike   public immutable lidoToETH;
     UniV3RouterLike public immutable uniV3Router;
     DaiJoinLike     public immutable daiJoin;
     TokenLike       public immutable dai;
@@ -90,7 +89,15 @@ contract rETHCurveUniv3Callee {
         z = _add(x, _sub(y, 1)) / y;
     }
 
-    constructor(address uniV3Router_, address daiJoin_, address weth_) public {
+    constructor(
+        address rocketToLido_,
+        address lidoToETH_,
+        address uniV3Router_,
+        address daiJoin_,
+        address weth_
+    ) public {
+        rocketToLido   = CurvePoolLike(rocketToLido_);
+        lidoToETH      = CurvePoolLike(lidoToETH_);
         uniV3Router    = UniV3RouterLike(uniV3Router_);
         daiJoin        = DaiJoinLike(daiJoin_);
         TokenLike dai_ = DaiJoinLike(daiJoin_).dai();
@@ -133,22 +140,22 @@ contract rETHCurveUniv3Callee {
         }
 
         // rETH -> wstETH
-        TokenLike(gem).approve(rocketToLido, slice);
-        slice = CurvePoolLike(rocketToLido).exchange({
+        TokenLike(gem).approve(address(rocketToLido), slice);
+        slice = rocketToLido.exchange({
             i:      0,     // send token id 1 (RocketPool rETH)
             j:      1,     // receive token id 0 (wstETH)
             dx:     slice, // send `slice` amount of rETH
             min_dy: 0      // accept any amount of ETH (`minProfit` is checked below)
         });
-        gem = CurvePoolLike(rocketToLido).coins(1);
+        gem = rocketToLido.coins(1);
 
         // wstETH -> stETH
         slice = WstEthLike(gem).unwrap(slice);
         gem = WstEthLike(gem).stETH();
 
         // stETH -> ETH
-        TokenLike(gem).approve(lidoToETH, slice);
-        slice = CurvePoolLike(lidoToETH).exchange({
+        TokenLike(gem).approve(address(lidoToETH), slice);
+        slice = lidoToETH.exchange({
             i:      1,     // send token id 1 (stETH)
             j:      0,     // receive token id 0 (ETH)
             dx:     slice, // send `slice` amount of stETH

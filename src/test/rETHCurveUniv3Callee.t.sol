@@ -108,10 +108,12 @@ interface Authable {
 
 contract CurveCalleeTest is DSTest {
 
-    address constant hevm     = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
-    address constant rETH     = 0xae78736Cd615f374D3085123A210448E74Fc6393;
-    address constant chainlog = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
-    address constant uniV3    = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
+    address constant hevm         = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
+    address constant rETH         = 0xae78736Cd615f374D3085123A210448E74Fc6393;
+    address constant chainlog     = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
+    address constant rocketToLido = 0x447Ddd4960d9fdBF6af9a790560d0AF76795CB08;
+    address constant lidoToETH    = 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022;
+    address constant uniV3        = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
 
     uint256 constant WAD = 1e18;
     uint256 constant RAY = 1e27;
@@ -197,7 +199,13 @@ contract CurveCalleeTest is DSTest {
         weth = Chainlog(chainlog).getAddress("ETH");
         dai = Chainlog(chainlog).getAddress("MCD_DAI");
         usdc = Chainlog(chainlog).getAddress("USDC");
-        callee = new rETHCurveUniv3Callee(uniV3, daiJoin, weth);
+        callee = new rETHCurveUniv3Callee(
+            rocketToLido,
+            lidoToETH,
+            uniV3,
+            daiJoin,
+            weth
+        );
         vat = Chainlog(chainlog).getAddress("MCD_VAT");
         Vat(vat).hope(clipper);
         tail = ClipperLike(clipper).tail();
