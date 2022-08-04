@@ -762,7 +762,7 @@ contract SimulationTests is DSTest {
         auctionId = lpDaiEthClip.kicks();
     }
 
-    function testBarkLpDaiEth() private { // most LP tokens are getting offboarded
+    function testBarkLpDaiEth() private { // most LP tokens are getting offboarded
         (,,,, uint256 dustRad) = vat.ilks(lpDaiEthName);
         uint256 amount = (dustRad / getLpDaiEthPriceRay()) * 2;
         uint256 kicksPre = lpDaiEthClip.kicks();
@@ -971,7 +971,7 @@ contract SimulationTests is DSTest {
         assertLt(dai.balanceOf(bobAddr), amount * auctionPrice / RAY / 5);
     }
 
-    function testTakeLpDaiEthProfit() private { // most LP tokens are getting offboarded
+    function testTakeLpDaiEthProfit() private { // most LP tokens are getting offboarded
         uint256 minProfitPct = 30;
         (,,,, uint256 dustRad) = vat.ilks(lpDaiEthName);
         uint256 amount = (dustRad / getLpDaiEthPriceRay()) * 2;
