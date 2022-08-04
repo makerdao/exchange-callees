@@ -163,10 +163,10 @@ contract rETHCurveUniv3Callee {
         });
 
         // ETH -> wETH
-        WethLike(weth).deposit{
+        gem = weth;
+        WethLike(gem).deposit{
             value: slice
         }();
-        gem = weth;
 
         // Approve uniV3 to take gem
         WethLike(gem).approve(address(uniV3Router), slice);
