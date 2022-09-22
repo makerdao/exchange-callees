@@ -73,7 +73,7 @@ interface UniV2Router02Abstract {
         uint deadline
     ) external returns (uint amountToken, uint amountETH);
 
-    function getAmountIn(uint amountOut, uint reserveIn, uint reserveOut) 
+    function getAmountIn(uint amountOut, uint reserveIn, uint reserveOut)
         external pure returns (uint amountIn);
 }
 
@@ -82,7 +82,7 @@ interface WethAbstract is GemAbstract {
 }
 
 interface LpTokenAbstract is GemAbstract {
-    function getReserves() external view 
+    function getReserves() external view
     returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
 }
 
@@ -618,7 +618,7 @@ contract SimulationTests is DSTest {
         uint256 linkPrice = getLinkPrice();
         uint256 expected = amountLink * linkPrice / WAD;
         uint256 actual = dai.balanceOf(address(this));
-        uint256 diff = expected > actual ? 
+        uint256 diff = expected > actual ?
         expected - actual : actual - expected;
         assertLt(diff, expected / 10);
     }
@@ -762,7 +762,7 @@ contract SimulationTests is DSTest {
         auctionId = lpDaiEthClip.kicks();
     }
 
-    function testBarkLpDaiEth() public {
+    function testBarkLpDaiEth() private { // most LP tokens are getting offboarded
         (,,,, uint256 dustRad) = vat.ilks(lpDaiEthName);
         uint256 amount = (dustRad / getLpDaiEthPriceRay()) * 2;
         uint256 kicksPre = lpDaiEthClip.kicks();
@@ -864,7 +864,7 @@ contract SimulationTests is DSTest {
             hevm.warp(block.timestamp + 10 seconds);
             (, auctionPrice,,) = linkClip.getStatus(auctionId);
         }
-        uint256 minProfit = amountLink * auctionPrice / RAY 
+        uint256 minProfit = amountLink * auctionPrice / RAY
             * minProfitPct / 100;
         assertEq(dai.balanceOf(bobAddr), 0);
         takeLinkV2(auctionId, amountLink, auctionPrice, minProfit);
@@ -952,7 +952,7 @@ contract SimulationTests is DSTest {
         lpDaiEthClip.take(auctionId, amt, max, cheAddr, data);
     }
 
-    function testTakeLpDaiEthNoProfit() public {
+    function testTakeLpDaiEthNoProfit() private { // most LP tokens are getting offboarded
         (,,,, uint256 dustRad) = vat.ilks(lpDaiEthName);
         uint256 amount = (dustRad / getLpDaiEthPriceRay()) * 2;
         getLpDaiEth(amount);
@@ -971,7 +971,7 @@ contract SimulationTests is DSTest {
         assertLt(dai.balanceOf(bobAddr), amount * auctionPrice / RAY / 5);
     }
 
-    function testTakeLpDaiEthProfit() public {
+    function testTakeLpDaiEthProfit() private { // most LP tokens are getting offboarded
         uint256 minProfitPct = 30;
         (,,,, uint256 dustRad) = vat.ilks(lpDaiEthName);
         uint256 amount = (dustRad / getLpDaiEthPriceRay()) * 2;
@@ -989,7 +989,7 @@ contract SimulationTests is DSTest {
             hevm.warp(block.timestamp + 10 seconds);
             (, auctionPrice,,) = lpDaiEthClip.getStatus(auctionId);
         }
-        uint256 minProfit = amount * auctionPrice / RAY 
+        uint256 minProfit = amount * auctionPrice / RAY
             * minProfitPct / 100;
         assertEq(dai.balanceOf(bobAddr), 0);
         takeLpDaiEth(auctionId, amount, auctionPrice, minProfit);
@@ -1037,7 +1037,7 @@ contract SimulationTests is DSTest {
 
     function testTakeSteCRVProfit() public {
         uint256 amount = 30 * WAD;
-        uint256 minProfit = 30_000 * WAD;
+        uint256 minProfit = 3_000 * WAD;
         getSteCRV(amount);
         joinSteCRV(amount);
         frobMaxSteCRV(amount);
