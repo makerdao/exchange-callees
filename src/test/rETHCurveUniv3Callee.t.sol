@@ -268,7 +268,7 @@ contract CurveCalleeTest is DSTest {
     }
 
     function test_bigAmtWithComplexPath() public {
-        uint256 amt = 3000 * WAD;
+        uint256 amt = 1000 * WAD;
         newAuction(amt);
         uint24 poolAFee = 500;
         uint24 poolBFee = 100;
