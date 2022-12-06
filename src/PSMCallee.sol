@@ -36,6 +36,7 @@ interface TokenLike {
 
 interface PSMLike {
     function sellGem(address usr, uint256 gemAmt) external;
+    function gemJoin() external view returns (address);
 }
 
 contract PSMCallee {
@@ -75,7 +76,7 @@ contract PSMCallee {
             address to,            // address to send remaining DAI to
             address gemJoin,       // gemJoin adapter address
             uint256 minProfit,     // minimum profit in DAI to make [wad]
-            address psm            //
+            address psm            // psm address for swapping collateral to DAI
         ) = abi.decode(data, (address, address, uint256, address));
 
         // Convert slice to token precision
@@ -84,9 +85,9 @@ contract PSMCallee {
         // Exit gem to token
         GemJoinLike(gemJoin).exit(address(this), slice);
 
-        // Approve psm to take gem
+        // Approve psm's gemJoin to take gem
         TokenLike gem = GemJoinLike(gemJoin).gem();
-        gem.approve(psm, slice);
+        gem.approve(PSMLike(psm).gemJoin(), slice);
 
         // Calculate amount of DAI to Join (as erc20 WAD value)
         uint256 daiToJoin = _divup(owe, RAY);
