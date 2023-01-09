@@ -279,7 +279,14 @@ contract OneinchTests is DSTest {
     ) public {
         vat.hope(linkClipAddr);
         link.approve(ONE_INCH_ROUTER, amt);
-        bytes memory data = abi.encode(danAddr, linkJoinAddr, minProfit, ONE_INCH_ROUTER, ONE_INCH_PARAMETERS);
+        bytes memory data = abi.encode(
+            danAddr,
+            linkJoinAddr,
+            minProfit,
+            ONE_INCH_ROUTER,
+            ONE_INCH_PARAMETERS,
+            address(0)
+        );
         linkClip.take(auctionId, amt, max, danAddr, data);
     }
 

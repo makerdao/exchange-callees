@@ -19,24 +19,23 @@ pragma experimental ABIEncoderV2;
 
 interface GemJoinLike {
     function dec() external view returns (uint256);
-
     function gem() external view returns (TokenLike);
-
     function exit(address, uint256) external;
 }
 
 interface DaiJoinLike {
     function dai() external view returns (TokenLike);
-
     function join(address, uint256) external;
 }
 
 interface TokenLike {
     function approve(address, uint256) external;
-
     function transfer(address, uint256) external;
-
     function balanceOf(address) external view returns (uint256);
+}
+
+interface CharterManagerLike {
+    function exit(address crop, address usr, uint256 val) external;
 }
 
 interface IAggregationExecutor {
@@ -79,10 +78,10 @@ contract OneinchCallee {
         z = _add(x, _sub(y, 1)) / y;
     }
 
-    constructor(address daiJoinAddress) public {
-        daiJoin = DaiJoinLike(daiJoinAddress);
+    constructor(address daiJoin_) public {
+        daiJoin = DaiJoinLike(daiJoin_);
         dai = daiJoin.dai();
-        dai.approve(daiJoinAddress, 2**256 - 1);
+        dai.approve(daiJoin_, uint256(-1));
     }
 
     function _fromWad(address gemJoin, uint256 wad) internal view returns (uint256 amt) {
@@ -97,22 +96,26 @@ contract OneinchCallee {
     ) external {
         (
             address to, // address to send remaining DAI to
-            address gemJoinAddress, // gemJoin adapter address
+            address gemJoin, // gemJoin adapter address
             uint256 minProfit, // minimum profit in DAI to make [wad]
             address router, // tx.to address received from the 1inch API
-            bytes memory oneinchData // reencoded 1inch parameters
-        ) = abi.decode(data, (address, address, uint256, address, bytes));
+            bytes memory oneinchData, // reencoded 1inch parameters
+            address charterManager // pass address(0) if no manager
+        ) = abi.decode(data, (address, address, uint256, address, bytes, address));
 
         // Convert slice to token precision
-        slice = _fromWad(gemJoinAddress, slice);
+        slice = _fromWad(gemJoin, slice);
 
         // Exit gem to token
-        GemJoinLike(gemJoinAddress).exit(address(this), slice);
+        if(charterManager != address(0)) {
+            CharterManagerLike(charterManager).exit(gemJoin, address(this), slice);
+        } else {
+            GemJoinLike(gemJoin).exit(address(this), slice);
+        }
 
         // Approve 1inch to take gem
-        TokenLike gem = GemJoinLike(gemJoinAddress).gem();
+        TokenLike gem = GemJoinLike(gemJoin).gem();
         gem.approve(router, slice);
-        require(gem.balanceOf(address(this)) >= slice, 'gem-balance-too-low');
 
         // Calculate amount of DAI to Join (as erc20 WAD value)
         owe = _divup(owe, RAY);
@@ -120,7 +123,8 @@ contract OneinchCallee {
         uint256 oweWithProfit = _add(owe, minProfit);
 
         OneinchRouter.SwapDescription memory swapDescription;
-        { // Build initial swapDescription
+        {
+            // Build initial swapDescription
             swapDescription.srcToken = gem;
             swapDescription.dstToken = dai;
             swapDescription.dstReceiver = address(this);
@@ -128,7 +132,8 @@ contract OneinchCallee {
             swapDescription.minReturnAmount = oweWithProfit;
         }
 
-        { // Execute 1inch swap
+        {
+            // Execute 1inch swap
             (
                 IAggregationExecutor executor,
                 address srcReceiver,
@@ -143,10 +148,10 @@ contract OneinchCallee {
 
             // Execute
             OneinchRouter(router).swap(executor, swapDescription, permit, tradeData);
-            
-            // Check actual amount of dai returned
-            require(dai.balanceOf(address(this)) >= oweWithProfit, '1inch-returned-too-litle-dai');
+
         }
+        // Check actual amount of dai returned
+        require(dai.balanceOf(address(this)) >= oweWithProfit, '1inch-returned-too-litle-dai');
 
         // Although 1inch will accept all gems, this check is a sanity check, just in case
         if (gem.balanceOf(address(this)) > 0) {
