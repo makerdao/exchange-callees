@@ -281,7 +281,7 @@ contract CurveCalleeTest is DSTest {
             uint24(3000),
             address(0)
         );
-        Hevm(hevm).warp(block.timestamp + tail / 5);
+        Hevm(hevm).warp(block.timestamp + tail / 10);
         address osm = Chainlog(chainlog).getAddress("PIP_WSTETH");
         Hevm(hevm).store({
             c:   osm,
