@@ -1,4 +1,5 @@
 import path from 'path';
+import url from 'url';
 import { spawn } from 'child_process';
 import fetch from 'node-fetch';
 
@@ -43,9 +44,11 @@ async function getOneinchSwapParameters(linkAmount) {
 }
 
 async function executeForgeTest(testName, environmentVariables) {
-    console.info(`executing forge test "${testName}"...`);
+    const fileDirectory = path.dirname(url.fileURLToPath(import.meta.url));
+    const rootDirectory = path.resolve('..', '..', fileDirectory);
+    console.info(`executing forge test of the "${testName}" function in "${rootDirectory}"...`);
     const child = spawn('forge', ['test', '--match', testName], {
-        cwd: path.resolve(),
+        cwd: rootDirectory,
         stdio: 'inherit',
         env: {
             ...process.env,
