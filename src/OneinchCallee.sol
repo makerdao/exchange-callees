@@ -64,8 +64,8 @@ interface OneinchRouter {
 }
 
 contract OneinchCallee {
-    DaiJoinLike public daiJoin;
-    TokenLike public dai;
+    DaiJoinLike public immutable daiJoin;
+    TokenLike public immutable dai;
     uint256 public constant RAY = 10**27;
 
     function _add(uint256 x, uint256 y) internal pure returns (uint256 z) {
@@ -82,8 +82,8 @@ contract OneinchCallee {
 
     constructor(address daiJoin_) public {
         daiJoin = DaiJoinLike(daiJoin_);
-        dai = daiJoin.dai();
-        dai.approve(daiJoin_, uint256(-1));
+        dai = DaiJoinLike(daiJoin_).dai();
+        DaiJoinLike(daiJoin_).dai().approve(daiJoin_, uint256(-1));
     }
 
     function _fromWad(address gemJoin, uint256 wad) internal view returns (uint256 amt) {
