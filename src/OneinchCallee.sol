@@ -17,6 +17,8 @@
 pragma solidity >=0.6.12;
 pragma experimental ABIEncoderV2;
 
+import 'ds-test/test.sol';
+
 interface GemJoinLike {
     function dec() external view returns (uint256);
     function gem() external view returns (TokenLike);
@@ -98,10 +100,9 @@ contract OneinchCallee {
             address to, // address to send remaining DAI to
             address gemJoin, // gemJoin adapter address
             uint256 minProfit, // minimum profit in DAI to make [wad]
+            address charterManager, // pass address(0) if no manager
             address router, // tx.to address received from the 1inch API
-            bytes memory oneinchData, // reencoded 1inch parameters
-            address charterManager // pass address(0) if no manager
-        ) = abi.decode(data, (address, address, uint256, address, bytes, address));
+        ) = abi.decode(data, (address, address, uint256, address, address, bytes));
 
         // Convert slice to token precision
         slice = _fromWad(gemJoin, slice);
@@ -119,37 +120,25 @@ contract OneinchCallee {
 
         // Calculate amount of DAI to Join (as erc20 WAD value)
         owe = _divup(owe, RAY);
-
         uint256 oweWithProfit = _add(owe, minProfit);
 
-        OneinchRouter.SwapDescription memory swapDescription;
-        {
-            // Build initial swapDescription
-            swapDescription.srcToken = gem;
-            swapDescription.dstToken = dai;
-            swapDescription.dstReceiver = address(this);
-            swapDescription.amount = slice;
-            swapDescription.minReturnAmount = oweWithProfit;
-        }
-
-        {
-            // Execute 1inch swap
+        { // Execute 1inch swap
             (
                 IAggregationExecutor executor,
-                address srcReceiver,
-                uint256 flags,
+                OneinchRouter.SwapDescription memory swapDescription,
                 bytes memory permit,
                 bytes memory tradeData
-            ) = abi.decode(oneinchData, (IAggregationExecutor, address, uint256, bytes, bytes));
+            ) = abi.decode(data[228:], (IAggregationExecutor, OneinchRouter.SwapDescription, bytes, bytes));
 
-            // Add missing swapDescription parameters
-            swapDescription.srcReceiver = srcReceiver;
-            swapDescription.flags = flags;
+            // Overwrite key values
+            swapDescription.amount = slice;
+            swapDescription.minReturnAmount = oweWithProfit;
+            swapDescription.dstReceiver = address(this);
 
             // Execute
             OneinchRouter(router).swap(executor, swapDescription, permit, tradeData);
-
         }
+
         // Check actual amount of dai returned
         require(dai.balanceOf(address(this)) >= oweWithProfit, '1inch-returned-too-litle-dai');
 

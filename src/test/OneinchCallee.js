@@ -1,11 +1,9 @@
 import path from 'path';
 import { spawn } from 'child_process';
 import fetch from 'node-fetch';
-import { utils } from 'ethers';
 
 const CHAIN_ID = 1;
 const BASE_URL = `https://api.1inch.io/v5.0/${CHAIN_ID}`; // see https://docs.1inch.io/docs/aggregation-protocol/api/swagger/
-const EXPECTED_SIGNATURE = '0x12aa3caf'; // see https://www.4byte.directory/signatures/?bytes4_signature=0x12aa3caf
 
 async function executeOneinchRequest(methodName, queryParams) {
     const url = `${BASE_URL}${methodName}?${new URLSearchParams(queryParams)}`;
@@ -23,9 +21,10 @@ async function executeOneinchRequest(methodName, queryParams) {
 }
 
 async function getOneinchValidProtocols() {
+    // Fetch all supported protocols except for the limit orders
     const response = await executeOneinchRequest('/liquidity-sources');
     const protocolIds = response.protocols.map(protocol => protocol.id);
-    return protocolIds.filter(protocolId => !protocolId.toLowerCase().includes('limit')); // filter out limit orders
+    return protocolIds.filter(protocolId => !protocolId.toLowerCase().includes('limit'));
 }
 
 async function getOneinchSwapParameters(linkAmount) {
@@ -43,42 +42,19 @@ async function getOneinchSwapParameters(linkAmount) {
     return await executeOneinchRequest('/swap', swapParams);
 }
 
-function repackageCallData(callData) {
-    // We don't want to send certain data twice to the callee (because storage is expensive)
-    // swapDescription.srcToken – as it's already known to callee as gem address
-    // swapDescription.dstToken - as it should always be DAI
-    // swapDescription.dstReceiver - as it will be the callee address itself
-    // swapDescription.amount – as it will be overwritten to the exact amount of collateral available
-    // swapDescription.minReturnAmount - as it will be overwritten to the exact amount of debt + profit
-    const functionSignature = utils.hexDataSlice(callData, 0, 4);
-    if (functionSignature !== EXPECTED_SIGNATURE) {
-        throw new Error(`Unexpected 1inch function signature: ${functionSignature}, expected: ${EXPECTED_SIGNATURE}`);
-    }
-    const encodedParameters = utils.hexDataSlice(callData, 4);
-    const decodedParameters = utils.defaultAbiCoder.decode(
-        // according to https://etherscan.io/address/0x11111112542D85B3EF69AE05771c2dCCff4fAa26#code
-        [
-            'address executor',
-            '(address srcToken, address dstToken, address srcReceiver, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags) swapDescription',
-            'bytes permit',
-            'bytes tradeData',
-        ],
-        encodedParameters
-    );
-    console.info('decoded 1inch parameters', decodedParameters);
-    const repackagedParameters = utils.defaultAbiCoder.encode(
-        ['address', 'address', 'uint256', 'bytes', 'bytes'],
-        [
-            decodedParameters.executor,
-            decodedParameters.swapDescription.srcReceiver,
-            decodedParameters.swapDescription.flags,
-            decodedParameters.permit,
-            decodedParameters.tradeData,
-        ]
-    );
-    console.info('repackaged parameters', repackagedParameters);
-    console.info('saved calldata space (in bytes)', (callData.length - repackagedParameters.length) / 2);
-    return repackagedParameters;
+async function executeForgeTest(testName, environmentVariables) {
+    console.info(`executing forge test "${testName}"...`);
+    const child = spawn('forge', ['test', '--match', testName], {
+        cwd: path.resolve(),
+        stdio: 'inherit',
+        env: {
+            ...process.env,
+            ...environmentVariables,
+        },
+    });
+    await new Promise(resolve => {
+        child.on('close', resolve);
+    });
 }
 
 async function main() {
@@ -86,20 +62,9 @@ async function main() {
         '10000' + '0'.repeat(18) // LINK amount to swap
     );
     console.info('received oneinch API response:', oneinchResponse);
-    console.info('cleaning up call data...');
-    const repackagedParameters = repackageCallData(oneinchResponse.tx.data);
-    console.info('executing forge test...');
-    const child = spawn('forge', ['test', '--match', 'testTakeLinkOneinchProfit'], {
-        cwd: path.resolve(),
-        stdio: 'inherit',
-        env: {
-            ...process.env,
-            ONE_INCH_ROUTER: oneinchResponse.tx.to,
-            ONE_INCH_PARAMETERS: repackagedParameters,
-        },
-    });
-    await new Promise(resolve => {
-        child.on('close', resolve);
+    await executeForgeTest('testTakeLinkOneinchProfit', {
+        ONE_INCH_ROUTER: oneinchResponse.tx.to,
+        ONE_INCH_PARAMETERS: oneinchResponse.tx.data,
     });
 }
 
