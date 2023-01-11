@@ -103,6 +103,7 @@ contract OneinchCallee {
             uint256 minProfit, // minimum profit in DAI to make [wad]
             address charterManager, // pass address(0) if no manager
             address router, // tx.to address received from the 1inch API
+            bytes memory oneinchData // tx.data received from the 1inch API, without first 4 bytes
         ) = abi.decode(data, (address, address, uint256, address, address, bytes));
 
         // Convert slice to token precision
@@ -129,12 +130,11 @@ contract OneinchCallee {
                 OneinchRouter.SwapDescription memory swapDescription,
                 bytes memory permit,
                 bytes memory tradeData
-            ) = abi.decode(data[228:], (IAggregationExecutor, OneinchRouter.SwapDescription, bytes, bytes));
+            ) = abi.decode(oneinchData, (IAggregationExecutor, OneinchRouter.SwapDescription, bytes, bytes));
 
             // Overwrite key values
             swapDescription.amount = slice;
             swapDescription.minReturnAmount = oweWithProfit;
-            swapDescription.dstReceiver = address(this);
 
             // Execute
             OneinchRouter(router).swap(executor, swapDescription, permit, tradeData);

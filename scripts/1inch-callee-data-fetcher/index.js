@@ -2,9 +2,11 @@ import path from 'path';
 import url from 'url';
 import { spawn } from 'child_process';
 import fetch from 'node-fetch';
+import { utils } from 'ethers';
 
 const CHAIN_ID = 1;
 const BASE_URL = `https://api.1inch.io/v5.0/${CHAIN_ID}`; // see https://docs.1inch.io/docs/aggregation-protocol/api/swagger/
+const EXPECTED_SIGNATURE = '0x12aa3caf'; // see https://www.4byte.directory/signatures/?bytes4_signature=0x12aa3caf
 
 async function executeOneinchRequest(methodName, queryParams) {
     const url = `${BASE_URL}${methodName}?${new URLSearchParams(queryParams)}`;
@@ -32,7 +34,7 @@ async function getOneinchSwapParameters(linkAmount) {
     const swapParams = {
         fromTokenAddress: '0x514910771AF9Ca656af840dff83E8264EcF986CA', // LINK
         toTokenAddress: '0x6B175474E89094C44Da98b954EedeAC495271d0F', // MCD_DAI
-        fromAddress: '0x0000000000000000000000000000000000000000', // yet unknown callee address
+        fromAddress: '0x0000000000000000000000000000000000000000', // have to be callee address
         amount: linkAmount,
         slippage: 1,
         allowPartialFill: false, // disable partial fill
@@ -40,7 +42,13 @@ async function getOneinchSwapParameters(linkAmount) {
         compatibilityMode: true, // always receive parameters for the `swap` call
         protocols: (await getOneinchValidProtocols()).join(','),
     };
-    return await executeOneinchRequest('/swap', swapParams);
+    const oneinchResponse = await executeOneinchRequest('/swap', swapParams);
+    console.info('received oneinch API response:', oneinchResponse);
+    const functionSignature = utils.hexDataSlice(oneinchResponse.tx.data, 0, 4);
+    if (functionSignature !== EXPECTED_SIGNATURE) {
+        throw new Error(`Unexpected 1inch function signature: ${functionSignature}, expected: ${EXPECTED_SIGNATURE}`);
+    }
+    return oneinchResponse;
 }
 
 async function executeForgeTest(testName, environmentVariables) {
@@ -64,10 +72,9 @@ async function main() {
     const oneinchResponse = await getOneinchSwapParameters(
         '10000' + '0'.repeat(18) // LINK amount to swap
     );
-    console.info('received oneinch API response:', oneinchResponse);
     await executeForgeTest('testTakeLinkOneinchProfit', {
         ONE_INCH_ROUTER: oneinchResponse.tx.to,
-        ONE_INCH_PARAMETERS: oneinchResponse.tx.data,
+        ONE_INCH_PARAMETERS: utils.hexDataSlice(oneinchResponse.tx.data, 4),
     });
 }
 
