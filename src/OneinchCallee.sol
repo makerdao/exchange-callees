@@ -82,8 +82,9 @@ contract OneinchCallee {
 
     constructor(address daiJoin_) public {
         daiJoin = DaiJoinLike(daiJoin_);
-        dai = DaiJoinLike(daiJoin_).dai();
-        DaiJoinLike(daiJoin_).dai().approve(daiJoin_, uint256(-1));
+        TokenLike dai_ = DaiJoinLike(daiJoin_).dai();
+        dai = dai_;
+        dai_.approve(daiJoin_, uint256(-1));
     }
 
     function _fromWad(address gemJoin, uint256 wad) internal view returns (uint256 amt) {
