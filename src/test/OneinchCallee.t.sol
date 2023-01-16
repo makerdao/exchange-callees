@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2021 Maker Ecosystem Growth Holdings, INC.
-// Copyright (C) 2021 Dai Foundation
+// Copyright (C) 2023 Dai Foundation
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -20,7 +19,7 @@ pragma experimental ABIEncoderV2;
 
 import 'ds-test/test.sol';
 import 'dss-interfaces/Interfaces.sol';
-import {OneinchCallee} from '../OneinchCallee.sol';
+import {OneInchCallee} from '../OneInchCallee.sol';
 
 import 'dss/clip.sol';
 import 'dss/abaci.sol';
@@ -35,11 +34,7 @@ interface Hevm {
     function envOr(string calldata, bytes calldata) external returns (bytes memory);
 }
 
-interface WethAbstract is GemAbstract {
-    function deposit() external payable;
-}
-
-interface OneinchRouter {
+interface OneInchRouter {
     struct SwapDescription {
         address srcToken;
         address dstToken;
@@ -57,7 +52,7 @@ contract VaultHolder {
     }
 }
 
-contract OneinchTests is DSTest {
+contract OneInchTests is DSTest {
     address constant hevmAddr = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
     bytes32 constant linkName = 'LINK-A';
 
@@ -98,7 +93,6 @@ contract OneinchTests is DSTest {
         }
     }
 
-    address wethAddr;
     address linkAddr;
     address daiAddr;
     address vatAddr;
@@ -110,7 +104,6 @@ contract OneinchTests is DSTest {
     address linkPipAddr;
 
     Hevm hevm;
-    WethAbstract weth;
     GemAbstract link;
     VatAbstract vat;
     DaiAbstract dai;
@@ -124,7 +117,6 @@ contract OneinchTests is DSTest {
     function setAddresses() private {
         ChainlogHelper helper = new ChainlogHelper();
         ChainlogAbstract chainLog = helper.ABSTRACT();
-        wethAddr = chainLog.getAddress('ETH');
         linkAddr = chainLog.getAddress('LINK');
         vatAddr = chainLog.getAddress('MCD_VAT');
         daiAddr = chainLog.getAddress('MCD_DAI');
@@ -138,7 +130,6 @@ contract OneinchTests is DSTest {
 
     function setInterfaces() private {
         hevm = Hevm(hevmAddr);
-        weth = WethAbstract(wethAddr);
         link = GemAbstract(linkAddr);
         vat = VatAbstract(vatAddr);
         dai = DaiAbstract(daiAddr);
@@ -151,10 +142,10 @@ contract OneinchTests is DSTest {
 
     VaultHolder ali;
     address aliAddr;
-    OneinchCallee dan;
+    OneInchCallee dan;
     address danAddr;
-    address ONE_INCH_ROUTER;
-    bytes ONE_INCH_PARAMETERS;
+    address oneInchRouter;
+    bytes oneInchTxData;
 
     function getPermissions() private {
         hevm.store(dogAddr, keccak256(abi.encode(address(this), uint256(0))), bytes32(uint256(1)));
@@ -170,10 +161,10 @@ contract OneinchTests is DSTest {
         uint256 ONE_INCH_BLOCK = hevm.envOr('ONE_INCH_BLOCK', 16327090);
         hevm.rollFork(ONE_INCH_BLOCK);
         log_named_uint('loaded ONE_INCH_BLOCK env var:', ONE_INCH_BLOCK);
-        ONE_INCH_ROUTER = hevm.envOr('ONE_INCH_ROUTER', 0x1111111254EEB25477B68fb85Ed929f73A960582);
-        log_named_address('loaded ONE_INCH_ROUTER env var:', ONE_INCH_ROUTER);
-        ONE_INCH_PARAMETERS = hevm.envOr('ONE_INCH_PARAMETERS', hex'00000000000000000000000053222470cdcfb8081c0e3a50fd106f0d69e63f20000000000000000000000000514910771af9ca656af840dff83e8264ecf986ca0000000000000000000000006b175474e89094c44da98b954eedeac495271d0f00000000000000000000000053222470cdcfb8081c0e3a50fd106f0d69e63f20000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000021e19e0c9bab2400000000000000000000000000000000000000000000000000bf54254f482ad99e71b000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000001400000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002d60000000000000000000000000000000000000002b800028a00024000001a0020d6bdbf78514910771af9ca656af840dff83e8264ecf986ca00a007e5c0d200000000000000000000000000000000000000000000020200011b0000cc00a0c9e75c480000000000000000310100000000000000000000000000000000000000000000000000009e00004f00a0fbb7cd0600e99481dc77691d8e2456e5f3f61c1810adfc1503000200000000000000000018514910771af9ca656af840dff83e8264ecf986cac02aaa39b223fe8d0a0e5c4f27ead9083c756cc202a00000000000000000000000000000000000000000000000000000000000000001ee63c1e501a6cc3c2531fdaa6ae1a3ca84c2855806728693e8514910771af9ca656af840dff83e8264ecf986ca02a00000000000000000000000000000000000000000000000000000000000000001ee63c1e50088e6a0c2ddd26feeb64f039a2c41296fcb3f5640c02aaa39b223fe8d0a0e5c4f27ead9083c756cc200a0bd46a3430382698aecc9e28e9bb27608bd52cf57f704bd1b83000000000000000000000336a13a9247ea42d743238089903570127dda72fe4400000000000000000000035dae37d54ae477268b9997d4161b96b8200755935c000000000000000000000337000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb4800000000000000000000000082698aecc9e28e9bb27608bd52cf57f704bd1b83000000000000000000000000ae37d54ae477268b9997d4161b96b8200755935c0000000000000000000000006b175474e89094c44da98b954eedeac495271d0f00a0f2fa6b666b175474e89094c44da98b954eedeac495271d0f000000000000000000000000000000000000000000000c142e50a43b9814fe2100000000000000004559e3d83a48a2da80a06c4eca276b175474e89094c44da98b954eedeac495271d0f1111111254eeb25477b68fb85ed929f73a96058200000000000000000000cfee7c08');
-        log_named_bytes('loaded ONE_INCH_PARAMETERS env var:', ONE_INCH_PARAMETERS);
+        oneInchRouter = hevm.envOr('ONE_INCH_ROUTER', 0x1111111254EEB25477B68fb85Ed929f73A960582);
+        log_named_address('oneInchRouter value (default or loaded from ONE_INCH_ROUTER env var):', oneInchRouter);
+        oneInchTxData = hevm.envOr('ONE_INCH_TX_DATA', hex'00000000000000000000000053222470cdcfb8081c0e3a50fd106f0d69e63f20000000000000000000000000514910771af9ca656af840dff83e8264ecf986ca0000000000000000000000006b175474e89094c44da98b954eedeac495271d0f00000000000000000000000053222470cdcfb8081c0e3a50fd106f0d69e63f20000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000021e19e0c9bab2400000000000000000000000000000000000000000000000000bf54254f482ad99e71b000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000001400000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002d60000000000000000000000000000000000000002b800028a00024000001a0020d6bdbf78514910771af9ca656af840dff83e8264ecf986ca00a007e5c0d200000000000000000000000000000000000000000000020200011b0000cc00a0c9e75c480000000000000000310100000000000000000000000000000000000000000000000000009e00004f00a0fbb7cd0600e99481dc77691d8e2456e5f3f61c1810adfc1503000200000000000000000018514910771af9ca656af840dff83e8264ecf986cac02aaa39b223fe8d0a0e5c4f27ead9083c756cc202a00000000000000000000000000000000000000000000000000000000000000001ee63c1e501a6cc3c2531fdaa6ae1a3ca84c2855806728693e8514910771af9ca656af840dff83e8264ecf986ca02a00000000000000000000000000000000000000000000000000000000000000001ee63c1e50088e6a0c2ddd26feeb64f039a2c41296fcb3f5640c02aaa39b223fe8d0a0e5c4f27ead9083c756cc200a0bd46a3430382698aecc9e28e9bb27608bd52cf57f704bd1b83000000000000000000000336a13a9247ea42d743238089903570127dda72fe4400000000000000000000035dae37d54ae477268b9997d4161b96b8200755935c000000000000000000000337000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb4800000000000000000000000082698aecc9e28e9bb27608bd52cf57f704bd1b83000000000000000000000000ae37d54ae477268b9997d4161b96b8200755935c0000000000000000000000006b175474e89094c44da98b954eedeac495271d0f00a0f2fa6b666b175474e89094c44da98b954eedeac495271d0f000000000000000000000000000000000000000000000c142e50a43b9814fe2100000000000000004559e3d83a48a2da80a06c4eca276b175474e89094c44da98b954eedeac495271d0f1111111254eeb25477b68fb85ed929f73a96058200000000000000000000cfee7c08');
+        log_named_bytes('oneInchTxData (default or loaded from ONE_INCH_TX_DATA env var):', oneInchTxData);
     }
 
     function setUp() public {
@@ -182,7 +173,7 @@ contract OneinchTests is DSTest {
         setEnvVars();
         ali = new VaultHolder(vat);
         aliAddr = address(ali);
-        dan = new OneinchCallee(daiJoinAddr);
+        dan = new OneInchCallee(daiJoinAddr);
         danAddr = address(dan);
         getPermissions();
     }
@@ -273,16 +264,16 @@ contract OneinchTests is DSTest {
         assertEq(tic, block.timestamp);
     }
 
-    function reencodedOneinchData() private view returns (bytes memory output) {
+    function reencodedOneInchData() private view returns (bytes memory output) {
         // We wouldn't need to reincode 1inch data outside of the tests
-        // if  OneinchCallee address would be known at the time of the API request
+        // if  OneInchCallee address would be known at the time of the API request
         // this is just a workaround for the test
         (
             address executor,
-            OneinchRouter.SwapDescription memory swapDescription,
+            OneInchRouter.SwapDescription memory swapDescription,
             bytes memory permit,
             bytes memory tradeData
-        ) = abi.decode(ONE_INCH_PARAMETERS, (address, OneinchRouter.SwapDescription, bytes, bytes));
+        ) = abi.decode(oneInchTxData, (address, OneInchRouter.SwapDescription, bytes, bytes));
         swapDescription.dstReceiver = address(dan);
         output = abi.encode(
             executor,
@@ -299,19 +290,19 @@ contract OneinchTests is DSTest {
         uint256 minProfit
     ) public {
         vat.hope(linkClipAddr);
-        link.approve(ONE_INCH_ROUTER, amt);
+        link.approve(oneInchRouter, amt);
         bytes memory data = abi.encode(
             danAddr,
             linkJoinAddr,
             minProfit,
             address(0),
-            ONE_INCH_ROUTER,
-            reencodedOneinchData()
+            oneInchRouter,
+            reencodedOneInchData()
         );
         linkClip.take(auctionId, amt, max, danAddr, data);
     }
 
-    function testTakeLinkOneinchProfit() public {
+    function testTakeLinkOneInchProfit() public {
         uint256 minProfitPct = 30;
         (, , , , uint256 dustRad) = vat.ilks(linkName);
         uint256 amountLink = (dustRad / getLinkPriceRay()) * 2;

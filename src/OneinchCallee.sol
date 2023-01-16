@@ -17,8 +17,6 @@
 pragma solidity >=0.6.12;
 pragma experimental ABIEncoderV2;
 
-import 'ds-test/test.sol';
-
 interface GemJoinLike {
     function dec() external view returns (uint256);
     function gem() external view returns (TokenLike);
@@ -40,11 +38,7 @@ interface CharterManagerLike {
     function exit(address crop, address usr, uint256 val) external;
 }
 
-interface IAggregationExecutor {
-    function callBytes(address msgSender, bytes calldata data) external payable;
-}
-
-interface OneinchRouter {
+interface OneInchRouter {
     struct SwapDescription {
         TokenLike srcToken;
         TokenLike dstToken;
@@ -56,17 +50,18 @@ interface OneinchRouter {
     }
 
     function swap(
-        IAggregationExecutor executor,
+        address executor,
         SwapDescription calldata desc,
         bytes calldata permit,
         bytes calldata data
     ) external payable returns (uint256 returnAmount, uint256 spentAmount);
 }
 
-contract OneinchCallee {
+contract OneInchCallee {
     DaiJoinLike public immutable daiJoin;
-    TokenLike public immutable dai;
-    uint256 public constant RAY = 10**27;
+    TokenLike   public immutable dai;
+
+    uint256     public constant RAY = 10**27;
 
     function _add(uint256 x, uint256 y) internal pure returns (uint256 z) {
         require((z = x + y) >= x, 'ds-math-add-overflow');
@@ -81,10 +76,10 @@ contract OneinchCallee {
     }
 
     constructor(address daiJoin_) public {
-        daiJoin = DaiJoinLike(daiJoin_);
+        daiJoin        = DaiJoinLike(daiJoin_);
         TokenLike dai_ = DaiJoinLike(daiJoin_).dai();
-        dai = dai_;
-        dai_.approve(daiJoin_, uint256(-1));
+        dai            = dai_;
+        dai_.approve(daiJoin_, type(uint256).max);
     }
 
     function _fromWad(address gemJoin, uint256 wad) internal view returns (uint256 amt) {
@@ -92,18 +87,18 @@ contract OneinchCallee {
     }
 
     function clipperCall(
-        address sender, // Clipper caller, pays back the loan
-        uint256 owe, // Dai amount to pay back          [rad]
-        uint256 slice, // Gem amount received           [wad]
+        address sender,     // Clipper caller, pays back the loan
+        uint256 owe,        // Dai amount to pay back          [rad]
+        uint256 slice,      // Gem amount received           [wad]
         bytes calldata data // Extra data, see below
     ) external {
         (
-            address to, // address to send remaining DAI to
-            address gemJoin, // gemJoin adapter address
-            uint256 minProfit, // minimum profit in DAI to make [wad]
-            address charterManager, // pass address(0) if no manager
-            address router, // tx.to address received from the 1inch API
-            bytes memory oneinchData // tx.data received from the 1inch API, without first 4 bytes
+            address to,              // address to send remaining DAI to
+            address gemJoin,         // gemJoin adapter address
+            uint256 minProfit,       // minimum profit in DAI to make [wad]
+            address charterManager,  // pass address(0) if no manager
+            address router,          // tx.to address received from the 1inch API
+            bytes memory OneInchData // tx.data received from the 1inch API, without first 4 bytes
         ) = abi.decode(data, (address, address, uint256, address, address, bytes));
 
         // Convert slice to token precision
@@ -126,18 +121,18 @@ contract OneinchCallee {
 
         { // Execute 1inch swap
             (
-                IAggregationExecutor executor,
-                OneinchRouter.SwapDescription memory swapDescription,
-                bytes memory permit,
+                address executor,
+                OneInchRouter.SwapDescription memory swapDescription,
+                ,
                 bytes memory tradeData
-            ) = abi.decode(oneinchData, (IAggregationExecutor, OneinchRouter.SwapDescription, bytes, bytes));
+            ) = abi.decode(OneInchData, (address, OneInchRouter.SwapDescription, bytes, bytes));
 
             // Overwrite key values
             swapDescription.amount = slice;
             swapDescription.minReturnAmount = oweWithProfit;
 
             // Execute
-            OneinchRouter(router).swap(executor, swapDescription, permit, tradeData);
+            OneInchRouter(router).swap(executor, swapDescription, "", tradeData);
         }
 
         // Check actual amount of dai returned

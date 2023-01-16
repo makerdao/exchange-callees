@@ -30,21 +30,22 @@ async function getOneinchValidProtocols() {
     return protocolIds.filter(protocolId => !protocolId.toLowerCase().includes('limit'));
 }
 
-async function getOneinchSwapParameters(linkAmount) {
+async function getOneinchSwapParameters({ amount, slippage }) {
+    // Documentation https://docs.1inch.io/docs/aggregation-protocol/api/swap-params/
     const swapParams = {
         fromTokenAddress: '0x514910771AF9Ca656af840dff83E8264EcF986CA', // LINK
         toTokenAddress: '0x6B175474E89094C44Da98b954EedeAC495271d0F', // MCD_DAI
         fromAddress: '0x0000000000000000000000000000000000000000', // have to be callee address
-        amount: linkAmount,
-        slippage: 1,
+        amount,
+        slippage,
         allowPartialFill: false, // disable partial fill
-        disableEstimate: true, // disable allowance checks
+        disableEstimate: true, // disable eth_estimateGas
         compatibilityMode: true, // always receive parameters for the `swap` call
         protocols: (await getOneinchValidProtocols()).join(','),
     };
     const oneinchResponse = await executeOneinchRequest('/swap', swapParams);
     console.info('received oneinch API response:', oneinchResponse);
-    const functionSignature = utils.hexDataSlice(oneinchResponse.tx.data, 0, 4);
+    const functionSignature = utils.hexDataSlice(oneinchResponse.tx.data, 0, 4); // see https://docs.soliditylang.org/en/develop/abi-spec.html#function-selector
     if (functionSignature !== EXPECTED_SIGNATURE) {
         throw new Error(`Unexpected 1inch function signature: ${functionSignature}, expected: ${EXPECTED_SIGNATURE}`);
     }
@@ -69,12 +70,13 @@ async function executeForgeTest(testName, environmentVariables) {
 }
 
 async function main() {
-    const oneinchResponse = await getOneinchSwapParameters(
-        '10000' + '0'.repeat(18) // LINK amount to swap
-    );
-    await executeForgeTest('testTakeLinkOneinchProfit', {
+    const oneinchResponse = await getOneinchSwapParameters({
+        amount: '10000' + '0'.repeat(18), // LINK amount to swap
+        slippage: 1, // Desired slippage value from 0 to 50
+    });
+    await executeForgeTest('testTakeLinkOneInchProfit', {
         ONE_INCH_ROUTER: oneinchResponse.tx.to,
-        ONE_INCH_PARAMETERS: utils.hexDataSlice(oneinchResponse.tx.data, 4),
+        ONE_INCH_TX_DATA: utils.hexDataSlice(oneinchResponse.tx.data, 4), // remove function signature
     });
 }
 
