@@ -1,12 +1,27 @@
 import path from 'path';
 import url from 'url';
 import { spawn } from 'child_process';
+import * as dotenv from 'dotenv';
 import fetch from 'node-fetch';
-import { utils } from 'ethers';
+import { ethers, utils } from 'ethers';
+
+const fileDirectory = path.dirname(url.fileURLToPath(import.meta.url));
+const rootDirectory = path.join(fileDirectory, '..', '..');
+dotenv.config({ path: path.resolve(rootDirectory, '.env') });
 
 const CHAIN_ID = 1;
 const BASE_URL = `https://api.1inch.io/v5.0/${CHAIN_ID}`; // see https://docs.1inch.io/docs/aggregation-protocol/api/swagger/
 const EXPECTED_SIGNATURE = '0x12aa3caf'; // see https://www.4byte.directory/signatures/?bytes4_signature=0x12aa3caf
+
+async function getLatestBlockNumber() {
+    const rpcUrl = process.env.FOUNDRY_ETH_RPC_URL;
+    if (!rpcUrl) {
+        throw new Error('please provide FOUNDRY_ETH_RPC_URL env var');
+    }
+    const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+    const latestBlock = await provider.getBlock('latest');
+    return latestBlock.number;
+}
 
 async function executeOneinchRequest(methodName, queryParams) {
     const url = `${BASE_URL}${methodName}?${new URLSearchParams(queryParams)}`;
@@ -53,8 +68,6 @@ async function getOneinchSwapParameters({ amount, slippage }) {
 }
 
 async function executeForgeTest(testName, environmentVariables) {
-    const fileDirectory = path.dirname(url.fileURLToPath(import.meta.url));
-    const rootDirectory = path.resolve('..', '..', fileDirectory);
     console.info(`executing forge test of the "${testName}" function in "${rootDirectory}"...`);
     const child = spawn('forge', ['test', '--match', testName], {
         cwd: rootDirectory,
@@ -70,11 +83,13 @@ async function executeForgeTest(testName, environmentVariables) {
 }
 
 async function main() {
+    const latestBlockNumber = await getLatestBlockNumber();
     const oneinchResponse = await getOneinchSwapParameters({
         amount: '10000' + '0'.repeat(18), // LINK amount to swap
         slippage: 1, // Desired slippage value from 0 to 50
     });
     await executeForgeTest('testTakeLinkOneInchProfit', {
+        ONE_INCH_BLOCK: latestBlockNumber,
         ONE_INCH_ROUTER: oneinchResponse.tx.to,
         ONE_INCH_TX_DATA: utils.hexDataSlice(oneinchResponse.tx.data, 4), // remove function signature
     });
