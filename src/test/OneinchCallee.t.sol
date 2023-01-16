@@ -264,6 +264,17 @@ contract OneInchTests is DSTest {
         assertEq(tic, block.timestamp);
     }
 
+    function createLinkAuction() private returns (uint256 auctionId, uint256 amountLinkRay, uint256 auctionPrice) {
+        (, , , , uint256 dustRad) = vat.ilks(linkName);
+        amountLinkRay = (dustRad / getLinkPriceRay()) * 2;
+        getLink(amountLinkRay);
+        joinLink(amountLinkRay);
+        frobMax(amountLinkRay, linkName);
+        drip(linkName);
+        auctionId = barkLink();
+        (, auctionPrice, , ) = linkClip.getStatus(auctionId);
+    }
+
     function reencodedOneInchData() private view returns (bytes memory output) {
         // We wouldn't need to reincode 1inch data outside of the tests
         // if  OneInchCallee address would be known at the time of the API request
@@ -303,23 +314,40 @@ contract OneInchTests is DSTest {
     }
 
     function testTakeLinkOneInchProfit() public {
-        uint256 minProfitPct = 30;
-        (, , , , uint256 dustRad) = vat.ilks(linkName);
-        uint256 amountLink = (dustRad / getLinkPriceRay()) * 2;
-        getLink(amountLink);
-        joinLink(amountLink);
-        frobMax(amountLink, linkName);
-        drip(linkName);
-        uint256 auctionId = barkLink();
-        (, uint256 auctionPrice, , ) = linkClip.getStatus(auctionId);
+        (uint256 auctionId, uint256 amountLinkRay, uint256 auctionPrice) = createLinkAuction();
         uint256 linkPrice = getLinkPrice();
+        uint256 minProfitPct = 30;
         while (((((auctionPrice / uint256(1e9)) * 11) / 10) * (100 + minProfitPct)) / 100 > linkPrice) {
-            hevm.warp(block.timestamp + 10 minutes);
+            hevm.warp(block.timestamp + 10 seconds);
             (, auctionPrice, , ) = linkClip.getStatus(auctionId);
         }
-        uint256 minProfit = (((amountLink * auctionPrice) / RAY) * minProfitPct) / 100;
+        uint256 minProfit = (((amountLinkRay * auctionPrice) / RAY) * minProfitPct) / 100;
         assertEq(dai.balanceOf(danAddr), 0);
-        takeLink(auctionId, amountLink, auctionPrice, minProfit);
+        takeLink(auctionId, amountLinkRay, auctionPrice, minProfit);
         assertGe(dai.balanceOf(danAddr), minProfit);
+    }
+
+    function testTakeLinkOneInchNoProfit() public {
+        (uint256 auctionId, uint256 amountLinkRay, uint256 auctionPrice) = createLinkAuction();
+        uint256 linkPrice = getLinkPrice();
+        while (auctionPrice / uint256(1e9) * 11 / 10 > linkPrice) {
+            hevm.warp(block.timestamp + 10 seconds);
+            (, auctionPrice,,) = linkClip.getStatus(auctionId);
+        }
+        assertEq(dai.balanceOf(danAddr), 0);
+        takeLink(auctionId, amountLinkRay, auctionPrice, 0);
+        assertLt(dai.balanceOf(danAddr), amountLinkRay * auctionPrice / RAY / 5);
+    }
+
+    function testFailTakeLinkOneInchWithTooMuchProfit() public {
+        (uint256 auctionId, uint256 amountLinkRay, uint256 auctionPrice) = createLinkAuction();
+        uint256 linkPrice = getLinkPrice();
+        while (auctionPrice / uint256(1e9) * 11 / 10 > linkPrice) {
+            hevm.warp(block.timestamp + 10 seconds);
+            (, auctionPrice,,) = linkClip.getStatus(auctionId);
+        }
+        assertEq(dai.balanceOf(danAddr), 0);
+        uint256 tooMuchProfit = ((amountLinkRay * auctionPrice) / RAY) * 10;
+        takeLink(auctionId, amountLinkRay, auctionPrice, tooMuchProfit);
     }
 }
