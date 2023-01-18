@@ -277,7 +277,7 @@ contract OneInchTests is DSTest {
 
     function reencodedOneInchData() private view returns (bytes memory output) {
         // We wouldn't need to reincode 1inch data outside of the tests
-        // if  OneInchCallee address would be known at the time of the API request
+        // if OneInchCallee address would be known at the time of the API request
         // this is just a workaround for the test
         (
             address executor,
