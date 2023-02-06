@@ -3,7 +3,7 @@ ds-math/=lib/exchange-callees/lib/ds-math/src/
 ds-note/=lib/exchange-callees/lib/dss/lib/ds-value/lib/ds-thing/lib/ds-note/src/
 ds-pause/=lib/exchange-callees/lib/dss-gem-joins/lib/dss-deploy/lib/ds-pause/src/
 ds-proxy/=lib/exchange-callees/lib/dss-charter/lib/proxy-registry/lib/ds-proxy/src/
-ds-test/=lib/solmate/lib/ds-test/src/
+ds-test/=lib/forge-std/lib/ds-test/src/
 ds-thing/=lib/exchange-callees/lib/dss/lib/ds-value/lib/ds-thing/src/
 ds-token/=lib/exchange-callees/lib/dss/lib/ds-token/src/
 ds-value/=lib/exchange-callees/lib/dss/lib/ds-value/src/
@@ -18,4 +18,4 @@ exchange-callees/=lib/exchange-callees/src/
 forge-std/=lib/forge-std/src/
 proxy-manager-clipper/=lib/exchange-callees/lib/proxy-manager-clipper/src/
 proxy-registry/=lib/exchange-callees/lib/dss-charter/lib/proxy-registry/src/
-solmate/=lib/solmate/src/
+
