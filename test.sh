@@ -1,7 +1,8 @@
 #! /bin/bash
 
 if [[ $# -eq 0 ]] ; then
-    dapp --use solc:0.6.12 test --rpc
+    forge test --use solc:0.6.12 --fork-url "$ETH_RPC_URL"
 else
-    dapp --use solc:0.6.12 test --rpc --verbosity 3 -m ${1}
+    forge test --use solc:0.6.12 --fork-url "$ETH_RPC_URL" -vvv --match-test ${1}
 fi
+
