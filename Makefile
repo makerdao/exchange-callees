@@ -1,7 +1,7 @@
 all             :; FOUNDRY_OPTIMIZER=true FOUNDRY_OPTIMIZER_RUNS=200 forge build --use solc:0.6.12
 clean           :; forge clean
 # usage:        make test match=Burn
-test            :; ./test.sh ${match}
+test            :; ./scripts/test.sh ${match}
 deploy          :; echo "use deploy-goerli or deploy-mainnet"
 deploy-goerli   :; make && ./scripts/deploy-goerli.sh
 deploy-mainnet  :; make && ./scripts/deploy-mainnet.sh
