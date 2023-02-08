@@ -41,7 +41,7 @@ To slow down or defend against [generalized frontrunning bots](https://medium.co
 Requires [Forge](https://github.com/foundry-rs/foundry)
 ```
 $ forge install
-$ forge test --use solc:0.6.12
+$ make test
 ```
 
 ## Disclaimer

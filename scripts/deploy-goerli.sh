@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 echo "UniswapV2CalleeDai:"
 forge create src/UniswapV2Callee.sol:UniswapV2CalleeDai --constructor-args \
