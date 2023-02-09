@@ -102,7 +102,9 @@ contract PSMCalleeTest is DSTest {
         psm = Chainlog(chainlog).getAddress("MCD_PSM_PAX_A");
     }
 
-    function test_take() public {
+    // Disabled as this test is directed for a specific offboarding operation.
+    // It should be modified and used once such operation is planned again.
+    function test_take() private { // Make public to enable
         uint256 amt = 20_000 * WAD;
 
         address vault = 0x816F1dD29c428427A36799358a5f2e1CEa5E770c; // 14459
