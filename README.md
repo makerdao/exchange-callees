@@ -38,10 +38,10 @@ To slow down or defend against [generalized frontrunning bots](https://medium.co
 - Using a mempool-shielded transaction service, as outlined in [this blog post](https://samczsun.com/escaping-the-dark-forest/)
 
 ## Testing
-Requires [Dapptools](https://github.com/dapphub/dapptools)
+Requires [Forge](https://github.com/foundry-rs/foundry)
 ```
-$ dapp update
-$ dapp --use solc:0.6.12 test
+$ forge install
+$ make test
 ```
 
 ## Disclaimer
