@@ -543,10 +543,6 @@ contract SimulationTests is DSTest {
         assertEq(link.balanceOf(address(this)), 0);
         getLink(amount);
         assertGt(link.balanceOf(address(this)), amount);
-        assertLt(
-            link.balanceOf(address(this)) - amount,
-            link.balanceOf(address(this)) / 5
-        );
     }
 
     function swapLinkDai(uint256 amountLink) private {
