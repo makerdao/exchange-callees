@@ -523,7 +523,7 @@ contract SimulationTests is DSTest {
     function getLink(uint256 amountLink) private {
         uint256 linkPrice = getLinkPrice();
         uint256 ethPrice = getEthPrice();
-        uint256 amountWeth = amountLink * linkPrice / ethPrice * 11 / 10;
+        uint256 amountWeth = amountLink * linkPrice / ethPrice * 13 / 10;
         getWeth(amountWeth);
         weth.approve(uniAddr, amountWeth);
         address[] memory path = new address[](2);
@@ -531,7 +531,7 @@ contract SimulationTests is DSTest {
         path[1] = linkAddr;
         uniRouter.swapExactTokensForTokens({
             amountIn: amountWeth,
-            amountOutMin: 0,
+            amountOutMin: amountLink,
             path: path,
             to: address(this),
             deadline: block.timestamp
@@ -543,10 +543,6 @@ contract SimulationTests is DSTest {
         assertEq(link.balanceOf(address(this)), 0);
         getLink(amount);
         assertGt(link.balanceOf(address(this)), amount);
-        assertLt(
-            link.balanceOf(address(this)) - amount,
-            link.balanceOf(address(this)) / 5
-        );
     }
 
     function swapLinkDai(uint256 amountLink) private {
