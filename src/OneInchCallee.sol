@@ -136,7 +136,7 @@ contract OneInchCallee {
         }
 
         // Check actual amount of dai returned
-        require(dai.balanceOf(address(this)) >= oweWithProfit, '1inch-returned-too-litle-dai');
+        require(dai.balanceOf(address(this)) >= oweWithProfit, '1inch-returned-too-little-dai');
 
         // Although 1inch will accept all gems, this check is a sanity check, just in case
         if (gem.balanceOf(address(this)) > 0) {

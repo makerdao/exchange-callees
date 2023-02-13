@@ -27,12 +27,7 @@ async function executeOneinchRequest(methodName, queryParams) {
     const url = `${BASE_URL}${methodName}?${new URLSearchParams(queryParams)}`;
     const response = await fetch(url).then(res => res.json());
     if (response.error) {
-        console.error(
-            `1inch API call to "${methodName}" failed with:`,
-            response.error,
-            'request parameters:',
-            swapParams
-        );
+        console.error(`1inch API call to "${methodName}" failed with:`, response.error);
         throw new Error(`1inch API call failed with "${response.error}"`);
     }
     return response;
