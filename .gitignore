@@ -1,2 +1,12 @@
-/out
+# project-related
+.env
+
+# foundry and dapp-related
 /cache
+/out
+
+# node.js-related
+node_modules/
+
+# macOS-related
+.DS_Store
