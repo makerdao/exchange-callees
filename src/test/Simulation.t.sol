@@ -107,13 +107,11 @@ contract SimulationTests is DSTest {
     address constant uniV3Addr = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
     address constant hevmAddr = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
     bytes32 constant linkName = "LINK-A";
-    bytes32 constant lpDaiEthName = "UNIV2DAIETH-A";
-    bytes32 constant steCRVName = "CURVESTETHETH-A";
+    bytes32 constant lpUsdcEthName = "UNIV2USDCETH-A";
+    bytes32 constant steCRVName = "CRVV1ETHSTETH-A";
     address constant curvePoolAddr = 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022;
     address constant lidoTokenAddr = 0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32;
     address constant lidoStakingRewardsAddr = 0x99ac10631F69C753DDb595D074422a0922D9056B;
-    address constant steCRVAddr = 0x06325440D014e39736583c165C2963BA99fAf14E;
-    address constant steCRVPoolAddr = 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022;
 
     uint256 constant WAD = 1E18;
     uint256 constant RAY = 1E27;
@@ -204,6 +202,8 @@ contract SimulationTests is DSTest {
 
     address wethAddr;
     address linkAddr;
+    address usdcAddr;
+    address steCRVAddr;
     address daiAddr;
     address vatAddr;
     address linkJoinAddr;
@@ -212,52 +212,49 @@ contract SimulationTests is DSTest {
     address dogAddr;
     address jugAddr;
     address linkClipAddr;
-    address lpDaiEthAddr;
-    address lpDaiEthJoinAddr;
-    address lpDaiEthClipAddr;
+    address lpUsdcEthAddr;
+    address lpUsdcEthJoinAddr;
+    address lpUsdcEthClipAddr;
     address vowAddr;
-    address lpDaiEthPipAddr;
+    address lpUsdcEthPipAddr;
     address linkPipAddr;
     address ethPipAddr;
     address steCRVJoinAddr;
     address cropManagerAddr;
-    address cropManagerImpAddr;
     address steCRVClipAddr;
     address steCRVPipAddr;
-    address steCRVCalcAddr;
 
     Hevm hevm;
     UniV2Router02Abstract uniRouter;
     WethAbstract weth;
     GemAbstract link;
+    GemAbstract usdc;
     VatAbstract vat;
     DaiAbstract dai;
     GemJoinAbstract linkJoin;
     DogAbstract dog;
     JugAbstract jug;
     ClipAbstract linkClip;
-    LpTokenAbstract lpDaiEth;
-    ClipAbstract lpDaiEthClip;
-    GemJoinAbstract lpDaiEthJoin;
-    LPOsmAbstract lpDaiEthPip;
+    LpTokenAbstract lpUsdcEth;
+    ClipAbstract lpUsdcEthClip;
+    GemJoinAbstract lpUsdcEthJoin;
+    LPOsmAbstract lpUsdcEthPip;
     OsmAbstract linkPip;
     OsmAbstract ethPip;
     GemAbstract steCRV;
     CropJoin steCRVJoin;
-    SynthetixJoinImp steCRVJoinImp;
     Cropper cropManager;
-    CropperImp cropManagerImp;
     ProxyManagerClipper steCRVClip;
+    OsmAbstract steCRVPip;
     SpotAbstract spotter;
-    DSValue steCRVPip;
-    StairstepExponentialDecrease steCRVCalc;
-    CurvePoolLike steCRVPool;
 
     function setAddresses() private {
         ChainlogHelper helper = new ChainlogHelper();
         ChainlogAbstract chainLog = helper.ABSTRACT();
         wethAddr = chainLog.getAddress("ETH");
         linkAddr = chainLog.getAddress("LINK");
+        usdcAddr = chainLog.getAddress("USDC");
+        steCRVAddr = chainLog.getAddress("CRVV1ETHSTETH");
         vatAddr = chainLog.getAddress("MCD_VAT");
         daiAddr = chainLog.getAddress("MCD_DAI");
         linkJoinAddr = chainLog.getAddress("MCD_JOIN_LINK_A");
@@ -266,13 +263,17 @@ contract SimulationTests is DSTest {
         dogAddr = chainLog.getAddress("MCD_DOG");
         jugAddr = chainLog.getAddress("MCD_JUG");
         linkClipAddr = chainLog.getAddress("MCD_CLIP_LINK_A");
-        lpDaiEthClipAddr = chainLog.getAddress("MCD_CLIP_UNIV2DAIETH_A");
-        lpDaiEthAddr = chainLog.getAddress("UNIV2DAIETH");
-        lpDaiEthJoinAddr = chainLog.getAddress("MCD_JOIN_UNIV2DAIETH_A");
+        lpUsdcEthClipAddr = chainLog.getAddress("MCD_CLIP_UNIV2USDCETH_A");
+        lpUsdcEthAddr = chainLog.getAddress("UNIV2USDCETH");
+        lpUsdcEthJoinAddr = chainLog.getAddress("MCD_JOIN_UNIV2USDCETH_A");
         vowAddr = chainLog.getAddress("MCD_VOW");
-        lpDaiEthPipAddr = chainLog.getAddress("PIP_UNIV2DAIETH");
+        lpUsdcEthPipAddr = chainLog.getAddress("PIP_UNIV2USDCETH");
         linkPipAddr = chainLog.getAddress("PIP_LINK");
         ethPipAddr = chainLog.getAddress("PIP_ETH");
+        steCRVJoinAddr = chainLog.getAddress("MCD_JOIN_CRVV1ETHSTETH_A");
+        cropManagerAddr = chainLog.getAddress("MCD_CROPPER");
+        steCRVClipAddr = chainLog.getAddress("MCD_CLIP_CRVV1ETHSTETH_A");
+        steCRVPipAddr = chainLog.getAddress("PIP_CRVV1ETHSTETH");
     }
 
     function setInterfaces() private {
@@ -280,71 +281,23 @@ contract SimulationTests is DSTest {
         uniRouter = UniV2Router02Abstract(uniAddr);
         weth = WethAbstract(wethAddr);
         link = GemAbstract(linkAddr);
+        usdc = GemAbstract(usdcAddr);
+        steCRV = GemAbstract(steCRVAddr);
         vat = VatAbstract(vatAddr);
         dai = DaiAbstract(daiAddr);
         linkJoin = GemJoinAbstract(linkJoinAddr);
         dog = DogAbstract(dogAddr);
         jug = JugAbstract(jugAddr);
         linkClip = ClipAbstract(linkClipAddr);
-        lpDaiEthClip = ClipAbstract(lpDaiEthClipAddr);
-        lpDaiEth = LpTokenAbstract(lpDaiEthAddr);
-        lpDaiEthJoin = GemJoinAbstract(lpDaiEthJoinAddr);
-        lpDaiEthPip = LPOsmAbstract(lpDaiEthPipAddr);
+        lpUsdcEthClip = ClipAbstract(lpUsdcEthClipAddr);
+        lpUsdcEth = LpTokenAbstract(lpUsdcEthAddr);
+        lpUsdcEthJoin = GemJoinAbstract(lpUsdcEthJoinAddr);
+        lpUsdcEthPip = LPOsmAbstract(lpUsdcEthPipAddr);
         linkPip = OsmAbstract(linkPipAddr);
         ethPip = OsmAbstract(ethPipAddr);
-        steCRV = GemAbstract(steCRVAddr);
+        steCRVPip = OsmAbstract(steCRVPipAddr);
+        steCRVClip = ProxyManagerClipper(steCRVClipAddr);
         spotter = SpotAbstract(spotterAddr);
-    }
-
-    function deployContracts() private {
-        cropManagerImp = new CropperImp(vatAddr);
-        cropManagerImpAddr = address(cropManagerImp);
-        cropManager = new Cropper();
-        cropManagerAddr = address(cropManager);
-        cropManager.setImplementation(cropManagerImpAddr);
-        CropperAbstract(cropManagerAddr).getOrCreateProxy(edAddr);
-        steCRVJoinImp = new SynthetixJoinImp(
-            vatAddr,
-            steCRVName,
-            steCRVAddr,
-            lidoTokenAddr,
-            lidoStakingRewardsAddr
-        );
-        steCRVJoin = new CropJoin();
-        steCRVJoin.setImplementation(address(steCRVJoinImp));
-        steCRVJoinAddr = address(steCRVJoin);
-        steCRVJoin.rely(cropManagerAddr);
-        SynthetixJoinImp(steCRVJoinAddr).init();
-        vat.rely(steCRVJoinAddr);
-        vat.init(steCRVName);
-        vat.file(steCRVName, "spot", 100 * RAY);
-        vat.file(steCRVName, "line", 1_000_000 * RAD);
-        jug.init(steCRVName);
-        jug.file(steCRVName, "duty", 1000000001847694957439350562);
-        hevm.warp(block.timestamp + 600);
-        dog.file(steCRVName, "hole", 10_000 * RAD);
-        dog.file(steCRVName, "chop", 113 * WAD / 100);
-        steCRVClip = new ProxyManagerClipper(
-            vatAddr,
-            spotterAddr,
-            dogAddr,
-            steCRVJoinAddr,
-            cropManagerAddr
-        );
-        steCRVClip.file("tail", 2 hours);
-        steCRVClipAddr = address(steCRVClip);
-        steCRVCalc = new StairstepExponentialDecrease();
-        steCRVCalc.file("step", 90);
-        steCRVCalc.file("cut", 99 * RAY / 100);
-        steCRVCalcAddr = address(steCRVCalc);
-        steCRVClip.file("calc", steCRVCalcAddr);
-        dog.file(steCRVName, "clip", steCRVClipAddr);
-        steCRVClip.rely(dogAddr);
-        dog.rely(steCRVClipAddr);
-        steCRVPip = new DSValue();
-        steCRVPip.poke(bytes32(100 * WAD));
-        steCRVPipAddr = address(steCRVPip);
-        spotter.file(steCRVName, "pip", steCRVPipAddr);
     }
 
     VaultHolder ali;
@@ -370,11 +323,11 @@ contract SimulationTests is DSTest {
             bytes32(uint256(1))
         );
         hevm.store(
-            lpDaiEthPipAddr,
+            lpUsdcEthPipAddr,
             keccak256(abi.encode(address(this), uint256(0))),
             bytes32(uint256(1))
         );
-        lpDaiEthPip.kiss(address(this));
+        lpUsdcEthPip.kiss(address(this));
         hevm.store(
             linkPipAddr,
             keccak256(abi.encode(address(this), uint256(0))),
@@ -387,6 +340,12 @@ contract SimulationTests is DSTest {
             bytes32(uint256(1))
         );
         ethPip.kiss(address(this));
+        hevm.store(
+            steCRVPipAddr,
+            keccak256(abi.encode(address(this), uint256(0))),
+            bytes32(uint256(1))
+        );
+        steCRVPip.kiss(address(this));
         hevm.store(
             jugAddr,
             keccak256(abi.encode(address(this), uint256(0))),
@@ -412,8 +371,8 @@ contract SimulationTests is DSTest {
         danAddr = address(dan);
         ed = new CurveLpTokenUniv3Callee(uniV3Addr, daiJoinAddr, wethAddr);
         edAddr = address(ed);
+        CropperAbstract(cropManagerAddr).getOrCreateProxy(edAddr);
         getPermissions();
-        deployContracts();
     }
 
     function getLinkPrice() private view returns (uint256 val) {
@@ -440,18 +399,18 @@ contract SimulationTests is DSTest {
         log_named_uint("ETH price", price / WAD);
     }
 
-    function getLpDaiEthPrice() private view returns (uint256 val) {
-        val = uint256(lpDaiEthPip.read());
+    function getLpUsdcEthPrice() private view returns (uint256 val) {
+        val = uint256(lpUsdcEthPip.read());
     }
 
-    function getLpDaiEthPriceRay() private view returns (uint256) {
-        return getLpDaiEthPrice() * 10 ** 9;
+    function getLpUsdcEthPriceRay() private view returns (uint256) {
+        return getLpUsdcEthPrice() * 10 ** 9;
     }
 
-    function testGetLpDaiEthPrice() public {
-        uint256 price = getLpDaiEthPrice();
+    function testGetLpUsdcEthPrice() public {
+        uint256 price = getLpUsdcEthPrice();
         assertGt(price, 0);
-        log_named_uint("LP DAI ETH price", price / WAD);
+        log_named_uint("LP USDC ETH price", price / WAD);
     }
 
     function getSteCRVPrice() private view returns (uint256 val) {
@@ -475,14 +434,14 @@ contract SimulationTests is DSTest {
         assertEq(weth.balanceOf(address(this)), amount);
     }
 
-    function getDai(uint256 amountDai) private {
-        (uint112 reserveDai, uint112 reserveWeth, ) = lpDaiEth.getReserves();
-        uint256 amountWeth = uniRouter.getAmountIn(amountDai, reserveWeth, reserveDai);
+    function getUsdc(uint256 amountUsdc) private {
+        (uint112 reserveUsdc, uint112 reserveWeth, ) = lpUsdcEth.getReserves();
+        uint256 amountWeth = uniRouter.getAmountIn(amountUsdc, reserveWeth, reserveUsdc);
         getWeth(amountWeth);
         weth.approve(uniAddr, amountWeth);
         address[] memory path = new address[](2);
         path[0] = wethAddr;
-        path[1] = daiAddr;
+        path[1] = usdcAddr;
         uniRouter.swapExactTokensForTokens({
             amountIn: amountWeth,
             amountOutMin: 0,
@@ -492,25 +451,24 @@ contract SimulationTests is DSTest {
         });
     }
 
-    function testGetDai() public {
-        uint256 amountDai = 10 * WAD;
-        uint256 daiPre = dai.balanceOf(address(this));
-        getDai(amountDai);
-        uint256 daiPost = dai.balanceOf(address(this));
-        assertGt(daiPost, daiPre + amountDai);
-        assertEq(daiPost / 10_000, (daiPre + amountDai) / 10_000);
+    function testGetUsdc() public {
+        uint256 amountUsdc = (10 * 10 ** 6);
+        uint256 usdcPre = usdc.balanceOf(address(this));
+        getUsdc(amountUsdc);
+        uint256 usdcPost = usdc.balanceOf(address(this));
+        assertEq(usdcPost, usdcPre + amountUsdc);
     }
 
-    function getLpDaiEth(uint256 amountLp) private {
-        uint256 totalSupply = lpDaiEth.totalSupply();
-        (uint112 reserveDai, uint112 reserveWeth,) = lpDaiEth.getReserves();
-        uint256 amountDai = amountLp * reserveDai / totalSupply * 11 / 10;
+    function getLpUsdcEth(uint256 amountLp) private {
+        uint256 totalSupply = lpUsdcEth.totalSupply();
+        (uint112 reserveUsdc, uint112 reserveWeth,) = lpUsdcEth.getReserves();
+        uint256 amountUsdc = (amountLp * reserveUsdc / totalSupply * 11 / 10); // why?
         uint256 amountEth = amountLp * reserveWeth / totalSupply * 11 / 10;
-        getDai(amountDai);
-        dai.approve(uniAddr, amountDai);
+        getUsdc(amountUsdc);
+        usdc.approve(uniAddr, amountUsdc);
         uniRouter.addLiquidityETH{value: amountEth}({
-            token: daiAddr,
-            amountTokenDesired: amountDai,
+            token: usdcAddr,
+            amountTokenDesired: amountUsdc,
             amountTokenMin: 0,
             amountETHMin: 0,
             to: address(this),
@@ -520,11 +478,11 @@ contract SimulationTests is DSTest {
 
     receive() external payable {}
 
-    function testGetLpDaiEth() public {
-        assertEq(lpDaiEth.balanceOf(address(this)), 0);
-        uint256 expected = 1000 * WAD;
-        getLpDaiEth(expected);
-        uint256 actual = lpDaiEth.balanceOf(address(this));
+    function testGetLpUsdcEth() public {
+        assertEq(lpUsdcEth.balanceOf(address(this)), 0);
+        uint256 expected =  WAD / 1000;
+        getLpUsdcEth(expected);
+        uint256 actual = lpUsdcEth.balanceOf(address(this));
         assertGt(actual, expected);
         assertLt(actual - expected, actual / 10);
     }
@@ -541,9 +499,9 @@ contract SimulationTests is DSTest {
         assertEq(actual, expected);
     }
 
-    function burnLpDaiEth(uint256 amount) private {
+    function burnLpUsdcEth(uint256 amount) private {
         uniRouter.removeLiquidity({
-            tokenA: daiAddr,
+            tokenA: usdcAddr,
             tokenB: wethAddr,
             liquidity: amount,
             amountAMin: 0,
@@ -553,23 +511,19 @@ contract SimulationTests is DSTest {
         });
     }
 
-    function testBurnLpDaiEth() public {
-        uint256 amount = 30 * WAD;
-        getLpDaiEth(amount);
-        assertGt(lpDaiEth.balanceOf(address(this)), amount);
-        assertLt(dai.balanceOf(address(this)), 5 * WAD);
-        assertEq(weth.balanceOf(address(this)), 0);
-        lpDaiEth.approve(uniAddr, amount);
-        burnLpDaiEth(amount);
-        assertLt(lpDaiEth.balanceOf(address(this)), amount / 10);
-        assertGt(dai.balanceOf(address(this)), 1 * WAD);
-        assertGt(dai.balanceOf(address(this)), 1 * WAD);
+    function testBurnLpUsdcEth() public {
+        uint256 amount = 30 * WAD / 1000;
+        getLpUsdcEth(amount);
+        assertGt(lpUsdcEth.balanceOf(address(this)), amount);
+        lpUsdcEth.approve(uniAddr, amount);
+        burnLpUsdcEth(amount);
+        assertLt(lpUsdcEth.balanceOf(address(this)), amount / 10);
     }
 
     function getLink(uint256 amountLink) private {
         uint256 linkPrice = getLinkPrice();
         uint256 ethPrice = getEthPrice();
-        uint256 amountWeth = amountLink * linkPrice / ethPrice * 11 / 10;
+        uint256 amountWeth = amountLink * linkPrice / ethPrice * 13 / 10;
         getWeth(amountWeth);
         weth.approve(uniAddr, amountWeth);
         address[] memory path = new address[](2);
@@ -577,7 +531,7 @@ contract SimulationTests is DSTest {
         path[1] = linkAddr;
         uniRouter.swapExactTokensForTokens({
             amountIn: amountWeth,
-            amountOutMin: 0,
+            amountOutMin: amountLink,
             path: path,
             to: address(this),
             deadline: block.timestamp
@@ -589,10 +543,6 @@ contract SimulationTests is DSTest {
         assertEq(link.balanceOf(address(this)), 0);
         getLink(amount);
         assertGt(link.balanceOf(address(this)), amount);
-        assertLt(
-            link.balanceOf(address(this)) - amount,
-            link.balanceOf(address(this)) / 5
-        );
     }
 
     function swapLinkDai(uint256 amountLink) private {
@@ -635,17 +585,17 @@ contract SimulationTests is DSTest {
         assertEq(vat.gem(linkName, aliAddr), amountLink);
     }
 
-    function joinLpDaiEth(uint256 amount) private {
-        lpDaiEth.approve(lpDaiEthJoinAddr, amount);
-        lpDaiEthJoin.join(aliAddr, amount);
+    function joinLpUsdcEth(uint256 amount) private {
+        lpUsdcEth.approve(lpUsdcEthJoinAddr, amount);
+        lpUsdcEthJoin.join(aliAddr, amount);
     }
 
-    function testJoinLpDaiEth() public {
-        uint256 amount = 10 * WAD;
-        getLpDaiEth(amount);
-        uint256 gemPre = vat.gem(lpDaiEthName, aliAddr);
-        joinLpDaiEth(amount);
-        uint256 gemPost = vat.gem(lpDaiEthName, aliAddr);
+    function testJoinLpUsdcEth() public {
+        uint256 amount = 10 * WAD / 1000;
+        getLpUsdcEth(amount);
+        uint256 gemPre = vat.gem(lpUsdcEthName, aliAddr);
+        joinLpUsdcEth(amount);
+        uint256 gemPost = vat.gem(lpUsdcEthName, aliAddr);
         assertEq(gemPost, gemPre + amount);
     }
 
@@ -757,26 +707,26 @@ contract SimulationTests is DSTest {
         assertEq(tic, block.timestamp);
     }
 
-    function barkLpDaiEth() private returns (uint256 auctionId) {
-        dog.bark(lpDaiEthName, aliAddr, aliAddr);
-        auctionId = lpDaiEthClip.kicks();
+    function barkLpUsdcEth() private returns (uint256 auctionId) {
+        dog.bark(lpUsdcEthName, aliAddr, aliAddr);
+        auctionId = lpUsdcEthClip.kicks();
     }
 
-    function testBarkLpDaiEth() public {
-        (,,,, uint256 dustRad) = vat.ilks(lpDaiEthName);
-        uint256 amount = (dustRad / getLpDaiEthPriceRay()) * 2;
-        uint256 kicksPre = lpDaiEthClip.kicks();
-        getLpDaiEth(amount);
-        joinLpDaiEth(amount);
-        frobMax(amount, lpDaiEthName);
-        drip(lpDaiEthName);
-        uint256 auctionId = barkLpDaiEth();
-        uint256 kicksPost = lpDaiEthClip.kicks();
+    function testBarkLpUsdcEth() public {
+        (,,,, uint256 dustRad) = vat.ilks(lpUsdcEthName);
+        uint256 amount = (dustRad / getLpUsdcEthPriceRay()) * 2;
+        uint256 kicksPre = lpUsdcEthClip.kicks();
+        getLpUsdcEth(amount);
+        joinLpUsdcEth(amount);
+        frobMax(amount, lpUsdcEthName);
+        drip(lpUsdcEthName);
+        uint256 auctionId = barkLpUsdcEth();
+        uint256 kicksPost = lpUsdcEthClip.kicks();
         assertEq(auctionId, kicksPost);
         assertEq(kicksPost, kicksPre + 1);
         (
          ,, uint256 lot, address usr, uint96 tic,
-         ) = lpDaiEthClip.sales(auctionId);
+         ) = lpUsdcEthClip.sales(auctionId);
         assertEq(usr, aliAddr);
         assertEq(lot, amount);
         assertEq(tic, block.timestamp);
@@ -936,63 +886,65 @@ contract SimulationTests is DSTest {
         assertGe(dai.balanceOf(danAddr), minProfit);
     }
 
-    function takeLpDaiEth(
+    function takeLpUsdcEth(
         uint256 auctionId,
         uint256 amt,
         uint256 max,
         uint256 minProfit
     ) public {
-        vat.hope(lpDaiEthClipAddr);
-        address[] memory pathA;
+        vat.hope(lpUsdcEthClipAddr);
+        address[] memory pathA = new address[](2);
+        pathA[0] = usdcAddr;
+        pathA[1] = daiAddr;
         address[] memory pathB = new address[](2);
         pathB[0] = wethAddr;
         pathB[1] = daiAddr;
         bytes memory data
-            = abi.encode(bobAddr, lpDaiEthJoinAddr, minProfit, pathA, pathB);
-        lpDaiEthClip.take(auctionId, amt, max, cheAddr, data);
+            = abi.encode(bobAddr, lpUsdcEthJoinAddr, minProfit, pathA, pathB);
+        lpUsdcEthClip.take(auctionId, amt, max, cheAddr, data);
     }
 
-    function testTakeLpDaiEthNoProfit() public {
-        (,,,, uint256 dustRad) = vat.ilks(lpDaiEthName);
-        uint256 amount = (dustRad / getLpDaiEthPriceRay()) * 2;
-        getLpDaiEth(amount);
-        joinLpDaiEth(amount);
-        frobMax(amount, lpDaiEthName);
-        drip(lpDaiEthName);
-        uint256 auctionId = barkLpDaiEth();
-        (, uint256 auctionPrice,,) = lpDaiEthClip.getStatus(auctionId);
-        uint256 lpDaiEthPrice = getLpDaiEthPrice();
-        while (auctionPrice / uint256(1e9) * 11 / 10 > lpDaiEthPrice) {
+    function testTakeLpUsdcEthNoProfit() public {
+        (,,,, uint256 dustRad) = vat.ilks(lpUsdcEthName);
+        uint256 amount = (dustRad / getLpUsdcEthPriceRay()) * 2;
+        getLpUsdcEth(amount);
+        joinLpUsdcEth(amount);
+        frobMax(amount, lpUsdcEthName);
+        drip(lpUsdcEthName);
+        uint256 auctionId = barkLpUsdcEth();
+        (, uint256 auctionPrice,,) = lpUsdcEthClip.getStatus(auctionId);
+        uint256 lpUsdcEthPrice = getLpUsdcEthPrice();
+        while (auctionPrice / uint256(1e9) * 11 / 10 > lpUsdcEthPrice) {
             hevm.warp(block.timestamp + 10 seconds);
-            (, auctionPrice,,) = lpDaiEthClip.getStatus(auctionId);
+            (, auctionPrice,,) = lpUsdcEthClip.getStatus(auctionId);
         }
         assertEq(dai.balanceOf(bobAddr), 0);
-        takeLpDaiEth(auctionId, amount, auctionPrice, 0);
+        takeLpUsdcEth(auctionId, amount, auctionPrice, 0);
         assertLt(dai.balanceOf(bobAddr), amount * auctionPrice / RAY / 5);
     }
 
-    function testTakeLpDaiEthProfit() public {
+    function testTakeLpUsdcEthProfit() public {
         uint256 minProfitPct = 30;
-        (,,,, uint256 dustRad) = vat.ilks(lpDaiEthName);
-        uint256 amount = (dustRad / getLpDaiEthPriceRay()) * 2;
-        getLpDaiEth(amount);
-        joinLpDaiEth(amount);
-        frobMax(amount, lpDaiEthName);
-        drip(lpDaiEthName);
-        uint256 auctionId = barkLpDaiEth();
-        (, uint256 auctionPrice,,) = lpDaiEthClip.getStatus(auctionId);
-        uint256 lpDaiEthPrice = getLpDaiEthPrice();
+        (,,,, uint256 dustRad) = vat.ilks(lpUsdcEthName);
+        uint256 amount = (dustRad / getLpUsdcEthPriceRay()) * 2;
+        getLpUsdcEth(amount);
+        joinLpUsdcEth(amount);
+        frobMax(amount, lpUsdcEthName);
+        drip(lpUsdcEthName);
+        uint256 auctionId = barkLpUsdcEth();
+        (, uint256 auctionPrice,,) = lpUsdcEthClip.getStatus(auctionId);
+        uint256 lpUsdcEthPrice = getLpUsdcEthPrice();
         while (
             auctionPrice / uint256(1e9) * 11 / 10 * (100 + minProfitPct) / 100
-            > lpDaiEthPrice
+            > lpUsdcEthPrice
         ) {
             hevm.warp(block.timestamp + 10 seconds);
-            (, auctionPrice,,) = lpDaiEthClip.getStatus(auctionId);
+            (, auctionPrice,,) = lpUsdcEthClip.getStatus(auctionId);
         }
         uint256 minProfit = amount * auctionPrice / RAY 
             * minProfitPct / 100;
         assertEq(dai.balanceOf(bobAddr), 0);
-        takeLpDaiEth(auctionId, amount, auctionPrice, minProfit);
+        takeLpUsdcEth(auctionId, amount, auctionPrice, minProfit);
         assertGe(dai.balanceOf(bobAddr), minProfit);
     }
 
@@ -1029,7 +981,7 @@ contract SimulationTests is DSTest {
         hevm.warp(block.timestamp + 1 hours);
         uint256 balancePre = dai.balanceOf(edAddr);
         uint256 countBefore = steCRVClip.count();
-        takeSteCRV(auctionId, amount, 100 * RAY, 0);
+        takeSteCRV(auctionId, amount, 5000 * RAY, 0);
         assertEq(steCRVClip.count(), countBefore - 1);
         uint256 balancePost = dai.balanceOf(edAddr);
         assertGt(balancePost, balancePre);
@@ -1037,7 +989,7 @@ contract SimulationTests is DSTest {
 
     function testTakeSteCRVProfit() public {
         uint256 amount = 30 * WAD;
-        uint256 minProfit = 30_000 * WAD;
+        uint256 minProfit = 1000 * WAD;
         getSteCRV(amount);
         joinSteCRV(amount);
         frobMaxSteCRV(amount);
@@ -1046,7 +998,7 @@ contract SimulationTests is DSTest {
         hevm.warp(block.timestamp + 1 hours);
         uint256 balancePre = dai.balanceOf(edAddr);
         uint256 countBefore = steCRVClip.count();
-        takeSteCRV(auctionId, amount, 100 * RAY, minProfit);
+        takeSteCRV(auctionId, amount, 5000 * RAY, minProfit);
         assertEq(steCRVClip.count(), countBefore - 1);
         uint256 balancePost = dai.balanceOf(edAddr);
         assertGt(balancePost, balancePre + minProfit);

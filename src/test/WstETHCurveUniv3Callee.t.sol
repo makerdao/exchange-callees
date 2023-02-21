@@ -290,7 +290,7 @@ contract CurveCalleeTest is DSTest {
             abi.encodePacked(weth, poolFee, dai),
             address(0)
         );
-        Hevm(hevm).warp(block.timestamp + tail / 5);
+        Hevm(hevm).warp(block.timestamp + tail / 10);
         address osm = Chainlog(chainlog).getAddress("PIP_WSTETH");
         Hevm(hevm).store({
             c:   osm,
