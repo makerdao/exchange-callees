@@ -17,6 +17,7 @@
 pragma solidity ^0.6.12;
 
 import "ds-test/test.sol";
+import "forge-std/Test.sol";
 import { PSMCallee } from "../PSMCallee.sol";
 
 interface Hevm {
@@ -76,11 +77,17 @@ interface Osm {
     function kiss(address) external;
 }
 
+interface Spotter {
+    function file(bytes32 ilk, bytes32 what, uint data) external;
+    function poke(bytes32 ilk) external;
+}
+
 contract PSMCalleeTest is DSTest {
 
     address constant hevm     = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
     address constant chainlog = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
     uint256 constant WAD      = 1e18;
+    uint256 constant RAY      = 1e27;
 
     address clipper;
     PSMCallee callee;
@@ -89,28 +96,38 @@ contract PSMCalleeTest is DSTest {
     address usdp;
     address dai;
     address psm;
+    address spotter;
+
+    Vm public constant vm = Vm(hevm);
 
     function setUp() public {
-        clipper = Chainlog(chainlog).getAddress("MCD_CLIP_PAXUSD_A");
+        clipper = Chainlog(chainlog).getAddress("MCD_CLIP_USDC_A");
         address daiJoin = Chainlog(chainlog).getAddress("MCD_JOIN_DAI");
-        usdp = Chainlog(chainlog).getAddress("PAXUSD");
+        usdp = Chainlog(chainlog).getAddress("USDC");
         dai = Chainlog(chainlog).getAddress("MCD_DAI");
         callee = new PSMCallee(daiJoin);
         vat = Chainlog(chainlog).getAddress("MCD_VAT");
         Vat(vat).hope(clipper);
         tail = Clipper(clipper).tail();
-        psm = Chainlog(chainlog).getAddress("MCD_PSM_PAX_A");
+        psm = Chainlog(chainlog).getAddress("MCD_PSM_USDC_A");
+
+
+        // Emulate spell - set LR to 15000%
+        spotter = Chainlog(chainlog).getAddress("MCD_SPOT");
+        vm.prank(Chainlog(chainlog).getAddress("MCD_PAUSE_PROXY"));
+        Spotter(spotter).file("USDC-A", "mat", 150000 * RAY);
+        Spotter(spotter).poke("USDC-A");
     }
 
     // Disabled as this test is directed for a specific offboarding operation.
     // It should be modified and used once such operation is planned again.
-    function test_take() private { // Make public to enable
+    function test_take() public { // Make public to enable
         uint256 amt = 20_000 * WAD;
 
-        address vault = 0x816F1dD29c428427A36799358a5f2e1CEa5E770c; // 14459
+        address vault = 0x450A901D7A2033C14b0b6d894ddf6d68Dc1dfCB4; // 14981
         address dog = Chainlog(chainlog).getAddress("MCD_DOG");
-        uint256 id = Dog(dog).bark("PAXUSD-A", vault, address(this));
-        address gemJoin = Chainlog(chainlog).getAddress("MCD_JOIN_PAXUSD_A");
+        uint256 id = Dog(dog).bark("USDC-A", vault, address(this));
+        address gemJoin = Chainlog(chainlog).getAddress("MCD_JOIN_USDC_A");
 
         bytes memory data = abi.encode(
             address(123),
