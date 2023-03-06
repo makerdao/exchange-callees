@@ -43,9 +43,9 @@ interface UniV3RouterLike {
 }
 
 contract UniswapV3SplitCallee {
-    UniV3RouterLike public uniswapV3Router;
-    DaiJoinLike     public daiJoin;
-    TokenLike       public dai;
+    UniV3RouterLike public immutable uniswapV3Router;
+    DaiJoinLike     public immutable daiJoin;
+    TokenLike       public immutable dai;
 
     uint256 public constant RAY = 10 ** 27;
 
