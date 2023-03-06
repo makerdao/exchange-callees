@@ -1,7 +1,7 @@
 import path from 'path';
 import url from 'url';
-import { spawn } from 'child_process';
 import * as dotenv from 'dotenv';
+import { spawn } from 'child_process';
 import fetch from 'node-fetch';
 import { ethers, utils } from 'ethers';
 
