@@ -63,10 +63,11 @@ contract UniswapV3SplitCallee {
 
     constructor(address uniV3Router_, address daiJoin_) public {
         uniswapV3Router = UniV3RouterLike(uniV3Router_);
-        daiJoin = DaiJoinLike(daiJoin_);
-        dai = daiJoin.dai();
+        daiJoin         = DaiJoinLike(daiJoin_);
+        TokenLike dai_  = DaiJoinLike(daiJoin_).dai();
+        dai =             dai_;
 
-        dai.approve(daiJoin_, type(uint256).max);
+        dai_.approve(daiJoin_, type(uint256).max);
     }
 
     function _fromWad(address gemJoin, uint256 wad) internal view returns (uint256 amt) {
