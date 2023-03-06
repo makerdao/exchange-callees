@@ -42,10 +42,6 @@ struct UniswapV3ExactInputParams {
     uint256 amountOutMinimum;
 }
 
-interface WethAbstract is GemAbstract {
-    function deposit() external payable;
-}
-
 contract VaultHolder {
     constructor(VatAbstract vat_) public {
         vat_.hope(msg.sender);
@@ -93,7 +89,6 @@ contract UniswapSplitTests is DSTest {
         }
     }
 
-    address wethAddr;
     address linkAddr;
     address daiAddr;
     address vatAddr;
@@ -105,7 +100,6 @@ contract UniswapSplitTests is DSTest {
     address linkPipAddr;
 
     Hevm hevm;
-    WethAbstract    weth;
     GemAbstract     link;
     VatAbstract     vat;
     DaiAbstract     dai;
@@ -119,7 +113,6 @@ contract UniswapSplitTests is DSTest {
     function setAddresses() private {
         ChainlogHelper helper = new ChainlogHelper();
         ChainlogAbstract chainLog = helper.ABSTRACT();
-        wethAddr = chainLog.getAddress('ETH');
         linkAddr = chainLog.getAddress('LINK');
         vatAddr = chainLog.getAddress('MCD_VAT');
         daiAddr = chainLog.getAddress('MCD_DAI');
@@ -133,7 +126,6 @@ contract UniswapSplitTests is DSTest {
 
     function setInterfaces() private {
         hevm = Hevm(hevmAddr);
-        weth = WethAbstract(wethAddr);
         link = GemAbstract(linkAddr);
         vat = VatAbstract(vatAddr);
         dai = DaiAbstract(daiAddr);
