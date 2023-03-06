@@ -153,6 +153,9 @@ contract UniswapSplitTests is DSTest {
     }
 
     function setEnvVars() private {
+        // Execute this test with fresh data via
+        // `(cd scripts/uniswap-split-route-callee && npm ci && node index.js)`
+        // check the script for more details on how to use universal router
         UniswapV3Router2 = hevm.envOr('UniswapV3Router2', 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
         uniswapTxDataNoProfit = hevm.envOr(
             'UNISWAP_TX_DATA_NO_PROFIT',
