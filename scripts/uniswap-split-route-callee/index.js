@@ -10,7 +10,6 @@ const fileDirectory = path.dirname(url.fileURLToPath(import.meta.url));
 const rootDirectory = path.join(fileDirectory, '..', '..');
 dotenv.config({ path: path.resolve(rootDirectory, '.env') });
 
-const FOUNDRY_ETH_RPC_URL = process.env.FOUNDRY_ETH_RPC_URL;
 const YEAR_IN_SECONDS = 60 * 60 * 24 * 365;
 
 async function getProvider() {
@@ -18,7 +17,7 @@ async function getProvider() {
     if (!rpcUrl) {
         throw new Error('please provide FOUNDRY_ETH_RPC_URL env var');
     }
-    const provider = new ethers.providers.JsonRpcProvider(FOUNDRY_ETH_RPC_URL);
+    const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
     const { chainId } = await provider.getNetwork();
     if (chainId !== ChainId.MAINNET) {
         throw new Error(
@@ -59,8 +58,9 @@ const getLinkAmountToSwap = async (multiplier, divisor) => {
 };
 
 async function executeForgeTest(testName, environmentVariables) {
+    const rpcUrl = process.env.FOUNDRY_ETH_RPC_URL;
     console.info(`executing forge test of the "${testName}" function in "${rootDirectory}"...`);
-    const child = spawn('forge', ['test', '--match', testName, '--use', '0.6.12', '--rpc-url', FOUNDRY_ETH_RPC_URL], {
+    const child = spawn('forge', ['test', '--match', testName, '--use', '0.6.12', '--rpc-url', rpcUrl], {
         cwd: rootDirectory,
         stdio: 'inherit',
         env: {
