@@ -255,7 +255,7 @@ contract UniswapSplitTests is DSTest {
         return (data[:4], data[4:]);
     }
 
-    function buildCalldata(bytes calldata signature, bytes calldata data) public pure returns (bytes memory) {
+    function buildCalldata(bytes memory signature, bytes memory data) public pure returns (bytes memory) {
         return abi.encodePacked(signature, data);
     }
 
@@ -271,7 +271,7 @@ contract UniswapSplitTests is DSTest {
                 amountIn: mCalldata.amountIn,
                 amountOutMinimum: mCalldata.amountOutMinimum
             });
-            transformedCalls[i] = this.buildCalldata(signature, abi.encode(modifiedParams));
+            transformedCalls[i] = buildCalldata(signature, abi.encode(modifiedParams));
         }
         output = abi.encode(deadline, transformedCalls);
     }
