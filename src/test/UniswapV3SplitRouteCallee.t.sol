@@ -294,18 +294,6 @@ contract UniswapSplitTests is DSTest {
         assertEq(tic, block.timestamp);
     }
 
-    function _add(uint256 x, uint256 y) internal pure returns (uint256 z) {
-        require((z = x + y) >= x, 'ds-math-add-overflow');
-    }
-
-    function _sub(uint256 x, uint256 y) internal pure returns (uint256 z) {
-        require((z = x - y) <= x, 'ds-math-sub-underflow');
-    }
-
-    function _divup(uint256 x, uint256 y) internal pure returns (uint256 z) {
-        z = _add(x, _sub(y, 1)) / y;
-    }
-
     function takeLink(uint256 auctionId, uint256 amt, uint256 max, uint256 minProfit, bytes memory txData) public {
         vat.hope(linkClipAddr);
         link.approve(UniswapV3Router2, amt);
