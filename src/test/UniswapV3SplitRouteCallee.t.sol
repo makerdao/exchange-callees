@@ -50,6 +50,7 @@ contract VaultHolder {
 
 contract UniswapSplitTests is DSTest {
     address constant hevmAddr = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
+    address constant uniV3Router = 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45;
     bytes32 constant linkName = 'LINK-A';
 
     uint256 constant WAD = 1e18;
@@ -177,7 +178,7 @@ contract UniswapSplitTests is DSTest {
         setEnvVars();
         ali = new VaultHolder(vat);
         aliAddr = address(ali);
-        dan = new UniswapV3SplitCallee(address(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45), daiJoinAddr);
+        dan = new UniswapV3SplitCallee(uniV3Router, daiJoinAddr);
         danAddr = address(dan);
         getPermissions();
     }
