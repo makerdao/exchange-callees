@@ -20,7 +20,7 @@ pragma experimental ABIEncoderV2;
 
 import 'ds-test/test.sol';
 import 'dss-interfaces/Interfaces.sol';
-import {UniswapV3SplitCallee} from 'src/UniswapV3SplitRouteCallee.sol';
+import {UniswapV3SplitCallee} from '../UniswapV3SplitRouteCallee.sol';
 
 import 'dss/clip.sol';
 import 'dss/abaci.sol';
@@ -28,7 +28,7 @@ import 'dss/abaci.sol';
 interface Hevm {
     function warp(uint256) external;
     function rollFork(uint256) external;
-    function store(address c, bytes32 loc, bytes32 val) external;
+    function store(address, bytes32, bytes32) external;
     function load(address, bytes32) external returns (bytes32);
     function envOr(string calldata, uint256) external returns (uint256);
     function envOr(string calldata, address) external returns (address);
@@ -43,8 +43,8 @@ struct UniswapV3ExactInputParams {
 }
 
 contract VaultHolder {
-    constructor(VatAbstract vat_) public {
-        vat_.hope(msg.sender);
+    constructor(VatAbstract vat) public {
+        vat.hope(msg.sender);
     }
 }
 
@@ -53,9 +53,9 @@ contract UniswapSplitTests is DSTest {
     address constant uniV3Router = 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45;
     bytes32 constant linkName = 'LINK-A';
 
-    uint256 constant WAD = 1e18;
-    uint256 constant RAY = 1e27;
-    uint256 constant RAD = 1e45;
+    uint256 constant WAD = 1E18;
+    uint256 constant RAY = 1E27;
+    uint256 constant RAD = 1E45;
 
     function giveTokens(address token, uint256 amount) public {
         // Edge case - balance is already set for some reason
@@ -101,13 +101,13 @@ contract UniswapSplitTests is DSTest {
     address linkPipAddr;
 
     Hevm hevm;
-    GemAbstract     link;
-    VatAbstract     vat;
-    DaiAbstract     dai;
+    GemAbstract link;
+    VatAbstract vat;
+    DaiAbstract dai;
     GemJoinAbstract linkJoin;
-    DogAbstract     dog;
-    JugAbstract     jug;
-    ClipAbstract    linkClip;
+    DogAbstract dog;
+    JugAbstract jug;
+    ClipAbstract linkClip;
 
     OsmAbstract linkPip;
 
@@ -137,14 +137,14 @@ contract UniswapSplitTests is DSTest {
         linkPip = OsmAbstract(linkPipAddr);
     }
 
-    VaultHolder          ali;
+    VaultHolder ali;
     UniswapV3SplitCallee dan;
 
     address aliAddr;
     address danAddr;
     address UniswapV3Router2;
-    bytes   uniswapTxDataProfit;
-    bytes   uniswapTxDataNoProfit;
+    bytes uniswapTxDataProfit;
+    bytes uniswapTxDataNoProfit;
 
     function getPermissions() private {
         hevm.store(dogAddr, keccak256(abi.encode(address(this), uint256(0))), bytes32(uint256(1)));
@@ -188,7 +188,7 @@ contract UniswapSplitTests is DSTest {
     }
 
     function getLinkPriceRay() private view returns (uint256) {
-        return getLinkPrice() * 10 ** 9;
+        return getLinkPrice() * 10**9;
     }
 
     function getLink(uint256 amountLink) private {
@@ -216,13 +216,13 @@ contract UniswapSplitTests is DSTest {
 
     function frobMax(uint256 gem, bytes32 ilkName) private {
         uint256 ink = gem;
-        (, uint256 rate, uint256 spot,,) = vat.ilks(ilkName);
+        (, uint256 rate, uint256 spot, , ) = vat.ilks(ilkName);
         uint256 art = (ink * spot) / rate;
         vat.frob(ilkName, aliAddr, aliAddr, aliAddr, int256(ink), int256(art));
     }
 
     function testFrobMax() public {
-        (,,,, uint256 dustRad) = vat.ilks(linkName);
+        (, , , , uint256 dustRad) = vat.ilks(linkName);
         uint256 amountLink = (dustRad / getLinkPriceRay()) * 2;
         getLink(amountLink);
         joinLink(amountLink);
@@ -240,9 +240,9 @@ contract UniswapSplitTests is DSTest {
     }
 
     function testDrip() public {
-        (, uint256 ratePre,,,) = vat.ilks(linkName);
+        (, uint256 ratePre, , , ) = vat.ilks(linkName);
         drip(linkName);
-        (, uint256 ratePost,,,) = vat.ilks(linkName);
+        (, uint256 ratePost, , , ) = vat.ilks(linkName);
         assertGt(ratePost, ratePre);
     }
 
@@ -277,7 +277,7 @@ contract UniswapSplitTests is DSTest {
     }
 
     function testBarkLink() public {
-        (,,,, uint256 dustRad) = vat.ilks(linkName);
+        (, , , , uint256 dustRad) = vat.ilks(linkName);
         uint256 amountLink = (dustRad / getLinkPriceRay()) * 2;
         uint256 kicksPre = linkClip.kicks();
         getLink(amountLink);
@@ -288,7 +288,7 @@ contract UniswapSplitTests is DSTest {
         uint256 kicksPost = linkClip.kicks();
         assertEq(auctionId, kicksPost);
         assertEq(kicksPost, kicksPre + 1);
-        (,, uint256 lot, address usr, uint96 tic,) = linkClip.sales(auctionId);
+        (, , uint256 lot, address usr, uint96 tic, ) = linkClip.sales(auctionId);
         assertEq(usr, aliAddr);
         assertEq(lot, amountLink);
         assertEq(tic, block.timestamp);
@@ -305,7 +305,7 @@ contract UniswapSplitTests is DSTest {
         private
         returns (uint256 auctionId, uint256 amountLinkWad, uint256 auctionPrice, uint256 auctionDebt)
     {
-        (,,,, uint256 dustRad) = vat.ilks(linkName);
+        (, , , , uint256 dustRad) = vat.ilks(linkName);
         amountLinkWad = (dustRad / getLinkPriceRay()) * 2;
         getLink(amountLinkWad);
         joinLink(amountLinkWad);
@@ -317,12 +317,12 @@ contract UniswapSplitTests is DSTest {
     }
 
     function testTakeLinkUniswapSplitProfit() public {
-        uint256 minProfitPct = 30;
+        (uint256 auctionId, uint256 amountLinkWad, uint256 auctionPrice, ) = createLinkAuction();
         uint256 linkPrice = getLinkPrice();
-        (uint256 auctionId, uint256 amountLinkWad, uint256 auctionPrice,) = createLinkAuction();
+        uint256 minProfitPct = 30;
         while (((((auctionPrice / uint256(1e9)) * 11) / 10) * (100 + minProfitPct)) / 100 > linkPrice) {
             hevm.warp(block.timestamp + 10 minutes);
-            (, auctionPrice,,) = linkClip.getStatus(auctionId);
+            (, auctionPrice, , ) = linkClip.getStatus(auctionId);
         }
         uint256 minProfit = (((amountLinkWad * auctionPrice) / RAY) * minProfitPct) / 100;
         assertEq(dai.balanceOf(danAddr), 0);
@@ -331,13 +331,13 @@ contract UniswapSplitTests is DSTest {
     }
 
     function testTakeLinkUniswapSplitNoProfit() public {
-        uint256 linkPriceWad = getLinkPrice();
         (uint256 auctionId, uint256 amountLinkWad, uint256 auctionPriceRay, uint256 tabRad) = createLinkAuction();
+        uint256 linkPriceWad = getLinkPrice();
         // the condition of the loop is different from the rest of the test because the liuidation happens for the whole auction amount, with the least profit possible.
         while (auctionPriceRay / uint256(1e9) * 11 / 10 > linkPriceWad) {
             // wait for the price to be so that we can liquidate the whole vault;
             hevm.warp(block.timestamp + 10 seconds);
-            (, auctionPriceRay,,) = linkClip.getStatus(auctionId);
+            (, auctionPriceRay, ,) = linkClip.getStatus(auctionId);
         }
         assertEq(dai.balanceOf(danAddr), 0);
         uint256 oweRad = auctionPriceRay * amountLinkWad;
@@ -346,11 +346,11 @@ contract UniswapSplitTests is DSTest {
     }
 
     function testFailTakeLinkUniswapSplitTooMuchProfit() public {
-        uint256 linkPrice = getLinkPrice();
         (uint256 auctionId, uint256 amountLinkRay, uint256 auctionPrice,) = createLinkAuction();
+        uint256 linkPrice = getLinkPrice();
         while (auctionPrice / uint256(1e9) * 11 / 10 > linkPrice) {
             hevm.warp(block.timestamp + 10 seconds);
-            (, auctionPrice,,) = linkClip.getStatus(auctionId);
+            (, auctionPrice, , ) = linkClip.getStatus(auctionId);
         }
         assertEq(dai.balanceOf(danAddr), 0);
         uint256 tooMuchProfit = ((amountLinkRay * auctionPrice) / RAY) * 10;
