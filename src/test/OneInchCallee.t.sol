@@ -266,12 +266,12 @@ contract OneInchTests is DSTest {
         assertEq(tic, block.timestamp);
     }
 
-    function createLinkAuction() private returns (uint256 auctionId, uint256 amountLinkRay, uint256 auctionPrice) {
+    function createLinkAuction() private returns (uint256 auctionId, uint256 amountLinkWad, uint256 auctionPrice) {
         (, , , , uint256 dustRad) = vat.ilks(linkName);
-        amountLinkRay = (dustRad / getLinkPriceRay()) * 2;
-        getLink(amountLinkRay);
-        joinLink(amountLinkRay);
-        frobMax(amountLinkRay, linkName);
+        amountLinkWad = (dustRad / getLinkPriceRay()) * 2;
+        getLink(amountLinkWad);
+        joinLink(amountLinkWad);
+        frobMax(amountLinkWad, linkName);
         drip(linkName);
         auctionId = barkLink();
         (, auctionPrice, , ) = linkClip.getStatus(auctionId);

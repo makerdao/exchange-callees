@@ -175,7 +175,7 @@ contract UniswapSplitTests is DSTest {
 
     address aliAddr;
     address danAddr;
-    address UniswapV3Router2;
+    address uniswapV3Router2;
     bytes uniswapTxDataProfit;
     bytes uniswapTxDataNoProfit;
 
