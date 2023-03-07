@@ -18,21 +18,33 @@
 pragma solidity >=0.6.12;
 pragma experimental ABIEncoderV2;
 
-import 'ds-test/test.sol';
-import 'dss-interfaces/Interfaces.sol';
-import {UniswapV3SplitCallee} from '../UniswapV3SplitRouteCallee.sol';
+import "ds-test/test.sol";
+import "dss-interfaces/Interfaces.sol";
+import {UniswapV3SplitCallee} from "../UniswapV3SplitRouteCallee.sol";
 
-import 'dss/clip.sol';
-import 'dss/abaci.sol';
+import "dss/clip.sol";
+import "dss/abaci.sol";
 
 interface Hevm {
     function warp(uint256) external;
+
     function rollFork(uint256) external;
-    function store(address, bytes32, bytes32) external;
+
+    function store(
+        address,
+        bytes32,
+        bytes32
+    ) external;
+
     function load(address, bytes32) external returns (bytes32);
+
     function envOr(string calldata, uint256) external returns (uint256);
+
     function envOr(string calldata, address) external returns (address);
-    function envOr(string calldata, bytes calldata) external returns (bytes memory);
+
+    function envOr(string calldata, bytes calldata)
+        external
+        returns (bytes memory);
 }
 
 struct UniswapV3ExactInputParams {
@@ -51,7 +63,7 @@ contract VaultHolder {
 contract UniswapSplitTests is DSTest {
     address constant hevmAddr = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
     address constant uniV3Router = 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45;
-    bytes32 constant linkName = 'LINK-A';
+    bytes32 constant linkName = "LINK-A";
 
     uint256 constant WAD = 1E18;
     uint256 constant RAY = 1E27;
@@ -64,28 +76,50 @@ contract UniswapSplitTests is DSTest {
         // Solidity-style
         for (uint256 i = 0; i < 20; i++) {
             // Scan the storage for the balance storage slot
-            bytes32 prevValue = hevm.load(token, keccak256(abi.encode(address(this), uint256(i))));
-            hevm.store(token, keccak256(abi.encode(address(this), uint256(i))), bytes32(amount));
+            bytes32 prevValue = hevm.load(
+                token,
+                keccak256(abi.encode(address(this), uint256(i)))
+            );
+            hevm.store(
+                token,
+                keccak256(abi.encode(address(this), uint256(i))),
+                bytes32(amount)
+            );
             if (GemAbstract(token).balanceOf(address(this)) == amount) {
                 // Found it
                 return;
             } else {
                 // Keep going after restoring the original value
-                hevm.store(token, keccak256(abi.encode(address(this), uint256(i))), prevValue);
+                hevm.store(
+                    token,
+                    keccak256(abi.encode(address(this), uint256(i))),
+                    prevValue
+                );
             }
         }
 
         // Vyper-style
         for (uint256 i = 0; i < 20; i++) {
             // Scan the storage for the balance storage slot
-            bytes32 prevValue = hevm.load(token, keccak256(abi.encode(uint256(i), address(this))));
-            hevm.store(token, keccak256(abi.encode(uint256(i), address(this))), bytes32(amount));
+            bytes32 prevValue = hevm.load(
+                token,
+                keccak256(abi.encode(uint256(i), address(this)))
+            );
+            hevm.store(
+                token,
+                keccak256(abi.encode(uint256(i), address(this))),
+                bytes32(amount)
+            );
             if (GemAbstract(token).balanceOf(address(this)) == amount) {
                 // Found it
                 return;
             } else {
                 // Keep going after restoring the original value
-                hevm.store(token, keccak256(abi.encode(uint256(i), address(this))), prevValue);
+                hevm.store(
+                    token,
+                    keccak256(abi.encode(uint256(i), address(this))),
+                    prevValue
+                );
             }
         }
     }
@@ -114,15 +148,15 @@ contract UniswapSplitTests is DSTest {
     function setAddresses() private {
         ChainlogHelper helper = new ChainlogHelper();
         ChainlogAbstract chainLog = helper.ABSTRACT();
-        linkAddr = chainLog.getAddress('LINK');
-        vatAddr = chainLog.getAddress('MCD_VAT');
-        daiAddr = chainLog.getAddress('MCD_DAI');
-        linkJoinAddr = chainLog.getAddress('MCD_JOIN_LINK_A');
-        daiJoinAddr = chainLog.getAddress('MCD_JOIN_DAI');
-        dogAddr = chainLog.getAddress('MCD_DOG');
-        jugAddr = chainLog.getAddress('MCD_JUG');
-        linkClipAddr = chainLog.getAddress('MCD_CLIP_LINK_A');
-        linkPipAddr = chainLog.getAddress('PIP_LINK');
+        linkAddr = chainLog.getAddress("LINK");
+        vatAddr = chainLog.getAddress("MCD_VAT");
+        daiAddr = chainLog.getAddress("MCD_DAI");
+        linkJoinAddr = chainLog.getAddress("MCD_JOIN_LINK_A");
+        daiJoinAddr = chainLog.getAddress("MCD_JOIN_DAI");
+        dogAddr = chainLog.getAddress("MCD_DOG");
+        jugAddr = chainLog.getAddress("MCD_JUG");
+        linkClipAddr = chainLog.getAddress("MCD_CLIP_LINK_A");
+        linkPipAddr = chainLog.getAddress("PIP_LINK");
     }
 
     function setInterfaces() private {
@@ -147,9 +181,21 @@ contract UniswapSplitTests is DSTest {
     bytes uniswapTxDataNoProfit;
 
     function getPermissions() private {
-        hevm.store(dogAddr, keccak256(abi.encode(address(this), uint256(0))), bytes32(uint256(1)));
-        hevm.store(vatAddr, keccak256(abi.encode(address(this), uint256(0))), bytes32(uint256(1)));
-        hevm.store(linkPipAddr, keccak256(abi.encode(address(this), uint256(0))), bytes32(uint256(1)));
+        hevm.store(
+            dogAddr,
+            keccak256(abi.encode(address(this), uint256(0))),
+            bytes32(uint256(1))
+        );
+        hevm.store(
+            vatAddr,
+            keccak256(abi.encode(address(this), uint256(0))),
+            bytes32(uint256(1))
+        );
+        hevm.store(
+            linkPipAddr,
+            keccak256(abi.encode(address(this), uint256(0))),
+            bytes32(uint256(1))
+        );
         linkPip.kiss(address(this));
     }
 
@@ -157,14 +203,17 @@ contract UniswapSplitTests is DSTest {
         // Execute this test with fresh data via
         // `(cd scripts/uniswap-split-route-callee && npm ci && node index.js)`
         // check the script for more details on how to use universal router
-        UniswapV3Router2 = hevm.envOr('UniswapV3Router2', 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
+        UniswapV3Router2 = hevm.envOr(
+            "UniswapV3Router2",
+            0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45
+        );
         uniswapTxDataNoProfit = hevm.envOr(
-            'UNISWAP_TX_DATA_NO_PROFIT',
-            hex'0000000000000000000000000000000000000000000000000000000065ba477d0000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000124b858183f00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000dead0000000000000000000000000000000000000000000000b01216b3936f60727d0000000000000000000000000000000000000000000004521f9d637a369a8de90000000000000000000000000000000000000000000000000000000000000059514910771af9ca656af840dff83e8264ecf986ca000bb8c02aaa39b223fe8d0a0e5c4f27ead9083c756cc20001f4a0b86991c6218b36c1d19d4a2e9eb0ce3606eb480000646b175474e89094c44da98b954eedeac495271d0f0000000000000000000000000000000000000000000000000000000000000000000000'
+            "UNISWAP_TX_DATA_NO_PROFIT",
+            hex"0000000000000000000000000000000000000000000000000000000065ba477d0000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000124b858183f00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000dead0000000000000000000000000000000000000000000000b01216b3936f60727d0000000000000000000000000000000000000000000004521f9d637a369a8de90000000000000000000000000000000000000000000000000000000000000059514910771af9ca656af840dff83e8264ecf986ca000bb8c02aaa39b223fe8d0a0e5c4f27ead9083c756cc20001f4a0b86991c6218b36c1d19d4a2e9eb0ce3606eb480000646b175474e89094c44da98b954eedeac495271d0f0000000000000000000000000000000000000000000000000000000000000000000000"
         );
         uniswapTxDataProfit = hevm.envOr(
-            'UNISWAP_TX_DATA_PROFIT',
-            hex'0000000000000000000000000000000000000000000000000000000063c7bba90000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000124b858183f00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000dead0000000000000000000000000000000000000000000000eb50c6636ac5f312f00000000000000000000000000000000000000000000005a1d6fc842061b484280000000000000000000000000000000000000000000000000000000000000059514910771af9ca656af840dff83e8264ecf986ca000bb8c02aaa39b223fe8d0a0e5c4f27ead9083c756cc20001f4a0b86991c6218b36c1d19d4a2e9eb0ce3606eb480000646b175474e89094c44da98b954eedeac495271d0f0000000000000000000000000000000000000000000000000000000000000000000000'
+            "UNISWAP_TX_DATA_PROFIT",
+            hex"0000000000000000000000000000000000000000000000000000000063c7bba90000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000124b858183f00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000dead0000000000000000000000000000000000000000000000eb50c6636ac5f312f00000000000000000000000000000000000000000000005a1d6fc842061b484280000000000000000000000000000000000000000000000000000000000000059514910771af9ca656af840dff83e8264ecf986ca000bb8c02aaa39b223fe8d0a0e5c4f27ead9083c756cc20001f4a0b86991c6218b36c1d19d4a2e9eb0ce3606eb480000646b175474e89094c44da98b954eedeac495271d0f0000000000000000000000000000000000000000000000000000000000000000000000"
         );
 
         /* Uncomment the following lines to use historical data related to the hardcoded UNISWAP_TX_DATA_* above */
@@ -228,10 +277,10 @@ contract UniswapSplitTests is DSTest {
         joinLink(amountLink);
         frobMax(amountLink, linkName);
         try vat.frob(linkName, aliAddr, aliAddr, aliAddr, 0, 1) {
-            log('not at maximum frob');
+            log("not at maximum frob");
             fail();
         } catch {
-            log('success');
+            log("success");
         }
     }
 
@@ -251,27 +300,50 @@ contract UniswapSplitTests is DSTest {
         auctionId = linkClip.kicks();
     }
 
-    function trimFunctionHash(bytes calldata data) public pure returns (bytes calldata, bytes calldata) {
+    function trimFunctionHash(bytes calldata data)
+        public
+        pure
+        returns (bytes calldata, bytes calldata)
+    {
         return (data[:4], data[4:]);
     }
 
-    function buildCalldata(bytes memory signature, bytes memory data) public pure returns (bytes memory) {
+    function buildCalldata(bytes memory signature, bytes memory data)
+        public
+        pure
+        returns (bytes memory)
+    {
         return abi.encodePacked(signature, data);
     }
 
-    function reencodedAutoRouterData(bytes memory txData) private view returns (bytes memory output) {
-        (uint256 deadline, bytes[] memory calls) = abi.decode(txData, (uint256, bytes[]));
+    function reencodedAutoRouterData(bytes memory txData)
+        private
+        view
+        returns (bytes memory output)
+    {
+        (uint256 deadline, bytes[] memory calls) = abi.decode(
+            txData,
+            (uint256, bytes[])
+        );
         bytes[] memory transformedCalls = new bytes[](calls.length);
         for (uint256 i = 0; i < calls.length; i++) {
-            (bytes memory signature, bytes memory callWithTrimmedHash) = this.trimFunctionHash(calls[i]);
-            UniswapV3ExactInputParams memory mCalldata = abi.decode(callWithTrimmedHash, (UniswapV3ExactInputParams));
-            UniswapV3ExactInputParams memory modifiedParams = UniswapV3ExactInputParams({
-                path: mCalldata.path,
-                recipient: address(dan),
-                amountIn: mCalldata.amountIn,
-                amountOutMinimum: mCalldata.amountOutMinimum
-            });
-            transformedCalls[i] = buildCalldata(signature, abi.encode(modifiedParams));
+            (bytes memory signature, bytes memory callWithTrimmedHash) = this
+                .trimFunctionHash(calls[i]);
+            UniswapV3ExactInputParams memory mCalldata = abi.decode(
+                callWithTrimmedHash,
+                (UniswapV3ExactInputParams)
+            );
+            UniswapV3ExactInputParams
+                memory modifiedParams = UniswapV3ExactInputParams({
+                    path: mCalldata.path,
+                    recipient: address(dan),
+                    amountIn: mCalldata.amountIn,
+                    amountOutMinimum: mCalldata.amountOutMinimum
+                });
+            transformedCalls[i] = buildCalldata(
+                signature,
+                abi.encode(modifiedParams)
+            );
         }
         output = abi.encode(deadline, transformedCalls);
     }
@@ -288,22 +360,41 @@ contract UniswapSplitTests is DSTest {
         uint256 kicksPost = linkClip.kicks();
         assertEq(auctionId, kicksPost);
         assertEq(kicksPost, kicksPre + 1);
-        (, , uint256 lot, address usr, uint96 tic, ) = linkClip.sales(auctionId);
+        (, , uint256 lot, address usr, uint96 tic, ) = linkClip.sales(
+            auctionId
+        );
         assertEq(usr, aliAddr);
         assertEq(lot, amountLink);
         assertEq(tic, block.timestamp);
     }
 
-    function takeLink(uint256 auctionId, uint256 amt, uint256 max, uint256 minProfit, bytes memory txData) public {
+    function takeLink(
+        uint256 auctionId,
+        uint256 amt,
+        uint256 max,
+        uint256 minProfit,
+        bytes memory txData
+    ) public {
         vat.hope(linkClipAddr);
         link.approve(UniswapV3Router2, amt);
-        bytes memory data = abi.encode(danAddr, linkJoinAddr, minProfit, address(0), reencodedAutoRouterData(txData));
+        bytes memory data = abi.encode(
+            danAddr,
+            linkJoinAddr,
+            minProfit,
+            address(0),
+            reencodedAutoRouterData(txData)
+        );
         linkClip.take(auctionId, amt, max, danAddr, data);
     }
 
     function createLinkAuction()
         private
-        returns (uint256 auctionId, uint256 amountLinkWad, uint256 auctionPrice, uint256 auctionDebt)
+        returns (
+            uint256 auctionId,
+            uint256 amountLinkWad,
+            uint256 auctionPrice,
+            uint256 auctionDebt
+        )
     {
         (, , , , uint256 dustRad) = vat.ilks(linkName);
         amountLinkWad = (dustRad / getLinkPriceRay()) * 2;
@@ -317,43 +408,85 @@ contract UniswapSplitTests is DSTest {
     }
 
     function testTakeLinkUniswapSplitProfit() public {
-        (uint256 auctionId, uint256 amountLinkWad, uint256 auctionPrice, ) = createLinkAuction();
+        (
+            uint256 auctionId,
+            uint256 amountLinkWad,
+            uint256 auctionPrice,
+
+        ) = createLinkAuction();
         uint256 linkPrice = getLinkPrice();
         uint256 minProfitPct = 30;
-        while (((((auctionPrice / uint256(1e9)) * 11) / 10) * (100 + minProfitPct)) / 100 > linkPrice) {
+        while (
+            ((((auctionPrice / uint256(1e9)) * 11) / 10) *
+                (100 + minProfitPct)) /
+                100 >
+            linkPrice
+        ) {
             hevm.warp(block.timestamp + 10 minutes);
             (, auctionPrice, , ) = linkClip.getStatus(auctionId);
         }
-        uint256 minProfit = (((amountLinkWad * auctionPrice) / RAY) * minProfitPct) / 100;
+        uint256 minProfit = (((amountLinkWad * auctionPrice) / RAY) *
+            minProfitPct) / 100;
         assertEq(dai.balanceOf(danAddr), 0);
-        takeLink(auctionId, amountLinkWad, auctionPrice, minProfit, uniswapTxDataProfit);
+        takeLink(
+            auctionId,
+            amountLinkWad,
+            auctionPrice,
+            minProfit,
+            uniswapTxDataProfit
+        );
         assertGe(dai.balanceOf(danAddr), minProfit);
     }
 
     function testTakeLinkUniswapSplitNoProfit() public {
-        (uint256 auctionId, uint256 amountLinkWad, uint256 auctionPriceRay, uint256 tabRad) = createLinkAuction();
+        (
+            uint256 auctionId,
+            uint256 amountLinkWad,
+            uint256 auctionPriceRay,
+            uint256 tabRad
+        ) = createLinkAuction();
         uint256 linkPriceWad = getLinkPrice();
         // the condition of the loop is different from the rest of the test because the liuidation happens for the whole auction amount, with the least profit possible.
-        while (auctionPriceRay / uint256(1e9) * 11 / 10 > linkPriceWad) {
+        while (((auctionPriceRay / uint256(1e9)) * 11) / 10 > linkPriceWad) {
             // wait for the price to be so that we can liquidate the whole vault;
             hevm.warp(block.timestamp + 10 seconds);
-            (, auctionPriceRay, ,) = linkClip.getStatus(auctionId);
+            (, auctionPriceRay, , ) = linkClip.getStatus(auctionId);
         }
         assertEq(dai.balanceOf(danAddr), 0);
         uint256 oweRad = auctionPriceRay * amountLinkWad;
-        takeLink(auctionId, amountLinkWad, auctionPriceRay, 0, uniswapTxDataNoProfit);
-        assertLt(dai.balanceOf(danAddr), amountLinkWad * auctionPriceRay / RAY / 5);
+        takeLink(
+            auctionId,
+            amountLinkWad,
+            auctionPriceRay,
+            0,
+            uniswapTxDataNoProfit
+        );
+        assertLt(
+            dai.balanceOf(danAddr),
+            (amountLinkWad * auctionPriceRay) / RAY / 5
+        );
     }
 
     function testFailTakeLinkUniswapSplitTooMuchProfit() public {
-        (uint256 auctionId, uint256 amountLinkRay, uint256 auctionPrice,) = createLinkAuction();
+        (
+            uint256 auctionId,
+            uint256 amountLinkRay,
+            uint256 auctionPrice,
+
+        ) = createLinkAuction();
         uint256 linkPrice = getLinkPrice();
-        while (auctionPrice / uint256(1e9) * 11 / 10 > linkPrice) {
+        while (((auctionPrice / uint256(1e9)) * 11) / 10 > linkPrice) {
             hevm.warp(block.timestamp + 10 seconds);
             (, auctionPrice, , ) = linkClip.getStatus(auctionId);
         }
         assertEq(dai.balanceOf(danAddr), 0);
         uint256 tooMuchProfit = ((amountLinkRay * auctionPrice) / RAY) * 10;
-        takeLink(auctionId, amountLinkRay, auctionPrice, tooMuchProfit, uniswapTxDataProfit);
+        takeLink(
+            auctionId,
+            amountLinkRay,
+            auctionPrice,
+            tooMuchProfit,
+            uniswapTxDataProfit
+        );
     }
 }

@@ -47,14 +47,14 @@ contract UniswapV3SplitCallee {
     DaiJoinLike     public immutable daiJoin;
     TokenLike       public immutable dai;
 
-    uint256 public constant RAY = 10 ** 27;
+    uint256         public constant RAY = 10**27;
 
     function _add(uint256 x, uint256 y) internal pure returns (uint256 z) {
-        require((z = x + y) >= x, "ds-math-add-overflow");
+        require((z = x + y) >= x, 'ds-math-add-overflow');
     }
 
     function _sub(uint256 x, uint256 y) internal pure returns (uint256 z) {
-        require((z = x - y) <= x, "ds-math-sub-underflow");
+        require((z = x - y) <= x, 'ds-math-sub-underflow');
     }
 
     function _divup(uint256 x, uint256 y) internal pure returns (uint256 z) {
@@ -62,21 +62,21 @@ contract UniswapV3SplitCallee {
     }
 
     constructor(address uniV3Router_, address daiJoin_) public {
-        uniswapV3Router = UniV3RouterLike(uniV3Router_);
         daiJoin         = DaiJoinLike(daiJoin_);
         TokenLike dai_  = DaiJoinLike(daiJoin_).dai();
         dai =             dai_;
+        uniswapV3Router = UniV3RouterLike(uniV3Router_);
 
         dai_.approve(daiJoin_, type(uint256).max);
     }
 
     function _fromWad(address gemJoin, uint256 wad) internal view returns (uint256 amt) {
-        amt = wad / 10 ** (_sub(18, GemJoinLike(gemJoin).dec()));
+        amt = wad / 10**(_sub(18, GemJoinLike(gemJoin).dec()));
     }
 
     function clipperCall(
         address sender,     // Clipper caller, pays back the loan
-        uint256 owe,        // Dai amount to pay back        [rad]
+        uint256 owe,        // Dai amount to pay back          [rad]
         uint256 slice,      // Gem amount received           [wad]
         bytes calldata data // Extra data, see below
     ) external {
