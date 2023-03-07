@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2023 Maker Ecosystem Growth Holdings, INC.
 // Copyright (C) 2023 Dai Foundation
 //
 // This program is free software: you can redistribute it and/or modify
