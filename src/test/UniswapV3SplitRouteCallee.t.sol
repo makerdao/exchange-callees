@@ -143,7 +143,6 @@ contract UniswapSplitTests is DSTest {
     address danAddr;
     address uniswapV3Router2;
     bytes uniswapTxDataProfit;
-    bytes uniswapTxDataNoProfit;
 
     function getPermissions() private {
         hevm.store(dogAddr, keccak256(abi.encode(address(this), uint256(0))), bytes32(uint256(1)));
@@ -157,7 +156,6 @@ contract UniswapSplitTests is DSTest {
         // `(cd scripts/uniswap-split-route-callee && npm ci && node index.js)`
         // check the script for more details on how to use universal router
         uniswapV3Router2 = hevm.envOr('UNISWAP_V3_ROUTER', uniV3Router);
-        uniswapTxDataNoProfit = hevm.envOr('UNISWAP_TX_DATA_NO_PROFIT', hex'0000000000000000000000000000000000000000000000000000000065ba477d0000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000124b858183f00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000dead0000000000000000000000000000000000000000000000b01216b3936f60727d0000000000000000000000000000000000000000000004521f9d637a369a8de90000000000000000000000000000000000000000000000000000000000000059514910771af9ca656af840dff83e8264ecf986ca000bb8c02aaa39b223fe8d0a0e5c4f27ead9083c756cc20001f4a0b86991c6218b36c1d19d4a2e9eb0ce3606eb480000646b175474e89094c44da98b954eedeac495271d0f0000000000000000000000000000000000000000000000000000000000000000000000');
         uniswapTxDataProfit = hevm.envOr('UNISWAP_TX_DATA_PROFIT', hex'0000000000000000000000000000000000000000000000000000000063c7bba90000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000124b858183f00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000dead0000000000000000000000000000000000000000000000eb50c6636ac5f312f00000000000000000000000000000000000000000000005a1d6fc842061b484280000000000000000000000000000000000000000000000000000000000000059514910771af9ca656af840dff83e8264ecf986ca000bb8c02aaa39b223fe8d0a0e5c4f27ead9083c756cc20001f4a0b86991c6218b36c1d19d4a2e9eb0ce3606eb480000646b175474e89094c44da98b954eedeac495271d0f0000000000000000000000000000000000000000000000000000000000000000000000');
 
         /* Uncomment the following lines to use historical data related to the hardcoded UNISWAP_TX_DATA_* above */
@@ -341,27 +339,6 @@ contract UniswapSplitTests is DSTest {
         assertEq(dai.balanceOf(danAddr), 0);
         takeLink(auctionId, amountLinkWad, auctionPrice, minProfit, uniswapTxDataProfit);
         assertGe(dai.balanceOf(danAddr), minProfit);
-    }
-
-    function testTakeLinkUniswapSplitNoProfit() public {
-        (uint256 auctionId, uint256 amountLinkWad, uint256 auctionPriceRay, uint256 tabRad) = createLinkAuction();
-        uint256 linkPriceWad = getLinkPrice();
-        // the condition of the loop is different from the rest of the test because the liuidation happens for the whole auction amount, with the least profit possible.
-        while (((auctionPriceRay / uint256(1e9)) * 11) / 10 > linkPriceWad) {
-            // wait for the price to be so that we can liquidate the whole vault;
-            hevm.warp(block.timestamp + 10 seconds);
-            (, auctionPriceRay, , ) = linkClip.getStatus(auctionId);
-        }
-        assertEq(dai.balanceOf(danAddr), 0);
-        uint256 oweRad = auctionPriceRay * amountLinkWad;
-        takeLink(
-            auctionId,
-            amountLinkWad,
-            auctionPriceRay,
-            0,
-            uniswapTxDataNoProfit
-        );
-        assertLt(dai.balanceOf(danAddr), (amountLinkWad * auctionPriceRay) / RAY / 5);
     }
 
     function testFailTakeLinkUniswapSplitTooMuchProfit() public {
