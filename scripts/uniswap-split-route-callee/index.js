@@ -56,15 +56,6 @@ async function getAlphaRouterResponse(recipient, amount) {
     return response
 }
 
-const getLinkAmountToSwap = async (multiplier, divisor) => {
-    const provider = await getProvider();
-    const vatABI = ['function ilks(bytes32) view returns (tuple(uint256 Art, uint256 rate, uint256 spot, uint256 line, uint256 dust))']
-    const vat = new ethers.Contract('0x35d1b3f3d7966a1dfe207aa4514c12a259a0492b', vatABI, provider);
-    const ilk = await vat.ilks(ethers.utils.formatBytes32String('LINK-A'));
-    const priceAndValidityHex = await provider.getStorageAt('0x9b0c694c6939b5ea9584e9b61c7815e8d97d9cc7', '0x3');
-    const linkPrice = ethers.BigNumber.from(ethers.utils.hexDataSlice(priceAndValidityHex, 16)).mul(10 ** 9);
-    return ilk.dust.div(linkPrice).mul(multiplier).div(divisor);
-};
 
 async function executeForgeTest(testName, environmentVariables) {
     console.info(`executing forge test of the "${testName}" function in "${rootDirectory}"...`);
@@ -84,9 +75,9 @@ async function executeForgeTest(testName, environmentVariables) {
 async function main() {
     const response = await getAlphaRouterResponse(
         '0x000000000000000000000000000000000000dEaD', // the address of the callee that is not yet deployed
-        (await getLinkAmountToSwap(2, 1)).toString() // amount of token to swap (auction amount)
-                                                     // the function call has to return the same amount as within the sol test.
-                                                     // the function reimplements the computation logic in the test.
+        '4096516663605658381916'                      // amount of token to swap (auction amount)
+                                                      // the function call has to return the same amount as within the sol test.
+                                                      // the function reimplements the computation logic in the test.
     );
     const latestBlockNumber = await getLatestBlockNumber();
     await executeForgeTest('testTakeLinkUniswapSplitProfit', {
