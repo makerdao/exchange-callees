@@ -75,7 +75,7 @@ async function executeForgeTest(testName, environmentVariables) {
 async function main() {
     const response = await getAlphaRouterResponse(
         '0x000000000000000000000000000000000000dEaD', // the address of the callee that is not yet deployed
-        '4096516663605658381916'                      // amount of token to swap (auction amount)
+        '3596516663605658381916'                      // amount of token to swap (auction amount)
                                                       // the function call has to return the same amount as within the sol test.
                                                       // the function reimplements the computation logic in the test.
     );
