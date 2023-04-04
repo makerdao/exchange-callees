@@ -1,24 +1,39 @@
 import path from 'path';
 import url from 'url';
-import { spawn } from 'child_process';
 import * as dotenv from 'dotenv';
+import { spawn } from 'child_process';
 import fetch from 'node-fetch';
 import { ethers, utils } from 'ethers';
 
 const fileDirectory = path.dirname(url.fileURLToPath(import.meta.url));
 const rootDirectory = path.join(fileDirectory, '..', '..');
 dotenv.config({ path: path.resolve(rootDirectory, '.env') });
+const rpcUrl = process.env.FOUNDRY_ETH_RPC_URL;
+if (!rpcUrl) {
+    throw new Error('please provide FOUNDRY_ETH_RPC_URL env var');
+}
 
 const CHAIN_ID = 1;
 const BASE_URL = `https://api.1inch.io/v5.0/${CHAIN_ID}`; // see https://docs.1inch.io/docs/aggregation-protocol/api/swagger/
 const EXPECTED_SIGNATURE = '0x12aa3caf'; // see https://www.4byte.directory/signatures/?bytes4_signature=0x12aa3caf
 
-async function getLatestBlockNumber() {
+async function getProvider() {
     const rpcUrl = process.env.FOUNDRY_ETH_RPC_URL;
     if (!rpcUrl) {
         throw new Error('please provide FOUNDRY_ETH_RPC_URL env var');
     }
     const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+    const { chainId } = await provider.getNetwork();
+    if (chainId !== 1) {
+        throw new Error(
+            `The FOUNDRY_ETH_RPC_URL env var should point to etherium mainnet, but currently returns chain id ${chainId}`
+        );
+    }
+    return provider;
+}
+
+async function getLatestBlockNumber() {
+    const provider = await getProvider();
     const latestBlock = await provider.getBlock('latest');
     return latestBlock.number;
 }
@@ -64,7 +79,7 @@ async function getOneinchSwapParameters({ amount, slippage }) {
 
 async function executeForgeTest(testName, environmentVariables) {
     console.info(`executing forge test of the "${testName}" function in "${rootDirectory}"...`);
-    const child = spawn('forge', ['test', '--match', testName], {
+    const child = spawn('forge', ['test', '--match', testName, '--use', '0.6.12', '--rpc-url', rpcUrl], {
         cwd: rootDirectory,
         stdio: 'inherit',
         env: {
@@ -78,15 +93,15 @@ async function executeForgeTest(testName, environmentVariables) {
 }
 
 async function main() {
-    const latestBlockNumber = await getLatestBlockNumber();
-    const oneinchResponse = await getOneinchSwapParameters({
+    const response = await getOneinchSwapParameters({
         amount: '10000' + '0'.repeat(18), // LINK amount to swap
         slippage: 1, // Desired slippage value from 0 to 50
     });
+    const latestBlockNumber = await getLatestBlockNumber();
     await executeForgeTest('testTakeLinkOneInchProfit', {
         ONE_INCH_BLOCK: latestBlockNumber,
-        ONE_INCH_ROUTER: oneinchResponse.tx.to,
-        ONE_INCH_TX_DATA: utils.hexDataSlice(oneinchResponse.tx.data, 4), // remove function signature
+        ONE_INCH_ROUTER: response.tx.to,
+        ONE_INCH_TX_DATA: utils.hexDataSlice(response.tx.data, 4), // remove function signature
     });
 }
 

@@ -19,7 +19,7 @@ pragma experimental ABIEncoderV2;
 
 import 'ds-test/test.sol';
 import 'dss-interfaces/Interfaces.sol';
-import {OneInchCallee} from '../OneInchCallee.sol';
+import {UniswapV3SplitCallee} from '../UniswapV3SplitRouteCallee.sol';
 
 import 'dss/clip.sol';
 import 'dss/abaci.sol';
@@ -34,16 +34,11 @@ interface Hevm {
     function envOr(string calldata, bytes calldata) external returns (bytes memory);
 }
 
-interface OneInchRouter {
-    struct SwapDescription {
-        address srcToken;
-        address dstToken;
-        address srcReceiver;
-        address dstReceiver;
-        uint256 amount;
-        uint256 minReturnAmount;
-        uint256 flags;
-    }
+struct UniswapV3ExactInputParams {
+    bytes path;
+    address recipient;
+    uint256 amountIn;
+    uint256 amountOutMinimum;
 }
 
 contract VaultHolder {
@@ -52,8 +47,9 @@ contract VaultHolder {
     }
 }
 
-contract OneInchTests is DSTest {
+contract UniswapSplitTests is DSTest {
     address constant hevmAddr = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
+    address constant uniV3Router = 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45;
     bytes32 constant linkName = 'LINK-A';
 
     uint256 constant WAD = 1E18;
@@ -141,11 +137,12 @@ contract OneInchTests is DSTest {
     }
 
     VaultHolder ali;
+    UniswapV3SplitCallee dan;
+
     address aliAddr;
-    OneInchCallee dan;
     address danAddr;
-    address oneInchRouter;
-    bytes oneInchTxData;
+    address uniswapV3Router2;
+    bytes uniswapTxDataProfit;
 
     function getPermissions() private {
         hevm.store(dogAddr, keccak256(abi.encode(address(this), uint256(0))), bytes32(uint256(1)));
@@ -156,17 +153,14 @@ contract OneInchTests is DSTest {
 
     function setEnvVars() private {
         // Execute this test with fresh data via
-        // `(cd scripts/1inch-callee-data-fetcher && npm ci && node index.js)`
-        // check the script for more details on how to use 1inch API
-        oneInchRouter = hevm.envOr('ONE_INCH_ROUTER', 0x1111111254EEB25477B68fb85Ed929f73A960582);
-        log_named_address('oneInchRouter value (default or loaded from ONE_INCH_ROUTER env var):', oneInchRouter);
-        oneInchTxData = hevm.envOr('ONE_INCH_TX_DATA', hex'00000000000000000000000053222470cdcfb8081c0e3a50fd106f0d69e63f20000000000000000000000000514910771af9ca656af840dff83e8264ecf986ca0000000000000000000000006b175474e89094c44da98b954eedeac495271d0f00000000000000000000000053222470cdcfb8081c0e3a50fd106f0d69e63f20000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000021e19e0c9bab2400000000000000000000000000000000000000000000000000bf54254f482ad99e71b000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000001400000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002d60000000000000000000000000000000000000002b800028a00024000001a0020d6bdbf78514910771af9ca656af840dff83e8264ecf986ca00a007e5c0d200000000000000000000000000000000000000000000020200011b0000cc00a0c9e75c480000000000000000310100000000000000000000000000000000000000000000000000009e00004f00a0fbb7cd0600e99481dc77691d8e2456e5f3f61c1810adfc1503000200000000000000000018514910771af9ca656af840dff83e8264ecf986cac02aaa39b223fe8d0a0e5c4f27ead9083c756cc202a00000000000000000000000000000000000000000000000000000000000000001ee63c1e501a6cc3c2531fdaa6ae1a3ca84c2855806728693e8514910771af9ca656af840dff83e8264ecf986ca02a00000000000000000000000000000000000000000000000000000000000000001ee63c1e50088e6a0c2ddd26feeb64f039a2c41296fcb3f5640c02aaa39b223fe8d0a0e5c4f27ead9083c756cc200a0bd46a3430382698aecc9e28e9bb27608bd52cf57f704bd1b83000000000000000000000336a13a9247ea42d743238089903570127dda72fe4400000000000000000000035dae37d54ae477268b9997d4161b96b8200755935c000000000000000000000337000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb4800000000000000000000000082698aecc9e28e9bb27608bd52cf57f704bd1b83000000000000000000000000ae37d54ae477268b9997d4161b96b8200755935c0000000000000000000000006b175474e89094c44da98b954eedeac495271d0f00a0f2fa6b666b175474e89094c44da98b954eedeac495271d0f000000000000000000000000000000000000000000000c142e50a43b9814fe2100000000000000004559e3d83a48a2da80a06c4eca276b175474e89094c44da98b954eedeac495271d0f1111111254eeb25477b68fb85ed929f73a96058200000000000000000000cfee7c08');
-        log_named_bytes('oneInchTxData (default or loaded from ONE_INCH_TX_DATA env var):', oneInchTxData);
+        // `(cd scripts/uniswap-split-route-callee && npm ci && node index.js)`
+        // check the script for more details on how to use universal router
+        uniswapV3Router2 = hevm.envOr('UNISWAP_V3_ROUTER', uniV3Router);
+        uniswapTxDataProfit = hevm.envOr('UNISWAP_TX_DATA_PROFIT', hex'00000000000000000000000000000000000000000000000000000000660a582d0000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000124b858183f00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000dead0000000000000000000000000000000000000000000000c2f7b1f2632c53ee5c00000000000000000000000000000000000000000000052e05ebb83d0073467a0000000000000000000000000000000000000000000000000000000000000059514910771af9ca656af840dff83e8264ecf986ca000bb8c02aaa39b223fe8d0a0e5c4f27ead9083c756cc20001f4a0b86991c6218b36c1d19d4a2e9eb0ce3606eb480000646b175474e89094c44da98b954eedeac495271d0f0000000000000000000000000000000000000000000000000000000000000000000000');
 
-        // Uncomment the following lines to use historical data related to the hardcoded ONE_INCH_TX_DATA above
-        // uint256 oneInchBlock = hevm.envOr('ONE_INCH_BLOCK', 16327090);
-        // log_named_uint('oneInchBlock value (default or loaded from ONE_INCH_BLOCK env var):', oneInchBlock);
-        // hevm.rollFork(oneInchBlock);
+        /* Uncomment the following lines to use historical data related to the hardcoded UNISWAP_TX_DATA_* above */
+        /* uint256 uniswapBlock = hevm.envOr('UNISWAP_BLOCK', 16432621); */
+        /* hevm.rollFork(uniswapBlock); */
     }
 
     function setUp() public {
@@ -175,7 +169,7 @@ contract OneInchTests is DSTest {
         setEnvVars();
         ali = new VaultHolder(vat);
         aliAddr = address(ali);
-        dan = new OneInchCallee(daiJoinAddr);
+        dan = new UniswapV3SplitCallee(uniV3Router, daiJoinAddr);
         danAddr = address(dan);
         getPermissions();
     }
@@ -248,6 +242,36 @@ contract OneInchTests is DSTest {
         auctionId = linkClip.kicks();
     }
 
+    function trimFunctionHash(bytes calldata data) public pure returns (bytes calldata, bytes calldata) {
+        return (data[:4], data[4:]);
+    }
+
+    function buildCalldata(bytes memory signature, bytes memory data) public pure returns (bytes memory) {
+        return abi.encodePacked(signature, data);
+    }
+
+    function reencodedAutoRouterData(bytes memory txData) private view returns (bytes memory output) {
+        (uint256 deadline, bytes[] memory calls) = abi.decode(txData, (uint256, bytes[]));
+        bytes[] memory transformedCalls = new bytes[](calls.length);
+        for (uint256 i = 0; i < calls.length; i++) {
+            (bytes memory signature, bytes memory callWithTrimmedHash) = this
+                .trimFunctionHash(calls[i]);
+            UniswapV3ExactInputParams memory mCalldata = abi.decode(callWithTrimmedHash, (UniswapV3ExactInputParams));
+            UniswapV3ExactInputParams
+                memory modifiedParams = UniswapV3ExactInputParams({
+                    path: mCalldata.path,
+                    recipient: address(dan),
+                    amountIn: mCalldata.amountIn,
+                    amountOutMinimum: mCalldata.amountOutMinimum
+                });
+            transformedCalls[i] = buildCalldata(
+                signature,
+                abi.encode(modifiedParams)
+            );
+        }
+        output = abi.encode(deadline, transformedCalls);
+    }
+
     function testBarkLink() public {
         (, , , , uint256 dustRad) = vat.ilks(linkName);
         uint256 amountLink = (dustRad / getLinkPriceRay()) * 2;
@@ -266,7 +290,27 @@ contract OneInchTests is DSTest {
         assertEq(tic, block.timestamp);
     }
 
-    function createLinkAuction() private returns (uint256 auctionId, uint256 amountLinkWad, uint256 auctionPrice) {
+    function takeLink(
+        uint256 auctionId,
+        uint256 amt,
+        uint256 max,
+        uint256 minProfit,
+        bytes memory txData
+    ) public {
+        vat.hope(linkClipAddr);
+        link.approve(uniswapV3Router2, amt);
+        bytes memory data = abi.encode(
+            danAddr,
+            linkJoinAddr,
+            minProfit,
+            address(0),
+            reencodedAutoRouterData(txData)
+        );
+        linkClip.take(auctionId, amt, max, danAddr, data);
+    }
+
+    function createLinkAuction() private returns (uint256 auctionId, uint256 amountLinkWad, uint256 auctionPrice, uint256 auctionDebt)
+    {
         (, , , , uint256 dustRad) = vat.ilks(linkName);
         amountLinkWad = (dustRad / getLinkPriceRay()) * 2;
         getLink(amountLinkWad);
@@ -274,82 +318,49 @@ contract OneInchTests is DSTest {
         frobMax(amountLinkWad, linkName);
         drip(linkName);
         auctionId = barkLink();
-        (, auctionPrice, , ) = linkClip.getStatus(auctionId);
+        uint256 lot;
+        (, auctionPrice, lot, auctionDebt) = linkClip.getStatus(auctionId);
     }
 
-    function reencodedOneInchData() private view returns (bytes memory output) {
-        // We wouldn't need to reincode 1inch data outside of the tests
-        // if OneInchCallee address would be known at the time of the API request
-        // this is just a workaround for the test
+    function testTakeLinkUniswapSplitProfit() public {
         (
-            address executor,
-            OneInchRouter.SwapDescription memory swapDescription,
-            bytes memory permit,
-            bytes memory tradeData
-        ) = abi.decode(oneInchTxData, (address, OneInchRouter.SwapDescription, bytes, bytes));
-        swapDescription.dstReceiver = address(dan);
-        output = abi.encode(
-            executor,
-            swapDescription,
-            permit,
-            tradeData
-        );
-    }
+            uint256 auctionId,
+            uint256 amountLinkWad,
+            uint256 auctionPrice,
 
-    function takeLink(
-        uint256 auctionId,
-        uint256 amt,
-        uint256 max,
-        uint256 minProfit
-    ) public {
-        vat.hope(linkClipAddr);
-        link.approve(oneInchRouter, amt);
-        bytes memory data = abi.encode(
-            danAddr,
-            linkJoinAddr,
-            minProfit,
-            address(0),
-            oneInchRouter,
-            reencodedOneInchData()
-        );
-        linkClip.take(auctionId, amt, max, danAddr, data);
-    }
-
-    function testTakeLinkOneInchProfit() public {
-        (uint256 auctionId, uint256 amountLinkWad, uint256 auctionPrice) = createLinkAuction();
+        ) = createLinkAuction();
         uint256 linkPrice = getLinkPrice();
         uint256 minProfitPct = 30;
         while (((((auctionPrice / uint256(1e9)) * 11) / 10) * (100 + minProfitPct)) / 100 > linkPrice) {
-            hevm.warp(block.timestamp + 10 seconds);
+            hevm.warp(block.timestamp + 10 minutes);
             (, auctionPrice, , ) = linkClip.getStatus(auctionId);
         }
         uint256 minProfit = (((amountLinkWad * auctionPrice) / RAY) * minProfitPct) / 100;
         assertEq(dai.balanceOf(danAddr), 0);
-        takeLink(auctionId, amountLinkWad, auctionPrice, minProfit);
+        takeLink(auctionId, amountLinkWad, auctionPrice, minProfit, uniswapTxDataProfit);
         assertGe(dai.balanceOf(danAddr), minProfit);
     }
 
-    function testTakeLinkOneInchNoProfit() public {
-        (uint256 auctionId, uint256 amountLinkWad, uint256 auctionPrice) = createLinkAuction();
-        uint256 linkPrice = getLinkPrice();
-        while (auctionPrice / uint256(1e9) * 11 / 10 > linkPrice) {
-            hevm.warp(block.timestamp + 10 seconds);
-            (, auctionPrice,,) = linkClip.getStatus(auctionId);
-        }
-        assertEq(dai.balanceOf(danAddr), 0);
-        takeLink(auctionId, amountLinkWad, auctionPrice, 0);
-        assertLt(dai.balanceOf(danAddr), amountLinkWad * auctionPrice / RAY / 5);
-    }
+    function testFailTakeLinkUniswapSplitTooMuchProfit() public {
+        (
+            uint256 auctionId,
+            uint256 amountLinkRay,
+            uint256 auctionPrice,
 
-    function testFailTakeLinkOneInchWithTooMuchProfit() public {
-        (uint256 auctionId, uint256 amountLinkWad, uint256 auctionPrice) = createLinkAuction();
+        ) = createLinkAuction();
         uint256 linkPrice = getLinkPrice();
-        while (auctionPrice / uint256(1e9) * 11 / 10 > linkPrice) {
+        while (((auctionPrice / uint256(1e9)) * 11) / 10 > linkPrice) {
             hevm.warp(block.timestamp + 10 seconds);
-            (, auctionPrice,,) = linkClip.getStatus(auctionId);
+            (, auctionPrice, , ) = linkClip.getStatus(auctionId);
         }
         assertEq(dai.balanceOf(danAddr), 0);
-        uint256 tooMuchProfit = ((amountLinkWad * auctionPrice) / RAY) * 10;
-        takeLink(auctionId, amountLinkWad, auctionPrice, tooMuchProfit);
+        uint256 tooMuchProfit = ((amountLinkRay * auctionPrice) / RAY) * 10;
+        takeLink(
+            auctionId,
+            amountLinkRay,
+            auctionPrice,
+            tooMuchProfit,
+            uniswapTxDataProfit
+        );
     }
 }
