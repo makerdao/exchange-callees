@@ -22,3 +22,6 @@
 [submodule "lib/dss-crop-join"]
 	path = lib/dss-crop-join
 	url = https://github.com/makerdao/dss-crop-join
+[submodule "lib/lockstake"]
+	path = lib/lockstake
+	url = https://github.com/makerdao/lockstake
