@@ -21,7 +21,7 @@ interface CalcLike {
     function file(bytes32, uint256) external;
 }
 
-contract UniswapV2CalleeLseTest is DssTest {
+contract UniswapV2LockstakeCalleeTest is DssTest {
     using stdStorage for StdStorage;
 
     DssInstance dss;
