@@ -219,10 +219,10 @@ contract UniswapSplitTests is DSTest {
         joinLink(amountLink);
         frobMax(amountLink, linkName);
         try vat.frob(linkName, aliAddr, aliAddr, aliAddr, 0, 1) {
-            log('not at maximum frob');
+            emit log('not at maximum frob');
             fail();
         } catch {
-            log('success');
+            emit log('success');
         }
     }
 
