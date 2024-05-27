@@ -18,6 +18,8 @@ import { NstJoinMock } from "lib/lockstake/test/mocks/NstJoinMock.sol";
 import { StakingRewardsMock } from "lib/lockstake/test/mocks/StakingRewardsMock.sol";
 import { MkrNgtMock } from "lib/lockstake/test/mocks/MkrNgtMock.sol";
 
+import { UniswapV2LockstakeCallee } from "src/UniswapV2LockstakeCallee.sol";
+
 interface CalcFabLike {
     function newLinearDecrease(address) external returns (address);
 }
@@ -28,6 +30,33 @@ interface LineMomLike {
 
 interface MkrAuthorityLike {
     function rely(address) external;
+}
+
+contract MockUniswapRouter02 is DssTest {
+    uint256 fixedPrice;
+
+    constructor(uint256 price_) {
+        fixedPrice = price_;
+    }
+
+    // Hardcoded to simulate fixed price Uniswap
+    /* uniRouter02.swapExactTokensForTokens(gemAmt, daiToJoin + minProfit, path, address(this), block.timestamp); */
+    function swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts) {
+        to; deadline; // silence warning
+        uint buyAmt = amountIn * fixedPrice;
+        require(amountOutMin <= buyAmt, "Minimum Fill not reached");
+
+        DSTokenAbstract(path[0]).transferFrom(msg.sender, address(this), amountIn);
+        assertEq(DSTokenAbstract(path[0]).balanceOf(address(this)), amountIn);
+
+        DSTokenAbstract(path[path.length - 1]).transfer(msg.sender, buyAmt);
+        assertEq(DSTokenAbstract(path[path.length - 1]).balanceOf(msg.sender), buyAmt);
+
+        amounts = new uint[](2);
+        amounts[0] = amountIn;
+        amounts[1] = buyAmt;
+    }
+
 }
 
 contract UniswapV2LockstakeCalleeTest is DssTest {
@@ -59,6 +88,9 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
     
     address constant LOG = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
 
+    MockUniswapRouter02 uniRouter02;
+    UniswapV2LockstakeCallee callee;
+
     event AddFarm(address farm);
     event DelFarm(address farm);
     event Open(address indexed owner, uint256 indexed index, address urn);
@@ -77,6 +109,13 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
     event OnKick(address indexed urn, uint256 wad);
     event OnTake(address indexed urn, address indexed who, uint256 wad);
     event OnRemove(address indexed urn, uint256 sold, uint256 burn, uint256 refund);
+
+    modifier setupCallee() {
+        uint256 fixedUniV2Price = 2;
+        uniRouter02 = new MockUniswapRouter02(fixedUniV2Price);
+        callee = new UniswapV2LockstakeCallee(address(uniRouter02), dss.chainlog.getAddress("MCD_JOIN_DAI"));
+        _;
+    }
 
     // Match https://github.com/makerdao/lockstake/blob/735e1e85ca706534a77d8e1582df0d3248cbd2b6/test/LockstakeEngine.t.sol#L87-L177
     function setUp() public {
@@ -227,7 +266,7 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
     }
 
     // Match https://github.com/makerdao/lockstake/blob/735e1e85ca706534a77d8e1582df0d3248cbd2b6/test/LockstakeEngine.t.sol#L1104-L1202
-    function _testOnTake(bool withDelegate, bool withStaking) internal {
+    function _testOnTake(bool withDelegate, bool withStaking) internal setupCallee {
         address urn = _urnSetUp(withDelegate, withStaking);
         uint256 mkrInitialSupply = mkr.totalSupply();
         uint256 lsmkrInitialSupply = lsmkr.totalSupply();
