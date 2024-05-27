@@ -56,14 +56,8 @@ contract UniswapV2Callee {
 
     uint256                 public constant RAY = 10 ** 27;
 
-    function add(uint x, uint y) internal pure returns (uint z) {
-        require((z = x + y) >= x, "ds-math-add-overflow");
-    }
-    function sub(uint x, uint y) internal pure returns (uint z) {
-        require((z = x - y) <= x, "ds-math-sub-underflow");
-    }
     function divup(uint256 x, uint256 y) internal pure returns (uint256 z) {
-        z = add(x, sub(y, 1)) / y;
+        z = x != 0 ? ((x - 1) / y) + 1 : 0;
     }
 
     function setUp(address uniRouter02_, address daiJoin_) internal {
@@ -75,7 +69,7 @@ contract UniswapV2Callee {
     }
 
     function _fromWad(address gemJoin, uint256 wad) internal view returns (uint256 amt) {
-        amt = wad / 10 ** (sub(18, GemJoinLike(gemJoin).dec()));
+        amt = wad / 10 ** (18 - GemJoinLike(gemJoin).dec());
     }
 }
 
@@ -116,7 +110,7 @@ contract UniswapV2LockstakeCallee is UniswapV2Callee {
         // Do operation and get dai amount bought (checking the profit is achieved)
         uniRouter02.swapExactTokensForTokens(
             gemAmt,
-            add(daiToJoin, minProfit),
+            daiToJoin + minProfit,
             path,
             address(this),
             block.timestamp
