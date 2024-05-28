@@ -49,7 +49,7 @@ contract MockUniswapRouter02 is DssTest {
         DSTokenAbstract(path[0]).transferFrom(msg.sender, address(this), amountIn);
         assertEq(DSTokenAbstract(path[0]).balanceOf(address(this)), amountIn);
 
-        DSTokenAbstract(path[path.length - 1]).transfer(msg.sender, buyAmt);
+        GodMode.setBalance(path[path.length - 1], msg.sender, buyAmt);
         assertEq(DSTokenAbstract(path[path.length - 1]).balanceOf(msg.sender), buyAmt);
 
         amounts = new uint[](2);
@@ -64,6 +64,7 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
 
     DssInstance             dss;
     address                 pauseProxy;
+    DSTokenAbstract         dai;
     DSTokenAbstract         mkr;
     LockstakeMkr            lsmkr;
     LockstakeEngine         engine;
@@ -111,9 +112,9 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
     event OnRemove(address indexed urn, uint256 sold, uint256 burn, uint256 refund);
 
     modifier setupCallee() {
-        uint256 fixedUniV2Price = 2;
+        uint256 fixedUniV2Price = 1;
         uniRouter02 = new MockUniswapRouter02(fixedUniV2Price);
-        callee = new UniswapV2LockstakeCallee(address(uniRouter02), dss.chainlog.getAddress("MCD_JOIN_DAI"));
+        callee = new UniswapV2LockstakeCallee(address(uniRouter02), dss.chainlog.getAddress("MCD_JOIN_DAI"), address(mkr));
         _;
     }
 
@@ -125,6 +126,7 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
 
         pauseProxy = dss.chainlog.getAddress("MCD_PAUSE_PROXY");
         pip = MedianAbstract(dss.chainlog.getAddress("PIP_MKR"));
+        dai = DSTokenAbstract(dss.chainlog.getAddress("MCD_DAI"));
         mkr = DSTokenAbstract(dss.chainlog.getAddress("MCD_GOV"));
         nst = new NstMock();
         nstJoin = new NstJoinMock(address(dss.vat), address(nst));
@@ -266,7 +268,7 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
     }
 
     // Match https://github.com/makerdao/lockstake/blob/735e1e85ca706534a77d8e1582df0d3248cbd2b6/test/LockstakeEngine.t.sol#L1104-L1202
-    function _testOnTake(bool withDelegate, bool withStaking) internal setupCallee {
+    function _testOnTake(bool withDelegate, bool withStaking) internal {
         address urn = _urnSetUp(withDelegate, withStaking);
         uint256 mkrInitialSupply = mkr.totalSupply();
         uint256 lsmkrInitialSupply = lsmkr.totalSupply();
@@ -380,5 +382,51 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
 
     function testOnTakeWithStakingWithDelegate() public {
         _testOnTake(true, true);
+    }
+
+    function _testCalleeTake(bool withDelegate, bool withStaking) internal setupCallee {
+        address urn = _urnSetUp(withDelegate, withStaking);
+        uint256 id = _forceLiquidation(urn);
+
+        address buyer = address(888);
+        vm.prank(buyer); dss.vat.hope(address(clip));
+        assertEq(mkr.balanceOf(buyer), 0);
+        assertEq(dai.balanceOf(buyer), 0);
+
+        // partially take auction with callee
+        address[] memory path = new address[](2);
+        path[0] = address(mkr);
+        path[1] = address(dai);
+        bytes memory flashData = abi.encode(
+            address(buyer), // Address of the user (where profits are sent)
+            0,              // Minimum dai profit [wad]
+            path            // Uniswap v2 path
+        );
+        vm.prank(buyer); clip.take(
+            id,
+            20_000 * 10**18,
+            type(uint256).max,
+            address(callee),
+            flashData
+        );
+
+        assertEq(mkr.balanceOf(buyer), 0);
+        assertEq(dai.balanceOf(buyer), 20_000 * 10**18 - 20_000 * pip.read() * clip.buf() / RAY);
+    }
+
+    function testCalleeTakeNoWithStakingNoDelegate() public {
+        _testCalleeTake(false, false);
+    }
+
+    function testCalleeTakeNoWithStakingWithDelegate() public {
+        _testCalleeTake(true, false);
+    }
+
+    function testCalleeTakeWithStakingNoDelegate() public {
+        _testCalleeTake(false, true);
+    }
+
+    function testCalleeTakeWithStakingWithDelegate() public {
+        _testCalleeTake(true, true);
     }
 }

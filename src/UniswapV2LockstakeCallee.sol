@@ -17,19 +17,8 @@
 
 pragma solidity ^0.8.21;
 
-interface VatLike {
-    function hope(address) external;
-}
-
-interface GemJoinLike {
-    function dec() external view returns (uint256);
-    function gem() external view returns (TokenLike);
-    function exit(address, uint256) external;
-}
-
 interface daiJoinLike {
     function dai() external view returns (TokenLike);
-    function vat() external view returns (VatLike);
     function join(address, uint256) external;
 }
 
@@ -37,10 +26,7 @@ interface TokenLike {
     function approve(address, uint256) external;
     function transfer(address, uint256) external;
     function balanceOf(address) external view returns (uint256);
-}
-
-interface CharterManagerLike {
-    function exit(address crop, address usr, uint256 val) external;
+    function decimals() external view returns (uint256);
 }
 
 interface UniswapV2Router02Like {
@@ -53,6 +39,7 @@ contract UniswapV2Callee {
     UniswapV2Router02Like   public uniRouter02;
     daiJoinLike             public daiJoin;
     TokenLike               public dai;
+    TokenLike               public mkr;
 
     uint256                 public constant RAY = 10 ** 27;
 
@@ -60,22 +47,23 @@ contract UniswapV2Callee {
         z = x != 0 ? ((x - 1) / y) + 1 : 0;
     }
 
-    function setUp(address uniRouter02_, address daiJoin_) internal {
+    function setUp(address uniRouter02_, address daiJoin_, address mkr_) internal {
         uniRouter02 = UniswapV2Router02Like(uniRouter02_);
         daiJoin = daiJoinLike(daiJoin_);
         dai = daiJoin.dai();
+        mkr = TokenLike(mkr_);
 
         dai.approve(daiJoin_, type(uint256).max);
     }
 
-    function _fromWad(address gemJoin, uint256 wad) internal view returns (uint256 amt) {
-        amt = wad / 10 ** (18 - GemJoinLike(gemJoin).dec());
+    function _fromWad(uint256 wad) internal view returns (uint256 amt) {
+        amt = wad / 10 ** (18 - mkr.decimals());
     }
 }
 
 contract UniswapV2LockstakeCallee is UniswapV2Callee {
-    constructor(address uniRouter02_, address daiJoin_) {
-        setUp(uniRouter02_, daiJoin_);
+    constructor(address uniRouter02_, address daiJoin_, address mkr_) {
+        setUp(uniRouter02_, daiJoin_, mkr_);
     }
 
     function clipperCall(
@@ -86,23 +74,15 @@ contract UniswapV2LockstakeCallee is UniswapV2Callee {
     ) external {
         (
             address to,            // address to send remaining DAI to
-            address gemJoin,       // gemJoin adapter address
             uint256 minProfit,     // minimum profit in DAI to make [wad]
-            address[] memory path, // Uniswap pool path
-            address charterManager // pass address(0) if no manager
-        ) = abi.decode(data, (address, address, uint256, address[], address));
+            address[] memory path  // Uniswap pool path
+        ) = abi.decode(data, (address, uint256, address[]));
 
         // Convert gem amount to token precision
-        gemAmt = _fromWad(gemJoin, gemAmt);
-
-        // Exit collateral to token version
-        if(charterManager != address(0)) {
-            CharterManagerLike(charterManager).exit(gemJoin, address(this), gemAmt);
-        }
+        gemAmt = _fromWad(gemAmt);
 
         // Approve uniRouter02 to take gem
-        TokenLike gem = GemJoinLike(gemJoin).gem();
-        gem.approve(address(uniRouter02), gemAmt);
+        mkr.approve(address(uniRouter02), gemAmt);
 
         // Calculate amount of DAI to Join (as erc20 WAD value)
         uint256 daiToJoin = divup(daiAmt, RAY);
@@ -118,8 +98,8 @@ contract UniswapV2LockstakeCallee is UniswapV2Callee {
 
         // Although Uniswap will accept all gems, this check is a sanity check, just in case
         // Transfer any lingering gem to specified address
-        if (gem.balanceOf(address(this)) > 0) {
-            gem.transfer(to, gem.balanceOf(address(this)));
+        if (mkr.balanceOf(address(this)) > 0) {
+            mkr.transfer(to, mkr.balanceOf(address(this)));
         }
 
         // Convert DAI bought to internal vat value of the msg.sender of Clipper.take
