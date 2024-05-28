@@ -46,11 +46,13 @@ contract MockUniswapRouter02 is DssTest {
         uint buyAmt = amountIn * fixedPrice;
         require(amountOutMin <= buyAmt, "Minimum Fill not reached");
 
+        uint256 initialInBalance = DSTokenAbstract(path[0]).balanceOf(address(this));
         DSTokenAbstract(path[0]).transferFrom(msg.sender, address(this), amountIn);
-        assertEq(DSTokenAbstract(path[0]).balanceOf(address(this)), amountIn);
+        assertEq(DSTokenAbstract(path[0]).balanceOf(address(this)), initialInBalance + amountIn);
 
-        GodMode.setBalance(path[path.length - 1], msg.sender, buyAmt);
-        assertEq(DSTokenAbstract(path[path.length - 1]).balanceOf(msg.sender), buyAmt);
+        uint256 initialOutBalance = DSTokenAbstract(path[path.length - 1]).balanceOf(msg.sender);
+        GodMode.setBalance(path[path.length - 1], msg.sender, initialOutBalance + buyAmt);
+        assertEq(DSTokenAbstract(path[path.length - 1]).balanceOf(msg.sender), initialOutBalance + buyAmt);
 
         amounts = new uint[](2);
         amounts[0] = amountIn;
@@ -388,21 +390,21 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
         address urn = _urnSetUp(withDelegate, withStaking);
         uint256 id = _forceLiquidation(urn);
 
-        address buyer = address(888);
-        vm.prank(buyer); dss.vat.hope(address(clip));
-        assertEq(mkr.balanceOf(buyer), 0);
-        assertEq(dai.balanceOf(buyer), 0);
+        address buyer1 = address(111);
+        vm.prank(buyer1); dss.vat.hope(address(clip));
+        assertEq(mkr.balanceOf(buyer1), 0);
+        assertEq(dai.balanceOf(buyer1), 0);
 
         // partially take auction with callee
         address[] memory path = new address[](2);
         path[0] = address(mkr);
         path[1] = address(dai);
         bytes memory flashData = abi.encode(
-            address(buyer), // Address of the user (where profits are sent)
-            0,              // Minimum dai profit [wad]
-            path            // Uniswap v2 path
+            address(buyer1), // Address of the user (where profits are sent)
+            0,               // Minimum dai profit [wad]
+            path             // Uniswap v2 path
         );
-        vm.prank(buyer); clip.take(
+        vm.prank(buyer1); clip.take(
             id,
             20_000 * 10**18,
             type(uint256).max,
@@ -410,8 +412,36 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
             flashData
         );
 
-        assertEq(mkr.balanceOf(buyer), 0);
-        assertEq(dai.balanceOf(buyer), 20_000 * 10**18 - 20_000 * pip.read() * clip.buf() / RAY);
+        assertEq(mkr.balanceOf(address(callee)), 0, "invalid-callee-mkr-balance");
+        assertEq(dai.balanceOf(address(callee)), 0, "invalid-callee-dai-balance");
+        assertEq(mkr.balanceOf(buyer1), 0, "invalid-final-buyer2-mkr-balance");
+        uint256 daiBalanceAfterPartialTake = 20_000 * 10**18 - 20_000 * pip.read() * clip.buf() / RAY;
+        assertEq(dai.balanceOf(buyer1), daiBalanceAfterPartialTake, "invalid-final-buyer2-dai-balance");
+
+        // use different buyer to take the rest of the auction
+        address buyer2 = address(222);
+        vm.prank(buyer2); dss.vat.hope(address(clip));
+        assertEq(mkr.balanceOf(buyer2), 0, "invalid-initial-buyer2-mkr-balance");
+        assertEq(dai.balanceOf(buyer2), 0, "invalid-initial-buyer2-dai-balance");
+
+        // take the rest of the auction with callee
+        flashData = abi.encode(
+            address(buyer2), // Address of the user (where profits are sent)
+            0,               // Minimum dai profit [wad]
+            path             // Uniswap v2 path
+        );
+        vm.prank(buyer2); clip.take(
+            id,
+            type(uint256).max,
+            type(uint256).max,
+            address(callee),
+            flashData
+        );
+
+        assertEq(mkr.balanceOf(address(callee)), 0, "invalid-callee-mkr-balance");
+        assertEq(dai.balanceOf(address(callee)), 0, "invalid-callee-dai-balance");
+        assertEq(mkr.balanceOf(buyer2), 0, "invalid-final-buyer2-mkr-balance");
+        assertEq(dai.balanceOf(buyer2), 12_000 * 10**18 - 12_000 * pip.read() * clip.buf() / RAY, "invalid-final-buyer2-dai-balance");
     }
 
     function testCalleeTakeNoWithStakingNoDelegate() public {
