@@ -387,9 +387,11 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
     }
 
     function _testCalleeTake(bool withDelegate, bool withStaking) internal setupCallee {
+        // setup urn and force its liquidation
         address urn = _urnSetUp(withDelegate, withStaking);
         uint256 id = _forceLiquidation(urn);
 
+        // setup buyer
         address buyer1 = address(111);
         vm.prank(buyer1); dss.vat.hope(address(clip));
         assertEq(mkr.balanceOf(buyer1), 0);
@@ -411,22 +413,22 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
             address(callee),
             flashData
         );
-
         assertEq(mkr.balanceOf(address(callee)), 0, "invalid-callee-mkr-balance");
         assertEq(dai.balanceOf(address(callee)), 0, "invalid-callee-dai-balance");
         assertEq(mkr.balanceOf(buyer1), 0, "invalid-final-buyer2-mkr-balance");
         uint256 daiBalanceAfterPartialTake = 20_000 * 10**18 - 20_000 * pip.read() * clip.buf() / RAY;
         assertEq(dai.balanceOf(buyer1), daiBalanceAfterPartialTake, "invalid-final-buyer2-dai-balance");
 
-        // use different buyer to take the rest of the auction
+        // setup different buyer to take the rest of the auction
         address buyer2 = address(222);
         vm.prank(buyer2); dss.vat.hope(address(clip));
         assertEq(mkr.balanceOf(buyer2), 0, "invalid-initial-buyer2-mkr-balance");
         assertEq(dai.balanceOf(buyer2), 0, "invalid-initial-buyer2-dai-balance");
+        address profitAddress = address(333);
 
         // take the rest of the auction with callee
         flashData = abi.encode(
-            address(buyer2), // Address of the user (where profits are sent)
+            address(profitAddress), // Address of the user (where profits are sent)
             0,               // Minimum dai profit [wad]
             path             // Uniswap v2 path
         );
@@ -437,11 +439,10 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
             address(callee),
             flashData
         );
-
         assertEq(mkr.balanceOf(address(callee)), 0, "invalid-callee-mkr-balance");
         assertEq(dai.balanceOf(address(callee)), 0, "invalid-callee-dai-balance");
         assertEq(mkr.balanceOf(buyer2), 0, "invalid-final-buyer2-mkr-balance");
-        assertEq(dai.balanceOf(buyer2), 12_000 * 10**18 - 12_000 * pip.read() * clip.buf() / RAY, "invalid-final-buyer2-dai-balance");
+        assertEq(dai.balanceOf(profitAddress), 12_000 * 10**18 - 12_000 * pip.read() * clip.buf() / RAY, "invalid-final-profit");
     }
 
     function testCalleeTakeNoWithStakingNoDelegate() public {
