@@ -39,7 +39,6 @@ contract UniswapV2Callee {
     UniswapV2Router02Like   public uniRouter02;
     daiJoinLike             public daiJoin;
     TokenLike               public dai;
-    TokenLike               public mkr;
 
     uint256                 public constant RAY = 10 ** 27;
 
@@ -47,23 +46,22 @@ contract UniswapV2Callee {
         z = x != 0 ? ((x - 1) / y) + 1 : 0;
     }
 
-    function setUp(address uniRouter02_, address daiJoin_, address mkr_) internal {
+    function setUp(address uniRouter02_, address daiJoin_) internal {
         uniRouter02 = UniswapV2Router02Like(uniRouter02_);
         daiJoin = daiJoinLike(daiJoin_);
         dai = daiJoin.dai();
-        mkr = TokenLike(mkr_);
 
         dai.approve(daiJoin_, type(uint256).max);
     }
 
-    function _fromWad(uint256 wad) internal view returns (uint256 amt) {
-        amt = wad / 10 ** (18 - mkr.decimals());
+    function _fromWad(TokenLike gem, uint256 wad) internal view returns (uint256 amt) {
+        amt = wad / 10 ** (18 - gem.decimals());
     }
 }
 
 contract UniswapV2LockstakeCallee is UniswapV2Callee {
-    constructor(address uniRouter02_, address daiJoin_, address mkr_) {
-        setUp(uniRouter02_, daiJoin_, mkr_);
+    constructor(address uniRouter02_, address daiJoin_) {
+        setUp(uniRouter02_, daiJoin_);
     }
 
     function clipperCall(
@@ -78,11 +76,14 @@ contract UniswapV2LockstakeCallee is UniswapV2Callee {
             address[] memory path  // Uniswap pool path
         ) = abi.decode(data, (address, uint256, address[]));
 
+        // Determine received token
+        TokenLike gem = TokenLike(path[0]);
+
         // Convert gem amount to token precision
-        gemAmt = _fromWad(gemAmt);
+        gemAmt = _fromWad(gem, gemAmt);
 
         // Approve uniRouter02 to take gem
-        mkr.approve(address(uniRouter02), gemAmt);
+        gem.approve(address(uniRouter02), gemAmt);
 
         // Calculate amount of DAI to Join (as erc20 WAD value)
         uint256 daiToJoin = divup(daiAmt, RAY);
@@ -98,8 +99,8 @@ contract UniswapV2LockstakeCallee is UniswapV2Callee {
 
         // Although Uniswap will accept all gems, this check is a sanity check, just in case
         // Transfer any lingering gem to specified address
-        if (mkr.balanceOf(address(this)) > 0) {
-            mkr.transfer(to, mkr.balanceOf(address(this)));
+        if (gem.balanceOf(address(this)) > 0) {
+            gem.transfer(to, gem.balanceOf(address(this)));
         }
 
         // Convert DAI bought to internal vat value of the msg.sender of Clipper.take

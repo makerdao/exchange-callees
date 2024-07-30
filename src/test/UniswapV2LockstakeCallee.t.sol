@@ -94,6 +94,7 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
     MockUniswapRouter02 uniRouter02;
     UniswapV2LockstakeCallee callee;
     address[] mkrToDaiPath = new address[](2);
+    address[] ngtToNstPath = new address[](2);
 
     event OnKick(address indexed urn, uint256 wad);
     event OnTake(address indexed urn, address indexed who, uint256 wad);
@@ -107,9 +108,11 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
         // set uniswap exchange paths
         mkrToDaiPath[0] = address(mkr);
         mkrToDaiPath[1] = address(dai);
+        ngtToNstPath[0] = address(ngt);
+        ngtToNstPath[1] = address(nst);
 
         // deploy callee contract
-        callee = new UniswapV2LockstakeCallee(address(uniRouter02), dss.chainlog.getAddress("MCD_JOIN_DAI"), address(mkr));
+        callee = new UniswapV2LockstakeCallee(address(uniRouter02), dss.chainlog.getAddress("MCD_JOIN_DAI"));
         _;
     }
 
@@ -435,19 +438,23 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
         assertEq(dai.balanceOf(profitAddress), 12_000 * 10**18 - 12_000 * pip.read() * clip.buf() / RAY, "invalid-final-profit");
     }
 
-    function testCalleeTakeNoWithStakingNoDelegate() public setupCallee {
+    function testCalleeTakeNoWithStakingNoDelegateMkr() public setupCallee {
         _testCalleeTake(false, false, mkrToDaiPath);
     }
 
-    function testCalleeTakeNoWithStakingWithDelegate() public setupCallee {
+    function testCalleeTakeNoWithStakingNoDelegateNgt() public setupCallee {
+        _testCalleeTake(false, false, ngtToNstPath);
+    }
+
+    function testCalleeTakeNoWithStakingWithDelegateMkr() public setupCallee {
         _testCalleeTake(true, false, mkrToDaiPath);
     }
 
-    function testCalleeTakeWithStakingNoDelegate() public setupCallee {
+    function testCalleeTakeWithStakingNoDelegateMkr() public setupCallee {
         _testCalleeTake(false, true, mkrToDaiPath);
     }
 
-    function testCalleeTakeWithStakingWithDelegate() public setupCallee {
+    function testCalleeTakeWithStakingWithDelegateMkr() public setupCallee {
         _testCalleeTake(true, true, mkrToDaiPath);
     }
 }
