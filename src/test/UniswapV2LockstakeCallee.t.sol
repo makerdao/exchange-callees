@@ -93,29 +93,22 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
 
     MockUniswapRouter02 uniRouter02;
     UniswapV2LockstakeCallee callee;
+    address[] mkrToDaiPath = new address[](2);
 
-    event AddFarm(address farm);
-    event DelFarm(address farm);
-    event Open(address indexed owner, uint256 indexed index, address urn);
-    event Hope(address indexed urn, address indexed usr);
-    event Nope(address indexed urn, address indexed usr);
-    event SelectVoteDelegate(address indexed urn, address indexed voteDelegate_);
-    event SelectFarm(address indexed urn, address farm, uint16 ref);
-    event Lock(address indexed urn, uint256 wad, uint16 ref);
-    event LockNgt(address indexed urn, uint256 ngtWad, uint16 ref);
-    event Free(address indexed urn, address indexed to, uint256 wad, uint256 freed);
-    event FreeNgt(address indexed urn, address indexed to, uint256 ngtWad, uint256 ngtFreed);
-    event FreeNoFee(address indexed urn, address indexed to, uint256 wad);
-    event Draw(address indexed urn, address indexed to, uint256 wad);
-    event Wipe(address indexed urn, uint256 wad);
-    event GetReward(address indexed urn, address indexed farm, address indexed to, uint256 amt);
     event OnKick(address indexed urn, uint256 wad);
     event OnTake(address indexed urn, address indexed who, uint256 wad);
     event OnRemove(address indexed urn, uint256 sold, uint256 burn, uint256 refund);
 
     modifier setupCallee() {
+        // setup mock of the uniswap router
         uint256 fixedUniV2Price = 1;
         uniRouter02 = new MockUniswapRouter02(fixedUniV2Price);
+
+        // set uniswap exchange paths
+        mkrToDaiPath[0] = address(mkr);
+        mkrToDaiPath[1] = address(dai);
+
+        // deploy callee contract
         callee = new UniswapV2LockstakeCallee(address(uniRouter02), dss.chainlog.getAddress("MCD_JOIN_DAI"), address(mkr));
         _;
     }
@@ -386,7 +379,7 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
         _testOnTake(true, true);
     }
 
-    function _testCalleeTake(bool withDelegate, bool withStaking) internal setupCallee {
+    function _testCalleeTake(bool withDelegate, bool withStaking, address[] memory path) internal {
         // setup urn and force its liquidation
         address urn = _urnSetUp(withDelegate, withStaking);
         uint256 id = _forceLiquidation(urn);
@@ -398,9 +391,6 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
         assertEq(dai.balanceOf(buyer1), 0);
 
         // partially take auction with callee
-        address[] memory path = new address[](2);
-        path[0] = address(mkr);
-        path[1] = address(dai);
         bytes memory flashData = abi.encode(
             address(buyer1), // Address of the user (where profits are sent)
             0,               // Minimum dai profit [wad]
@@ -445,19 +435,19 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
         assertEq(dai.balanceOf(profitAddress), 12_000 * 10**18 - 12_000 * pip.read() * clip.buf() / RAY, "invalid-final-profit");
     }
 
-    function testCalleeTakeNoWithStakingNoDelegate() public {
-        _testCalleeTake(false, false);
+    function testCalleeTakeNoWithStakingNoDelegate() public setupCallee {
+        _testCalleeTake(false, false, mkrToDaiPath);
     }
 
-    function testCalleeTakeNoWithStakingWithDelegate() public {
-        _testCalleeTake(true, false);
+    function testCalleeTakeNoWithStakingWithDelegate() public setupCallee {
+        _testCalleeTake(true, false, mkrToDaiPath);
     }
 
-    function testCalleeTakeWithStakingNoDelegate() public {
-        _testCalleeTake(false, true);
+    function testCalleeTakeWithStakingNoDelegate() public setupCallee {
+        _testCalleeTake(false, true, mkrToDaiPath);
     }
 
-    function testCalleeTakeWithStakingWithDelegate() public {
-        _testCalleeTake(true, true);
+    function testCalleeTakeWithStakingWithDelegate() public setupCallee {
+        _testCalleeTake(true, true, mkrToDaiPath);
     }
 }
