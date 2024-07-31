@@ -101,17 +101,17 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
     event OnTake(address indexed urn, address indexed who, uint256 wad);
     event OnRemove(address indexed urn, uint256 sold, uint256 burn, uint256 refund);
 
-    modifier setupCallee() {
-        // setup mock of the uniswap router
+    modifier setUpCallee() {
+        // Setup mock of the uniswap router
         uniRouter02 = new MockUniswapRouter02(fixedUniV2Price);
 
-        // set uniswap exchange paths
+        // Setup uniswap exchange paths
         mkrToDaiPath[0] = address(mkr);
         mkrToDaiPath[1] = address(dai);
         ngtToDaiPath[0] = address(ngt);
         ngtToDaiPath[1] = address(dai);
 
-        // deploy callee contract
+        // Deploy callee contract
         callee = new UniswapV2LockstakeCallee(address(uniRouter02), dss.chainlog.getAddress("MCD_JOIN_DAI"), address(mkrNgt));
         _;
     }
@@ -265,213 +265,97 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
         assertEq(engine.urnAuctions(urn), 1);
     }
 
-    // Match https://github.com/makerdao/lockstake/blob/735e1e85ca706534a77d8e1582df0d3248cbd2b6/test/LockstakeEngine.t.sol#L1104-L1202
-    function _testOnTake(bool withDelegate, bool withStaking) internal {
-        address urn = _urnSetUp(withDelegate, withStaking);
-        uint256 mkrInitialSupply = mkr.totalSupply();
-        uint256 lsmkrInitialSupply = lsmkr.totalSupply();
-        address vow = address(dss.vow);
-        uint256 vowInitialBalance = dss.vat.dai(vow);
-        uint256 id = _forceLiquidation(urn);
-
-        LockstakeClipper.Sale memory sale;
-        (sale.pos, sale.tab, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id);
-        assertEq(sale.pos, 0);
-        assertEq(sale.tab, 2_000 * 10**45);
-        assertEq(sale.lot, 100_000 * 10**18);
-        assertEq(sale.tot, 100_000 * 10**18);
-        assertEq(sale.usr, address(urn));
-        assertEq(sale.tic, block.timestamp);
-        assertEq(sale.top, pip.read() * (1.25 * 10**9));
-
-        assertEq(_ink(ilk, urn), 0);
-        assertEq(_art(ilk, urn), 0);
-        assertEq(dss.vat.gem(ilk, address(clip)), 100_000 * 10**18);
-
-        if (withDelegate) {
-            assertEq(mkr.balanceOf(voteDelegate), 0);
-        }
-        assertEq(mkr.balanceOf(address(engine)), 100_000 * 10**18);
-        if (withStaking) {
-            assertEq(lsmkr.balanceOf(address(farm)), 0);
-            assertEq(farm.balanceOf(address(urn)), 0);
-        }
-        assertEq(lsmkr.balanceOf(address(urn)), 0);
-        assertEq(lsmkr.totalSupply(), lsmkrInitialSupply - 100_000 * 10**18);
-
-        address buyer = address(888);
-        vm.prank(pauseProxy); dss.vat.suck(address(0), buyer, 2_000 * 10**45);
-        vm.prank(buyer); dss.vat.hope(address(clip));
-        assertEq(mkr.balanceOf(buyer), 0);
-        vm.expectEmit(true, true, true, true);
-        emit OnTake(urn, buyer, 20_000 * 10**18);
-        vm.prank(buyer); clip.take(id, 20_000 * 10**18, type(uint256).max, buyer, "");
-        assertEq(mkr.balanceOf(buyer), 20_000 * 10**18);
-
-        (sale.pos, sale.tab, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id);
-        assertEq(sale.pos, 0);
-        assertEq(sale.tab, (2_000 - 20_000 * 0.05 * 1.25) * 10**45);
-        assertEq(sale.lot, 80_000 * 10**18);
-        assertEq(sale.tot, 100_000 * 10**18);
-        assertEq(sale.usr, address(urn));
-        assertEq(sale.tic, block.timestamp);
-        assertEq(sale.top, pip.read() * (1.25 * 10**9));
-
-        assertEq(_ink(ilk, urn), 0);
-        assertEq(_art(ilk, urn), 0);
-        assertEq(dss.vat.gem(ilk, address(clip)), 80_000 * 10**18);
-
-        if (withDelegate) {
-            assertEq(mkr.balanceOf(voteDelegate), 0);
-        }
-        assertEq(mkr.balanceOf(address(engine)), 80_000 * 10**18);
-        if (withStaking) {
-            assertEq(lsmkr.balanceOf(address(farm)), 0);
-            assertEq(farm.balanceOf(address(urn)), 0);
-        }
-        assertEq(lsmkr.balanceOf(address(urn)), 0);
-        assertEq(lsmkr.totalSupply(), lsmkrInitialSupply - 100_000 * 10**18);
-
-        uint256 burn = 32_000 * 10**18 * engine.fee() / (WAD - engine.fee());
-        vm.expectEmit(true, true, true, true);
-        emit OnTake(urn, buyer, 12_000 * 10**18);
-        vm.expectEmit(true, true, true, true);
-        emit OnRemove(urn, 32_000 * 10**18, burn, 100_000 * 10**18 - 32_000 * 10**18 - burn);
-        vm.prank(buyer); clip.take(id, 12_000 * 10**18, type(uint256).max, buyer, "");
-        assertEq(burn, (32_000 * 10**18 + burn) * engine.fee() / WAD);
-        assertEq(mkr.balanceOf(buyer), 32_000 * 10**18);
-        assertEq(engine.urnAuctions(urn), 0);
-
-        (sale.pos, sale.tab, sale.lot, sale.tot, sale.usr, sale.tic, sale.top) = clip.sales(id);
-        assertEq(sale.pos, 0);
-        assertEq(sale.tab, 0);
-        assertEq(sale.lot, 0);
-        assertEq(sale.tot, 0);
-        assertEq(sale.usr, address(0));
-        assertEq(sale.tic, 0);
-        assertEq(sale.top, 0);
-
-        assertEq(_ink(ilk, urn), 100_000 * 10**18 - 32_000 * 10**18 - burn);
-        assertEq(_art(ilk, urn), 0);
-        assertEq(dss.vat.gem(ilk, address(clip)), 0);
-
-        assertEq(mkr.balanceOf(address(engine)), 100_000 * 10**18 - 32_000 * 10**18 - burn);
-        assertEq(mkr.totalSupply(), mkrInitialSupply - burn);
-        if (withStaking) {
-            assertEq(lsmkr.balanceOf(address(farm)), 0);
-            assertEq(farm.balanceOf(address(urn)), 0);
-        }
-        assertEq(lsmkr.balanceOf(address(urn)), 100_000 * 10**18 - 32_000 * 10**18 - burn);
-        assertEq(lsmkr.totalSupply(), lsmkrInitialSupply - 32_000 * 10**18 - burn);
-        assertEq(dss.vat.dai(vow), vowInitialBalance + 2_000 * 10**45);
-    }
-
-    function testOnTakeNoWithStakingNoDelegate() public {
-        _testOnTake(false, false);
-    }
-
-    function testOnTakeNoWithStakingWithDelegate() public {
-        _testOnTake(true, false);
-    }
-
-    function testOnTakeWithStakingNoDelegate() public {
-        _testOnTake(false, true);
-    }
-
-    function testOnTakeWithStakingWithDelegate() public {
-        _testOnTake(true, true);
-    }
-
-    function _testCalleeTake(bool withDelegate, bool withStaking, address[] memory path, uint256 rate) internal {
-        // setup urn and force its liquidation
+    // Based on the `_testOnTake` https://github.com/makerdao/lockstake/blob/735e1e85ca706534a77d8e1582df0d3248cbd2b6/test/LockstakeEngine.t.sol#L1104-L1202
+    function _testCalleeTake(bool withDelegate, bool withStaking, address[] memory path, uint256 exchangeRate) internal {
+        // Setup urn and force its liquidation
         address urn = _urnSetUp(withDelegate, withStaking);
         uint256 id = _forceLiquidation(urn);
 
-        // setup buyer
+        // Setup buyer
         address buyer1 = address(111);
         vm.prank(buyer1); dss.vat.hope(address(clip));
-        assertEq(mkr.balanceOf(buyer1), 0);
-        assertEq(dai.balanceOf(buyer1), 0);
+        assertEq(mkr.balanceOf(buyer1), 0, 'unexpected-mkr-balance');
+        assertEq(dai.balanceOf(buyer1), 0, 'unexpected-dai-balance');
 
-        // partially take auction with callee
+        // Partially take auction with callee
+        uint256 expectedDaiProfit = (20_000 * 10**18) * exchangeRate - 20_000 * pip.read() * clip.buf() / RAY;
         bytes memory flashData = abi.encode(
-            address(buyer1), // Address of the user (where profits are sent)
-            0,               // Minimum dai profit [wad]
-            path             // Uniswap v2 path
+            address(buyer1),    // Address of the user (where profits are sent)
+            expectedDaiProfit,  // Minimum dai profit [wad]
+            path                // Uniswap v2 path
         );
         vm.prank(buyer1); clip.take(
-            id,
-            20_000 * 10**18,
-            type(uint256).max,
-            address(callee),
-            flashData
+            id,                // Auction id
+            20_000 * 10**18,   // Upper limit on amount of collateral to buy  [wad]
+            type(uint256).max, // Maximum acceptable price (DAI / collateral) [ray]
+            address(callee),   // Receiver of collateral and external call address
+            flashData          // Data to pass in external call; if length 0, no call is done
         );
         assertEq(mkr.balanceOf(address(callee)), 0, "invalid-callee-mkr-balance");
         assertEq(dai.balanceOf(address(callee)), 0, "invalid-callee-dai-balance");
         assertEq(mkr.balanceOf(buyer1), 0, "invalid-final-buyer2-mkr-balance");
-        uint256 daiBalanceAfterTake = (20_000 * 10**18) * rate - 20_000 * pip.read() * clip.buf() / RAY;
-        assertEq(dai.balanceOf(buyer1), daiBalanceAfterTake, "invalid-final-buyer2-dai-balance");
+        assertEq(dai.balanceOf(buyer1), expectedDaiProfit, "invalid-final-buyer2-dai-balance");
 
-        // setup different buyer to take the rest of the auction
+        // Setup different buyer to take the rest of the auction
         address buyer2 = address(222);
         vm.prank(buyer2); dss.vat.hope(address(clip));
         assertEq(mkr.balanceOf(buyer2), 0, "invalid-initial-buyer2-mkr-balance");
         assertEq(dai.balanceOf(buyer2), 0, "invalid-initial-buyer2-dai-balance");
         address profitAddress = address(333);
 
-        // take the rest of the auction with callee
+        // Take the rest of the auction with callee
+        expectedDaiProfit = (12_000 * 10**18) * exchangeRate - 12_000 * pip.read() * clip.buf() / RAY;
         flashData = abi.encode(
             address(profitAddress), // Address of the user (where profits are sent)
-            0,               // Minimum dai profit [wad]
-            path             // Uniswap v2 path
+            expectedDaiProfit,      // Minimum dai profit [wad]
+            path                    // Uniswap v2 path
         );
         vm.prank(buyer2); clip.take(
-            id,
-            type(uint256).max,
-            type(uint256).max,
-            address(callee),
-            flashData
+            id,                // Auction id
+            type(uint256).max, // Upper limit on amount of collateral to buy  [wad]
+            type(uint256).max, // Maximum acceptable price (DAI / collateral) [ray]
+            address(callee),   // Receiver of collateral and external call address
+            flashData          // Data to pass in external call; if length 0, no call is done
         );
         assertEq(mkr.balanceOf(address(callee)), 0, "invalid-callee-mkr-balance");
         assertEq(dai.balanceOf(address(callee)), 0, "invalid-callee-dai-balance");
         assertEq(mkr.balanceOf(buyer2), 0, "invalid-final-buyer2-mkr-balance");
-        daiBalanceAfterTake = (12_000 * 10**18) * rate - 12_000 * pip.read() * clip.buf() / RAY;
-        assertEq(dai.balanceOf(profitAddress), daiBalanceAfterTake, "invalid-final-profit");
+        assertEq(dai.balanceOf(profitAddress), expectedDaiProfit, "invalid-final-profit");
     }
 
     // --- Callee tests using MKR ---
 
-    function testCalleeTakeNoWithStakingNoDelegateMkr() public setupCallee {
+    function testCalleeTakeNoWithStakingNoDelegateMkr() public setUpCallee {
         _testCalleeTake(false, false, mkrToDaiPath, fixedUniV2Price);
     }
 
-    function testCalleeTakeNoWithStakingWithDelegateMkr() public setupCallee {
+    function testCalleeTakeNoWithStakingWithDelegateMkr() public setUpCallee {
         _testCalleeTake(true, false, mkrToDaiPath, fixedUniV2Price);
     }
 
-    function testCalleeTakeWithStakingNoDelegateMkr() public setupCallee {
+    function testCalleeTakeWithStakingNoDelegateMkr() public setUpCallee {
         _testCalleeTake(false, true, mkrToDaiPath, fixedUniV2Price);
     }
 
-    function testCalleeTakeWithStakingWithDelegateMkr() public setupCallee {
+    function testCalleeTakeWithStakingWithDelegateMkr() public setUpCallee {
         _testCalleeTake(true, true, mkrToDaiPath, fixedUniV2Price);
     }
 
     // --- Callee tests using NGT ---
 
-    function testCalleeTakeNoWithStakingNoDelegateNgt() public setupCallee {
+    function testCalleeTakeNoWithStakingNoDelegateNgt() public setUpCallee {
         _testCalleeTake(false, false, ngtToDaiPath, fixedUniV2Price * mkrNgt.rate());
     }
 
-    function testCalleeTakeNoWithStakingWithDelegateNgt() public setupCallee {
+    function testCalleeTakeNoWithStakingWithDelegateNgt() public setUpCallee {
         _testCalleeTake(true, false, ngtToDaiPath, fixedUniV2Price * mkrNgt.rate());
     }
 
-    function testCalleeTakeWithStakingNoDelegateNgt() public setupCallee {
+    function testCalleeTakeWithStakingNoDelegateNgt() public setUpCallee {
         _testCalleeTake(false, true, ngtToDaiPath, fixedUniV2Price * mkrNgt.rate());
     }
 
-    function testCalleeTakeWithStakingWithDelegateNgt() public setupCallee {
+    function testCalleeTakeWithStakingWithDelegateNgt() public setUpCallee {
         _testCalleeTake(true, true, ngtToDaiPath, fixedUniV2Price * mkrNgt.rate());
     }
 }
