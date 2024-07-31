@@ -225,10 +225,10 @@ contract OneInchTests is DSTest {
         joinLink(amountLink);
         frobMax(amountLink, linkName);
         try vat.frob(linkName, aliAddr, aliAddr, aliAddr, 0, 1) {
-            emit log('not at maximum frob');
+            log('not at maximum frob');
             fail();
         } catch {
-            emit log('success');
+            log('success');
         }
     }
 
