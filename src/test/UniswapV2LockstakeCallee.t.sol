@@ -92,9 +92,10 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
     address constant LOG = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
 
     MockUniswapRouter02 uniRouter02;
+    uint256             fixedUniV2Price = 1;
+    address[]           mkrToDaiPath = new address[](2);
+    address[]           ngtToDaiPath = new address[](2);
     UniswapV2LockstakeCallee callee;
-    address[] mkrToDaiPath = new address[](2);
-    address[] ngtToNstPath = new address[](2);
 
     event OnKick(address indexed urn, uint256 wad);
     event OnTake(address indexed urn, address indexed who, uint256 wad);
@@ -102,17 +103,16 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
 
     modifier setupCallee() {
         // setup mock of the uniswap router
-        uint256 fixedUniV2Price = 1;
         uniRouter02 = new MockUniswapRouter02(fixedUniV2Price);
 
         // set uniswap exchange paths
         mkrToDaiPath[0] = address(mkr);
         mkrToDaiPath[1] = address(dai);
-        ngtToNstPath[0] = address(ngt);
-        ngtToNstPath[1] = address(nst);
+        ngtToDaiPath[0] = address(ngt);
+        ngtToDaiPath[1] = address(dai);
 
         // deploy callee contract
-        callee = new UniswapV2LockstakeCallee(address(uniRouter02), dss.chainlog.getAddress("MCD_JOIN_DAI"));
+        callee = new UniswapV2LockstakeCallee(address(uniRouter02), dss.chainlog.getAddress("MCD_JOIN_DAI"), address(mkrNgt));
         _;
     }
 
@@ -382,7 +382,7 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
         _testOnTake(true, true);
     }
 
-    function _testCalleeTake(bool withDelegate, bool withStaking, address[] memory path) internal {
+    function _testCalleeTake(bool withDelegate, bool withStaking, address[] memory path, uint256 rate) internal {
         // setup urn and force its liquidation
         address urn = _urnSetUp(withDelegate, withStaking);
         uint256 id = _forceLiquidation(urn);
@@ -409,8 +409,8 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
         assertEq(mkr.balanceOf(address(callee)), 0, "invalid-callee-mkr-balance");
         assertEq(dai.balanceOf(address(callee)), 0, "invalid-callee-dai-balance");
         assertEq(mkr.balanceOf(buyer1), 0, "invalid-final-buyer2-mkr-balance");
-        uint256 daiBalanceAfterPartialTake = 20_000 * 10**18 - 20_000 * pip.read() * clip.buf() / RAY;
-        assertEq(dai.balanceOf(buyer1), daiBalanceAfterPartialTake, "invalid-final-buyer2-dai-balance");
+        uint256 daiBalanceAfterTake = (20_000 * 10**18) * rate - 20_000 * pip.read() * clip.buf() / RAY;
+        assertEq(dai.balanceOf(buyer1), daiBalanceAfterTake, "invalid-final-buyer2-dai-balance");
 
         // setup different buyer to take the rest of the auction
         address buyer2 = address(222);
@@ -435,26 +435,43 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
         assertEq(mkr.balanceOf(address(callee)), 0, "invalid-callee-mkr-balance");
         assertEq(dai.balanceOf(address(callee)), 0, "invalid-callee-dai-balance");
         assertEq(mkr.balanceOf(buyer2), 0, "invalid-final-buyer2-mkr-balance");
-        assertEq(dai.balanceOf(profitAddress), 12_000 * 10**18 - 12_000 * pip.read() * clip.buf() / RAY, "invalid-final-profit");
+        daiBalanceAfterTake = (12_000 * 10**18) * rate - 12_000 * pip.read() * clip.buf() / RAY;
+        assertEq(dai.balanceOf(profitAddress), daiBalanceAfterTake, "invalid-final-profit");
     }
+
+    // --- Callee tests using MKR ---
 
     function testCalleeTakeNoWithStakingNoDelegateMkr() public setupCallee {
-        _testCalleeTake(false, false, mkrToDaiPath);
-    }
-
-    function testCalleeTakeNoWithStakingNoDelegateNgt() public setupCallee {
-        _testCalleeTake(false, false, ngtToNstPath);
+        _testCalleeTake(false, false, mkrToDaiPath, fixedUniV2Price);
     }
 
     function testCalleeTakeNoWithStakingWithDelegateMkr() public setupCallee {
-        _testCalleeTake(true, false, mkrToDaiPath);
+        _testCalleeTake(true, false, mkrToDaiPath, fixedUniV2Price);
     }
 
     function testCalleeTakeWithStakingNoDelegateMkr() public setupCallee {
-        _testCalleeTake(false, true, mkrToDaiPath);
+        _testCalleeTake(false, true, mkrToDaiPath, fixedUniV2Price);
     }
 
     function testCalleeTakeWithStakingWithDelegateMkr() public setupCallee {
-        _testCalleeTake(true, true, mkrToDaiPath);
+        _testCalleeTake(true, true, mkrToDaiPath, fixedUniV2Price);
+    }
+
+    // --- Callee tests using NGT ---
+
+    function testCalleeTakeNoWithStakingNoDelegateNgt() public setupCallee {
+        _testCalleeTake(false, false, ngtToDaiPath, fixedUniV2Price * mkrNgt.rate());
+    }
+
+    function testCalleeTakeNoWithStakingWithDelegateNgt() public setupCallee {
+        _testCalleeTake(true, false, ngtToDaiPath, fixedUniV2Price * mkrNgt.rate());
+    }
+
+    function testCalleeTakeWithStakingNoDelegateNgt() public setupCallee {
+        _testCalleeTake(false, true, ngtToDaiPath, fixedUniV2Price * mkrNgt.rate());
+    }
+
+    function testCalleeTakeWithStakingWithDelegateNgt() public setupCallee {
+        _testCalleeTake(true, true, ngtToDaiPath, fixedUniV2Price * mkrNgt.rate());
     }
 }

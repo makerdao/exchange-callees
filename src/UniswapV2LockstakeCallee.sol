@@ -33,35 +33,35 @@ interface UniswapV2Router02Like {
     function swapExactTokensForTokens(uint256, uint256, address[] calldata, address, uint256) external returns (uint[] memory);
 }
 
-// Simple Callee Example to interact with MatchingMarket
-// This Callee contract exists as a standalone contract
-contract UniswapV2Callee {
-    UniswapV2Router02Like   public uniRouter02;
-    daiJoinLike             public daiJoin;
-    TokenLike               public dai;
+interface MkrNgt {
+    function mkr() external view returns (address);
+    function ngt() external view returns (address);
+    function rate() external view returns (uint256);
+    function mkrToNgt(address usr, uint256 mkrAmt) external;
+}
 
+contract UniswapV2LockstakeCallee {
+    UniswapV2Router02Like   public immutable uniRouter02;
+    daiJoinLike             public immutable daiJoin;
+    TokenLike               public immutable dai;
+    MkrNgt                  public immutable mkrNgt;
+    TokenLike               public immutable mkr;
+    TokenLike               public immutable ngt;
     uint256                 public constant RAY = 10 ** 27;
 
-    function divup(uint256 x, uint256 y) internal pure returns (uint256 z) {
-        z = x != 0 ? ((x - 1) / y) + 1 : 0;
-    }
-
-    function setUp(address uniRouter02_, address daiJoin_) internal {
+    constructor(address uniRouter02_, address daiJoin_, address mkrNgt_) {
         uniRouter02 = UniswapV2Router02Like(uniRouter02_);
         daiJoin = daiJoinLike(daiJoin_);
         dai = daiJoin.dai();
+        mkrNgt = MkrNgt(mkrNgt_);
+        mkr = TokenLike(mkrNgt.mkr());
+        ngt = TokenLike(mkrNgt.ngt());
 
         dai.approve(daiJoin_, type(uint256).max);
     }
 
-    function _fromWad(TokenLike gem, uint256 wad) internal view returns (uint256 amt) {
-        amt = wad / 10 ** (18 - gem.decimals());
-    }
-}
-
-contract UniswapV2LockstakeCallee is UniswapV2Callee {
-    constructor(address uniRouter02_, address daiJoin_) {
-        setUp(uniRouter02_, daiJoin_);
+    function divup(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        z = x != 0 ? ((x - 1) / y) + 1 : 0;
     }
 
     function clipperCall(
@@ -76,11 +76,14 @@ contract UniswapV2LockstakeCallee is UniswapV2Callee {
             address[] memory path  // Uniswap pool path
         ) = abi.decode(data, (address, uint256, address[]));
 
-        // Determine received token
-        TokenLike gem = TokenLike(path[0]);
-
-        // Convert gem amount to token precision
-        gemAmt = _fromWad(gem, gemAmt);
+        // Support NGT
+        TokenLike gem = mkr;
+        if (path[0] == address(ngt)) {
+            gem = ngt;
+            mkr.approve(address(mkrNgt), gemAmt);
+            mkrNgt.mkrToNgt(address(this), gemAmt);
+            gemAmt = gemAmt * mkrNgt.rate();
+        }
 
         // Approve uniRouter02 to take gem
         gem.approve(address(uniRouter02), gemAmt);
