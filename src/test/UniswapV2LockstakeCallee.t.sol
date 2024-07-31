@@ -277,9 +277,26 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
         assertEq(mkr.balanceOf(buyer1), 0, 'unexpected-mkr-balance');
         assertEq(dai.balanceOf(buyer1), 0, 'unexpected-dai-balance');
 
-        // Partially take auction with callee
+        // Partial profit
         uint256 expectedDaiProfit = (20_000 * 10**18) * exchangeRate - 20_000 * pip.read() * clip.buf() / RAY;
+
+        // Expect revert if minimumDaiProfit set too high
         bytes memory flashData = abi.encode(
+            address(buyer1),       // Address of the user (where profits are sent)
+            expectedDaiProfit + 1, // Minimum dai profit [wad]
+            path                   // Uniswap v2 path
+        );
+        vm.expectRevert("Minimum Fill not reached");
+        vm.prank(buyer1); clip.take(
+            id,                // Auction id
+            20_000 * 10**18,   // Upper limit on amount of collateral to buy  [wad]
+            type(uint256).max, // Maximum acceptable price (DAI / collateral) [ray]
+            address(callee),   // Receiver of collateral and external call address
+            flashData          // Data to pass in external call; if length 0, no call is done
+        );
+
+        // Partially take auction with callee
+        flashData = abi.encode(
             address(buyer1),    // Address of the user (where profits are sent)
             expectedDaiProfit,  // Minimum dai profit [wad]
             path                // Uniswap v2 path
