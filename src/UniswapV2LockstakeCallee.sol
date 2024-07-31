@@ -17,10 +17,6 @@
 
 pragma solidity ^0.8.21;
 
-interface JoinLike {
-    function join(address, uint256) external;
-}
-
 interface TokenLike {
     function approve(address, uint256) external;
     function transfer(address, uint256) external;
@@ -32,6 +28,16 @@ interface UniswapV2Router02Like {
     function swapExactTokensForTokens(uint256, uint256, address[] calldata, address, uint256) external returns (uint[] memory);
 }
 
+interface DaiJoinLike {
+    function dai() external view returns (address);
+    function join(address, uint256) external;
+}
+
+interface NstJoinLike {
+    function nst() external view returns (address);
+    function join(address, uint256) external;
+}
+
 interface MkrNgt {
     function mkr() external view returns (address);
     function ngt() external view returns (address);
@@ -41,15 +47,26 @@ interface MkrNgt {
 
 contract UniswapV2LockstakeCallee {
     UniswapV2Router02Like   public immutable uniRouter02;
-    JoinLike                public immutable dstJoin;
+    DaiJoinLike             public immutable daiJoin;
+    TokenLike               public immutable dai;
+    NstJoinLike             public immutable nstJoin;
+    TokenLike               public immutable nst;
     MkrNgt                  public immutable mkrNgt;
     TokenLike               public immutable mkr;
     TokenLike               public immutable ngt;
     uint256                 public constant RAY = 10 ** 27;
 
-    constructor(address uniRouter02_, address dstJoin_, address mkrNgt_) {
+    constructor(address uniRouter02_, address daiJoin_, address nstJoin_, address mkrNgt_) {
         uniRouter02 = UniswapV2Router02Like(uniRouter02_);
-        dstJoin = JoinLike(dstJoin_);
+
+        daiJoin = DaiJoinLike(daiJoin_);
+        dai = TokenLike(daiJoin.dai());
+        dai.approve(daiJoin_, type(uint256).max);
+
+        nstJoin = NstJoinLike(nstJoin_);
+        nst = TokenLike(nstJoin.nst());
+        nst.approve(nstJoin_, type(uint256).max);
+
         mkrNgt = MkrNgt(mkrNgt_);
         mkr = TokenLike(mkrNgt.mkr());
         ngt = TokenLike(mkrNgt.ngt());
@@ -105,8 +122,11 @@ contract UniswapV2LockstakeCallee {
         TokenLike dst = TokenLike(path[path.length - 1]);
 
         // Convert tokens bought to internal vat value of the msg.sender of Clipper.take
-        dst.approve(address(dstJoin), amtToJoin);
-        dstJoin.join(sender, amtToJoin);
+        if (address(dst) == address(dai)) {
+            daiJoin.join(sender, amtToJoin);
+        } else if (address(dst) == address(nst)) {
+            nstJoin.join(sender, amtToJoin);
+        }
 
         // Transfer remaining tokens to specified address
         dst.transfer(to, dst.balanceOf(address(this)));

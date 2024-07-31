@@ -185,12 +185,12 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
         stdstore.target(address(dss.vat)).sig("dai(address)").with_key(address(nstJoin)).depth(0).checked_write(100_000 * RAD);
     }
 
-    function setUpCallee(address join) internal {
+    function setUpCallee() internal {
         // Setup mock of the uniswap router
         uniRouter02 = new MockUniswapRouter02(uniV2Price);
 
         // Deploy callee contract
-        callee = new UniswapV2LockstakeCallee(address(uniRouter02), join, address(mkrNgt));
+        callee = new UniswapV2LockstakeCallee(address(uniRouter02), dss.chainlog.getAddress("MCD_JOIN_DAI"), address(nstJoin), address(mkrNgt));
     }
 
     function _ink(bytes32 ilk_, address urn) internal view returns (uint256 ink) {
@@ -329,28 +329,28 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
     // --- Callee tests using MKR/DAI path ---
 
     function testCalleeTakeNoWithStakingNoDelegateMkrDai() public {
-        setUpCallee(dss.chainlog.getAddress("MCD_JOIN_DAI"));
+        setUpCallee();
         uniV2Path[0] = address(mkr);
         uniV2Path[1] = address(dai);
         _testCalleeTake(false, false, uniV2Path, uniV2Price);
     }
 
     function testCalleeTakeNoWithStakingWithDelegateMkrDai() public {
-        setUpCallee(dss.chainlog.getAddress("MCD_JOIN_DAI"));
+        setUpCallee();
         uniV2Path[0] = address(mkr);
         uniV2Path[1] = address(dai);
         _testCalleeTake(true, false, uniV2Path, uniV2Price);
     }
 
     function testCalleeTakeWithStakingNoDelegateMkrDai() public {
-        setUpCallee(dss.chainlog.getAddress("MCD_JOIN_DAI"));
+        setUpCallee();
         uniV2Path[0] = address(mkr);
         uniV2Path[1] = address(dai);
         _testCalleeTake(false, true, uniV2Path, uniV2Price);
     }
 
     function testCalleeTakeWithStakingWithDelegateMkrDai() public {
-        setUpCallee(dss.chainlog.getAddress("MCD_JOIN_DAI"));
+        setUpCallee();
         uniV2Path[0] = address(mkr);
         uniV2Path[1] = address(dai);
         _testCalleeTake(true, true, uniV2Path, uniV2Price);
@@ -359,28 +359,28 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
     // --- Callee tests using MKR/NST path ---
 
     function testCalleeTakeNoWithStakingNoDelegateMkrNst() public {
-        setUpCallee(address(nstJoin));
+        setUpCallee();
         uniV2Path[0] = address(mkr);
         uniV2Path[1] = address(nst);
         _testCalleeTake(false, false, uniV2Path, uniV2Price);
     }
 
     function testCalleeTakeNoWithStakingWithDelegateMkrNst() public {
-        setUpCallee(address(nstJoin));
+        setUpCallee();
         uniV2Path[0] = address(mkr);
         uniV2Path[1] = address(nst);
         _testCalleeTake(true, false, uniV2Path, uniV2Price);
     }
 
     function testCalleeTakeWithStakingNoDelegateMkrNst() public {
-        setUpCallee(address(nstJoin));
+        setUpCallee();
         uniV2Path[0] = address(mkr);
         uniV2Path[1] = address(nst);
         _testCalleeTake(false, true, uniV2Path, uniV2Price);
     }
 
     function testCalleeTakeWithStakingWithDelegateMkrNst() public {
-        setUpCallee(address(nstJoin));
+        setUpCallee();
         uniV2Path[0] = address(mkr);
         uniV2Path[1] = address(nst);
         _testCalleeTake(true, true, uniV2Path, uniV2Price);
@@ -389,28 +389,28 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
     // --- Callee tests using NGT/NST path ---
 
     function testCalleeTakeNoWithStakingNoDelegateNgtDai() public {
-        setUpCallee(address(nstJoin));
+        setUpCallee();
         uniV2Path[0] = address(ngt);
         uniV2Path[1] = address(nst);
         _testCalleeTake(false, false, uniV2Path, uniV2Price * mkrNgt.rate());
     }
 
     function testCalleeTakeNoWithStakingWithDelegateNgtDai() public {
-        setUpCallee(address(nstJoin));
+        setUpCallee();
         uniV2Path[0] = address(ngt);
         uniV2Path[1] = address(nst);
         _testCalleeTake(true, false, uniV2Path, uniV2Price * mkrNgt.rate());
     }
 
     function testCalleeTakeWithStakingNoDelegateNgtDai() public {
-        setUpCallee(address(nstJoin));
+        setUpCallee();
         uniV2Path[0] = address(ngt);
         uniV2Path[1] = address(nst);
         _testCalleeTake(false, true, uniV2Path, uniV2Price * mkrNgt.rate());
     }
 
     function testCalleeTakeWithStakingWithDelegateNgtDai() public {
-        setUpCallee(address(nstJoin));
+        setUpCallee();
         uniV2Path[0] = address(ngt);
         uniV2Path[1] = address(nst);
         _testCalleeTake(true, true, uniV2Path, uniV2Price * mkrNgt.rate());
