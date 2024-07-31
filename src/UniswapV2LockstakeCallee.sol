@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2020 Maker Ecosystem Growth Holdings, INC.
-// Copyright (C) 2021 Dai Foundation
+// Copyright (C) 2024 Dai Foundation
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
@@ -17,8 +17,7 @@
 
 pragma solidity ^0.8.21;
 
-interface daiJoinLike {
-    function dai() external view returns (TokenLike);
+interface JoinLike {
     function join(address, uint256) external;
 }
 
@@ -42,22 +41,18 @@ interface MkrNgt {
 
 contract UniswapV2LockstakeCallee {
     UniswapV2Router02Like   public immutable uniRouter02;
-    daiJoinLike             public immutable daiJoin;
-    TokenLike               public immutable dai;
+    JoinLike                public immutable dstJoin;
     MkrNgt                  public immutable mkrNgt;
     TokenLike               public immutable mkr;
     TokenLike               public immutable ngt;
     uint256                 public constant RAY = 10 ** 27;
 
-    constructor(address uniRouter02_, address daiJoin_, address mkrNgt_) {
+    constructor(address uniRouter02_, address dstJoin_, address mkrNgt_) {
         uniRouter02 = UniswapV2Router02Like(uniRouter02_);
-        daiJoin = daiJoinLike(daiJoin_);
-        dai = daiJoin.dai();
+        dstJoin = JoinLike(dstJoin_);
         mkrNgt = MkrNgt(mkrNgt_);
         mkr = TokenLike(mkrNgt.mkr());
         ngt = TokenLike(mkrNgt.ngt());
-
-        dai.approve(daiJoin_, type(uint256).max);
     }
 
     function divup(uint256 x, uint256 y) internal pure returns (uint256 z) {
@@ -65,15 +60,15 @@ contract UniswapV2LockstakeCallee {
     }
 
     function clipperCall(
-        address sender,         // Clipper Caller and Dai deliveryaddress
-        uint256 daiAmt,         // Dai amount to payback[rad]
-        uint256 gemAmt,         // Gem amount received [wad]
-        bytes calldata data     // Extra data needed (gemJoin)
+        address sender,     // Clipper Caller and DAI/NST delivery address
+        uint256 dstAmt,     // DAI/NST amount to payback[rad]
+        uint256 gemAmt,     // Gem amount received [wad]
+        bytes calldata data // Extra data needed (gemJoin)
     ) external {
         (
-            address to,            // address to send remaining DAI to
-            uint256 minProfit,     // minimum profit in DAI to make [wad]
-            address[] memory path  // Uniswap pool path
+            address to,           // Address to send remaining DAI/NST to
+            uint256 minProfit,    // Minimum profit in DAI/NST to make [wad]
+            address[] memory path // Uniswap pool path
         ) = abi.decode(data, (address, uint256, address[]));
 
         // Support NGT
@@ -88,29 +83,33 @@ contract UniswapV2LockstakeCallee {
         // Approve uniRouter02 to take gem
         gem.approve(address(uniRouter02), gemAmt);
 
-        // Calculate amount of DAI to Join (as erc20 WAD value)
-        uint256 daiToJoin = divup(daiAmt, RAY);
+        // Calculate amount of tokens to Join (as erc20 WAD value)
+        uint256 amtToJoin = divup(dstAmt, RAY);
 
-        // Do operation and get dai amount bought (checking the profit is achieved)
+        // Exchange tokens based on the path (checking the profit is achieved)
         uniRouter02.swapExactTokensForTokens(
             gemAmt,
-            daiToJoin + minProfit,
+            amtToJoin + minProfit,
             path,
             address(this),
             block.timestamp
         );
 
         // Although Uniswap will accept all gems, this check is a sanity check, just in case
-        // Transfer any lingering gem to specified address
         if (gem.balanceOf(address(this)) > 0) {
+            // Transfer any lingering gem to specified address
             gem.transfer(to, gem.balanceOf(address(this)));
         }
 
-        // Convert DAI bought to internal vat value of the msg.sender of Clipper.take
-        daiJoin.join(sender, daiToJoin);
+        // Determine destination token
+        TokenLike dst = TokenLike(path[path.length - 1]);
 
-        // Transfer remaining DAI to specified address
-        dai.transfer(to, dai.balanceOf(address(this)));
+        // Convert tokens bought to internal vat value of the msg.sender of Clipper.take
+        dst.approve(address(dstJoin), amtToJoin);
+        dstJoin.join(sender, amtToJoin);
+
+        // Transfer remaining tokens to specified address
+        dst.transfer(to, dst.balanceOf(address(this)));
     }
 }
 
