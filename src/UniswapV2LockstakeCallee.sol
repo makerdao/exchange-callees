@@ -21,11 +21,10 @@ interface TokenLike {
     function approve(address, uint256) external;
     function transfer(address, uint256) external;
     function balanceOf(address) external view returns (uint256);
-    function decimals() external view returns (uint256);
 }
 
 interface UniswapV2Router02Like {
-    function swapExactTokensForTokens(uint256, uint256, address[] calldata, address, uint256) external returns (uint[] memory);
+    function swapExactTokensForTokens(uint256, uint256, address[] calldata, address, uint256) external returns (uint256[] memory);
 }
 
 interface DaiJoinLike {
@@ -42,7 +41,7 @@ interface MkrNgt {
     function mkr() external view returns (address);
     function ngt() external view returns (address);
     function rate() external view returns (uint256);
-    function mkrToNgt(address usr, uint256 mkrAmt) external;
+    function mkrToNgt(address, uint256) external;
 }
 
 contract UniswapV2LockstakeCallee {
@@ -78,9 +77,9 @@ contract UniswapV2LockstakeCallee {
 
     function clipperCall(
         address sender,     // Clipper Caller and DAI/NST delivery address
-        uint256 dstAmt,     // DAI/NST amount to payback[rad]
+        uint256 dstAmt,     // DAI/NST amount to payback [rad]
         uint256 gemAmt,     // Gem amount received [wad]
-        bytes calldata data // Extra data needed (gemJoin)
+        bytes calldata data // Extra data needed
     ) external {
         (
             address to,           // Address to send remaining DAI/NST to
