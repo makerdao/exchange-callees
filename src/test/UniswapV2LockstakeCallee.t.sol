@@ -58,6 +58,7 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
     DssInstance             dss;
     address                 pauseProxy;
     DSTokenAbstract         dai;
+    address                 daiJoin;
     DSTokenAbstract         mkr;
     LockstakeMkr            lsmkr;
     LockstakeEngine         engine;
@@ -79,7 +80,6 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
     LockstakeConfig     cfg;
 
     uint256             prevLine;
-    
     address constant LOG = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
 
     MockUniswapRouter02      uniRouter02;
@@ -99,7 +99,6 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
 
         pauseProxy = dss.chainlog.getAddress("MCD_PAUSE_PROXY");
         pip = MedianAbstract(dss.chainlog.getAddress("PIP_MKR"));
-        dai = DSTokenAbstract(dss.chainlog.getAddress("MCD_DAI"));
         mkr = DSTokenAbstract(dss.chainlog.getAddress("MCD_GOV"));
         nst = new NstMock();
         nstJoin = new NstJoinMock(address(dss.vat), address(nst));
@@ -185,18 +184,12 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
         stdstore.target(address(dss.vat)).sig("dai(address)").with_key(address(nstJoin)).depth(0).checked_write(100_000 * RAD);
     }
 
-    function setUpCallee() internal {
-        // Setup mock of the uniswap router
-        uniRouter02 = new MockUniswapRouter02(uniV2Price);
-
-        // Deploy callee contract
-        callee = new UniswapV2LockstakeCallee(address(uniRouter02), dss.chainlog.getAddress("MCD_JOIN_DAI"), address(nstJoin), address(mkrNgt));
-    }
-
+    // Match https://github.com/makerdao/lockstake/blob/735e1e85ca706534a77d8e1582df0d3248cbd2b6/test/LockstakeEngine.t.sol#L179-L181
     function _ink(bytes32 ilk_, address urn) internal view returns (uint256 ink) {
         (ink,) = dss.vat.urns(ilk_, urn);
     }
 
+    // Match https://github.com/makerdao/lockstake/blob/735e1e85ca706534a77d8e1582df0d3248cbd2b6/test/LockstakeEngine.t.sol#L183-L185
     function _art(bytes32 ilk_, address urn) internal view returns (uint256 art) {
         (, art) = dss.vat.urns(ilk_, urn);
     }
@@ -248,7 +241,20 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
         assertEq(engine.urnAuctions(urn), 1);
     }
 
-    // Based on the `_testOnTake` https://github.com/makerdao/lockstake/blob/735e1e85ca706534a77d8e1582df0d3248cbd2b6/test/LockstakeEngine.t.sol#L1104-L1202
+    // Callee-specific setup function
+    function setUpCallee() internal {
+        // set up additional global variables
+        dai = DSTokenAbstract(dss.chainlog.getAddress("MCD_DAI"));
+        daiJoin = dss.chainlog.getAddress("MCD_JOIN_DAI");
+
+        // Setup mock of the uniswap router
+        uniRouter02 = new MockUniswapRouter02(uniV2Price);
+
+        // Deploy callee contract
+        callee = new UniswapV2LockstakeCallee(address(uniRouter02), daiJoin, address(nstJoin), address(mkrNgt));
+    }
+
+    // Test is based on the `_testOnTake` https://github.com/makerdao/lockstake/blob/735e1e85ca706534a77d8e1582df0d3248cbd2b6/test/LockstakeEngine.t.sol#L1104-L1202
     function _testCalleeTake(bool withDelegate, bool withStaking, address[] memory path, uint256 exchangeRate) internal {
         // Setup urn and force its liquidation
         address urn = _urnSetUp(withDelegate, withStaking);
@@ -296,21 +302,22 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
         );
         assertEq(mkr.balanceOf(address(callee)), 0, "invalid-callee-mkr-balance");
         assertEq(dst.balanceOf(address(callee)), 0, "invalid-callee-dst-balance");
-        assertEq(mkr.balanceOf(buyer1), 0, "invalid-final-buyer2-mkr-balance");
-        assertEq(dst.balanceOf(buyer1), expectedProfit, "invalid-final-buyer2-dst-balance");
+        assertEq(mkr.balanceOf(buyer1), 0, "invalid-final-buyer1-mkr-balance");
+        assertEq(dst.balanceOf(buyer1), expectedProfit, "invalid-final-buyer1-dst-balance");
 
         // Setup different buyer to take the rest of the auction
         address buyer2 = address(222);
         vm.prank(buyer2); dss.vat.hope(address(clip));
-        assertEq(mkr.balanceOf(buyer2), 0, "unexpected-initial-buyer1-mkr-balance");
-        assertEq(dst.balanceOf(buyer2), 0, "unexpected-initial-buyer1-dst-balance");
+        assertEq(mkr.balanceOf(buyer2), 0, "unexpected-initial-buyer2-mkr-balance");
+        assertEq(dst.balanceOf(buyer2), 0, "unexpected-initial-buyer2-dst-balance");
         address profitAddress = address(333);
+        assertEq(dst.balanceOf(profitAddress), 0, "unexpected-initial-profit-dst-balance");
 
         // Take the rest of the auction with callee
         expectedProfit = (12_000 * 10**18) * exchangeRate - 12_000 * pip.read() * clip.buf() / RAY;
         flashData = abi.encode(
             address(profitAddress), // Address of the user (where profits are sent)
-            expectedProfit,      // Minimum dai profit [wad]
+            expectedProfit,         // Minimum dai profit [wad]
             path                    // Uniswap v2 path
         );
         vm.prank(buyer2); clip.take(
@@ -388,28 +395,28 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
 
     // --- Callee tests using NGT/NST path ---
 
-    function testCalleeTakeNoWithStakingNoDelegateNgtDai() public {
+    function testCalleeTakeNoWithStakingNoDelegateNgtNst() public {
         setUpCallee();
         uniV2Path[0] = address(ngt);
         uniV2Path[1] = address(nst);
         _testCalleeTake(false, false, uniV2Path, uniV2Price * mkrNgt.rate());
     }
 
-    function testCalleeTakeNoWithStakingWithDelegateNgtDai() public {
+    function testCalleeTakeNoWithStakingWithDelegateNgtNst() public {
         setUpCallee();
         uniV2Path[0] = address(ngt);
         uniV2Path[1] = address(nst);
         _testCalleeTake(true, false, uniV2Path, uniV2Price * mkrNgt.rate());
     }
 
-    function testCalleeTakeWithStakingNoDelegateNgtDai() public {
+    function testCalleeTakeWithStakingNoDelegateNgtNst() public {
         setUpCallee();
         uniV2Path[0] = address(ngt);
         uniV2Path[1] = address(nst);
         _testCalleeTake(false, true, uniV2Path, uniV2Price * mkrNgt.rate());
     }
 
-    function testCalleeTakeWithStakingWithDelegateNgtDai() public {
+    function testCalleeTakeWithStakingWithDelegateNgtNst() public {
         setUpCallee();
         uniV2Path[0] = address(ngt);
         uniV2Path[1] = address(nst);
