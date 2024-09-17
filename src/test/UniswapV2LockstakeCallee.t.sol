@@ -421,7 +421,7 @@ contract UniswapV2LockstakeCalleeTest is DssTest {
         _testCalleeTake(true, true, uniV2Path, uniV2Price * mkrSky.rate());
     }
 
-    // --- Callee tests using Sky/DAI path ---
+    // --- Callee tests using SKY/DAI path ---
 
     function testCalleeTake_NoDelegate_NoStaking_SkyDai() public {
         setUpCallee();
