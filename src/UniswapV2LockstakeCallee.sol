@@ -32,43 +32,43 @@ interface DaiJoinLike {
     function join(address, uint256) external;
 }
 
-interface NstJoinLike {
-    function nst() external view returns (address);
+interface UsdsJoinLike {
+    function usds() external view returns (address);
     function join(address, uint256) external;
 }
 
-interface MkrNgt {
+interface MkrSky {
     function mkr() external view returns (address);
-    function ngt() external view returns (address);
+    function sky() external view returns (address);
     function rate() external view returns (uint256);
-    function mkrToNgt(address, uint256) external;
+    function mkrToSky(address, uint256) external;
 }
 
 contract UniswapV2LockstakeCallee {
     UniswapV2Router02Like   public immutable uniRouter02;
     DaiJoinLike             public immutable daiJoin;
     TokenLike               public immutable dai;
-    NstJoinLike             public immutable nstJoin;
-    TokenLike               public immutable nst;
-    MkrNgt                  public immutable mkrNgt;
+    UsdsJoinLike            public immutable usdsJoin;
+    TokenLike               public immutable usds;
+    MkrSky                  public immutable mkrSky;
     TokenLike               public immutable mkr;
-    TokenLike               public immutable ngt;
+    TokenLike               public immutable sky;
     uint256                 public constant RAY = 10 ** 27;
 
-    constructor(address uniRouter02_, address daiJoin_, address nstJoin_, address mkrNgt_) {
+    constructor(address uniRouter02_, address daiJoin_, address usdsJoin_, address mkrSky_) {
         uniRouter02 = UniswapV2Router02Like(uniRouter02_);
 
         daiJoin = DaiJoinLike(daiJoin_);
         dai = TokenLike(daiJoin.dai());
         dai.approve(daiJoin_, type(uint256).max);
 
-        nstJoin = NstJoinLike(nstJoin_);
-        nst = TokenLike(nstJoin.nst());
-        nst.approve(nstJoin_, type(uint256).max);
+        usdsJoin = UsdsJoinLike(usdsJoin_);
+        usds = TokenLike(usdsJoin.usds());
+        usds.approve(usdsJoin_, type(uint256).max);
 
-        mkrNgt = MkrNgt(mkrNgt_);
-        mkr = TokenLike(mkrNgt.mkr());
-        ngt = TokenLike(mkrNgt.ngt());
+        mkrSky = MkrSky(mkrSky_);
+        mkr = TokenLike(mkrSky.mkr());
+        sky = TokenLike(mkrSky.sky());
     }
 
     function divup(uint256 x, uint256 y) internal pure returns (uint256 z) {
@@ -76,24 +76,24 @@ contract UniswapV2LockstakeCallee {
     }
 
     function clipperCall(
-        address sender,     // Clipper Caller and DAI/NST delivery address
-        uint256 dstAmt,     // DAI/NST amount to payback [rad]
+        address sender,     // Clipper Caller and DAI/USDS delivery address
+        uint256 dstAmt,     // DAI/USDS amount to payback [rad]
         uint256 gemAmt,     // Gem amount received [wad]
         bytes calldata data // Extra data needed
     ) external {
         (
-            address to,           // Address to send remaining DAI/NST to
-            uint256 minProfit,    // Minimum profit in DAI/NST to make [wad]
+            address to,           // Address to send remaining DAI/USDS to
+            uint256 minProfit,    // Minimum profit in DAI/USDS to make [wad]
             address[] memory path // Uniswap pool path
         ) = abi.decode(data, (address, uint256, address[]));
 
-        // Support NGT
+        // Support SKY
         TokenLike gem = mkr;
-        if (path[0] == address(ngt)) {
-            gem = ngt;
-            mkr.approve(address(mkrNgt), gemAmt);
-            mkrNgt.mkrToNgt(address(this), gemAmt);
-            gemAmt = gemAmt * mkrNgt.rate();
+        if (path[0] == address(sky)) {
+            gem = sky;
+            mkr.approve(address(mkrSky), gemAmt);
+            mkrSky.mkrToSky(address(this), gemAmt);
+            gemAmt = gemAmt * mkrSky.rate();
         }
 
         // Approve uniRouter02 to take gem
@@ -123,8 +123,8 @@ contract UniswapV2LockstakeCallee {
         // Convert tokens bought to internal vat value of the msg.sender of Clipper.take
         if (address(dst) == address(dai)) {
             daiJoin.join(sender, amtToJoin);
-        } else if (address(dst) == address(nst)) {
-            nstJoin.join(sender, amtToJoin);
+        } else if (address(dst) == address(usds)) {
+            usdsJoin.join(sender, amtToJoin);
         }
 
         // Transfer remaining tokens to specified address
